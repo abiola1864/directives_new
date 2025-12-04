@@ -1,4 +1,4 @@
-// Backend Server for CBN Directives Platform - COMPLETE WITH EMAIL
+// Backend Server for CBN Directives Platform - FIXED VERSION
 // File: server.js
 
 const express = require('express');
@@ -45,7 +45,10 @@ function setupEmailTransporter() {
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD
-      }
+      },
+      connectionTimeout: 10000, // 10 seconds
+      greetingTimeout: 10000,
+      socketTimeout: 10000
     });
 
     // Verify connection
@@ -69,7 +72,7 @@ function setupEmailTransporter() {
 setupEmailTransporter();
 
 // ==========================================
-// ENHANCED MONGODB SCHEMA WITH EMAIL
+// ENHANCED MONGODB SCHEMA
 // ==========================================
 
 const statusHistorySchema = new mongoose.Schema({
@@ -94,7 +97,6 @@ const directiveSchema = new mongoose.Schema({
   particulars: { type: String, required: true },
   owner: { type: String, required: true },
   
-  // EMAIL FIELDS - NEW
   primaryEmail: { type: String, required: true },
   secondaryEmail: { type: String, default: '' },
   
@@ -250,7 +252,7 @@ directiveSchema.methods.isReminderDue = function() {
 const Directive = mongoose.model('Directive', directiveSchema);
 
 // ==========================================
-// EMAIL SENDING FUNCTIONS
+// EMAIL GENERATION FUNCTIONS
 // ==========================================
 
 function generateMemoEmail(directive) {
@@ -289,7 +291,6 @@ function generateMemoEmail(directive) {
 <body style="font-family: Arial, sans-serif; background: #f9fafb; padding: 20px; margin: 0;">
   <div style="max-width: 700px; margin: 0 auto; background: white; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
     
-    <!-- Header -->
     <div style="border-bottom: 3px solid #1e40af; padding: 24px; background: white;">
       <h2 style="color: #1e40af; font-size: 18px; font-weight: 700; margin: 0 0 12px 0; text-transform: uppercase;">
         REQUEST FOR STATUS OF COMPLIANCE WITH BOARD DECISIONS
@@ -297,7 +298,6 @@ function generateMemoEmail(directive) {
       <p style="color: #6b7280; font-size: 13px; margin: 0;">Central Bank of Nigeria - Strategy & Innovation Department</p>
     </div>
     
-    <!-- Memo Details -->
     <div style="padding: 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
       <table style="width: 100%; font-size: 13px; color: #374151;">
         <tr>
@@ -311,13 +311,11 @@ function generateMemoEmail(directive) {
       </table>
     </div>
     
-    <!-- Subject -->
     <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
       <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Subject</div>
       <div style="font-weight: 700; color: #111827; font-size: 14px;">${directive.subject}</div>
     </div>
     
-    <!-- Particulars -->
     <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
       <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Directive Particulars</div>
       <div style="color: #374151; line-height: 1.6; font-size: 13px;">${directive.particulars}</div>
@@ -332,7 +330,6 @@ function generateMemoEmail(directive) {
     </div>
     ` : ''}
     
-    <!-- Outcomes -->
     <div style="padding: 20px 24px; background: white;">
       <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px;">Required Outcomes & Current Status</div>
       <div style="background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
@@ -340,7 +337,6 @@ function generateMemoEmail(directive) {
       </div>
     </div>
     
-    <!-- Request -->
     <div style="padding: 20px 24px; background: #eff6ff; border-top: 1px solid #dbeafe;">
       <p style="color: #1e40af; font-size: 13px; line-height: 1.6; margin: 0;">
         <strong>Action Required:</strong> Please provide an update on the implementation status of the above outcomes. 
@@ -348,7 +344,6 @@ function generateMemoEmail(directive) {
       </p>
     </div>
     
-    <!-- Footer -->
     <div style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
       <p style="color: #6b7280; font-size: 11px; margin: 0;">
         This is an automated reminder from the CBN Directives Management System
@@ -411,17 +406,59 @@ async function sendReminderEmail(directive) {
 const SHEET_ID = process.env.GOOGLE_SHEET_ID || '1BuQneU7HESvwRE25Zkir96jZrSP-TKLe';
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
 
+// REPLACE the getGoogleSheetsClient function in your server.js with this version
+// This fixes the credentials path issue
+
+const path = require('path'); // Add this at the top of your file with other requires
+
 async function getGoogleSheetsClient() {
-  const auth = new google.auth.GoogleAuth({
-    keyFile: process.env.GOOGLE_CREDENTIALS_PATH || './credentials.json',
-    scopes: SCOPES,
-  });
-  
-  const client = await auth.getClient();
-  return google.sheets({ version: 'v4', auth: client });
+  try {
+    // Method 1: Use environment variable if available
+    if (process.env.GOOGLE_CREDENTIALS_PATH) {
+      const auth = new google.auth.GoogleAuth({
+        keyFile: process.env.GOOGLE_CREDENTIALS_PATH,
+        scopes: SCOPES,
+      });
+      const client = await auth.getClient();
+      return google.sheets({ version: 'v4', auth: client });
+    }
+    
+    // Method 2: Look for credentials.json in project root
+    const credentialsPath = path.join(__dirname, 'credentials.json');
+    const fs = require('fs');
+    
+    if (fs.existsSync(credentialsPath)) {
+      const auth = new google.auth.GoogleAuth({
+        keyFile: credentialsPath,
+        scopes: SCOPES,
+      });
+      const client = await auth.getClient();
+      return google.sheets({ version: 'v4', auth: client });
+    }
+    
+    // Method 3: Use service account credentials from environment variable (JSON string)
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+      const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+      const auth = new google.auth.GoogleAuth({
+        credentials: credentials,
+        scopes: SCOPES,
+      });
+      const client = await auth.getClient();
+      return google.sheets({ version: 'v4', auth: client });
+    }
+    
+    throw new Error('Google credentials not found. Please provide credentials via:\n' +
+                    '1. GOOGLE_CREDENTIALS_PATH in .env pointing to credentials.json\n' +
+                    '2. credentials.json in project root directory\n' +
+                    '3. GOOGLE_SERVICE_ACCOUNT_KEY in .env with JSON credentials');
+    
+  } catch (error) {
+    console.error('❌ Error setting up Google Sheets client:', error.message);
+    throw error;
+  }
 }
 
-// [Keep all the existing parseOutcomes, extractSmartOutcomes, etc. functions - they're already good]
+
 
 function parseOutcomes(particulars) {
   if (!particulars || particulars.trim() === '') {
@@ -640,6 +677,12 @@ function extractProcessOwner(ownerText) {
   return cleaned || 'Unassigned';
 }
 
+
+
+
+// REPLACE the fetchSheetData function in your server.js with this corrected version
+// This fixes the column mapping to properly read Process Owner from column F
+
 async function fetchSheetData(sheetName) {
   try {
     const sheets = await getGoogleSheetsClient();
@@ -660,6 +703,7 @@ async function fetchSheetData(sheetName) {
     const tabName = tab.properties.title;
     console.log(`📖 Reading from tab: "${tabName}"`);
     
+    // Read from row 4 onwards (skipping headers) - Columns A through K
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
       range: `'${tabName}'!A4:K1000`,
@@ -673,20 +717,23 @@ async function fetchSheetData(sheetName) {
 
     console.log(`✅ Found ${rows.length - 1} data rows in "${tabName}"`);
 
+    // CORRECTED COLUMN MAPPING based on your sheet structure:
+    // A=Meeting, B=Date, C=Subject, D=Particulars, E=Process Owner, F=Amount, etc.
+    const colMap = {
+      meeting: 0,      // Column A - Meeting reference
+      date: 1,         // Column B - Date
+      subject: 2,      // Column C - Subject Matter
+      particulars: 3,  // Column D - Particulars
+      owner: 4,        // Column E - Process Owner (THIS WAS THE ISSUE!)
+      amount: 5,       // Column F - Amount
+      vendor: 6,       // Column G - Vendor
+      deadline: 7,     // Column H - Implementation Deadline
+      implStatus: 8,   // Column I - Implementation Status
+      monitorStatus: 9 // Column J - Monitoring Status
+    };
+
     const headers = rows[0];
     const data = rows.slice(1);
-
-    const colMap = {
-      meeting: 0,
-      date: 1,
-      subject: 2,
-      particulars: 3,
-      owner: 5,
-      amount: 6,
-      vendor: -1,
-      deadline: 7,
-      implStatus: 8
-    };
 
     const directives = data.map((row, index) => {
       if (!row || row.every(cell => !cell || cell.trim() === '')) {
@@ -700,18 +747,22 @@ async function fetchSheetData(sheetName) {
         return null;
       }
       
-      if (row[colMap.meeting] && row[colMap.meeting].includes('MEETING AT WHICH')) {
+      // Skip header rows
+      const meetingText = row[colMap.meeting] || '';
+      if (meetingText.includes('MEETING AT WHICH')) {
         return null;
       }
 
-      const meetingText = row[colMap.meeting] || '';
       const refMatch = meetingText.match(/(CG|BD|Board)\/[A-Z]{3}\/\d+\/\d{4}\/\d+/i);
       const extractedRef = refMatch ? refMatch[0] : null;
 
       const finalSubject = subject || (particulars.length > 0 ? particulars.substring(0, 100) : `Directive from ${tabName}`);
       const finalParticulars = particulars || finalSubject;
 
-      const rawOwner = row[colMap.owner] || '';
+      // PROPERLY EXTRACT PROCESS OWNER FROM COLUMN E
+      const rawOwner = (row[colMap.owner] || '').trim();
+      console.log(`   Row ${index + 1}: Raw Owner = "${rawOwner}"`); // Debug log
+      
       const processOwner = extractProcessOwner(rawOwner);
 
       const extractedOutcomes = parseOutcomes(finalParticulars);
@@ -724,10 +775,10 @@ async function fetchSheetData(sheetName) {
         subject: finalSubject,
         particulars: finalParticulars,
         owner: processOwner,
-        primaryEmail: '', // Will need to be filled manually
+        primaryEmail: '', // To be filled manually or from another source
         secondaryEmail: '',
         amount: (row[colMap.amount] || '').trim(),
-        vendor: '',
+        vendor: (row[colMap.vendor] || '').trim(),
         implementationStartDate: null,
         implementationEndDate: null,
         implementationStatus: (row[colMap.implStatus] || 'Not Started').trim(),
@@ -741,12 +792,15 @@ async function fetchSheetData(sheetName) {
       };
     }).filter(d => d !== null);
 
+    console.log(`   ✅ Processed ${directives.length} valid directives`);
     return directives;
   } catch (error) {
     console.error(`❌ Error fetching sheet "${sheetName}":`, error.message);
     throw error;
   }
 }
+
+
 
 // ==========================================
 // AUTOMATED REMINDER SYSTEM
@@ -823,7 +877,6 @@ async function sendReminders() {
   }
 }
 
-// Schedule reminders daily at 9 AM
 cron.schedule('0 9 * * *', () => {
   console.log('⏰ Scheduled reminder check triggered');
   sendReminders();
@@ -833,12 +886,22 @@ cron.schedule('0 9 * * *', () => {
 // API ROUTES
 // ==========================================
 
-// Test email endpoint
+// Test email endpoint with timeout handling
 app.post('/api/test-email', async (req, res) => {
+  const timeout = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(408).json({ 
+        success: false, 
+        error: 'Email operation timed out. Please check your email configuration.' 
+      });
+    }
+  }, 15000); // 15 second timeout
+
   try {
     const { testEmail } = req.body;
     
     if (!emailTransporter) {
+      clearTimeout(timeout);
       return res.status(500).json({ 
         success: false, 
         error: 'Email transporter not configured. Please check your .env file.' 
@@ -876,17 +939,34 @@ app.post('/api/test-email', async (req, res) => {
     };
 
     await emailTransporter.sendMail(mailOptions);
+    clearTimeout(timeout);
     
     res.json({ 
       success: true, 
       message: `Test email sent successfully to ${testEmail}` 
     });
   } catch (error) {
+    clearTimeout(timeout);
     console.error('Test email error:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message 
     });
+  }
+});
+
+// Email preview endpoint
+app.post('/api/preview-email/:id', async (req, res) => {
+  try {
+    const directive = await Directive.findById(req.params.id);
+    if (!directive) {
+      return res.status(404).json({ success: false, error: 'Directive not found' });
+    }
+    
+    const emailHtml = generateMemoEmail(directive);
+    res.json({ success: true, html: emailHtml });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -1293,13 +1373,214 @@ app.get('/api/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 CBN Directives Platform - WITH EMAIL INTEGRATION`);
+  console.log(`\n🚀 CBN Directives Platform - EMAIL INTEGRATED & FIXED`);
   console.log(`📍 Server: http://localhost:${PORT}`);
   console.log(`💾 MongoDB: ${mongoose.connection.readyState === 1 ? '✅ Connected' : '⏳ Connecting...'}`);
   console.log(`📧 Email: ${emailTransporter ? '✅ Configured' : '❌ Not Configured'}`);
   console.log(`\n✨ Features:`);
   console.log(`   • Email collection (primary + secondary)`);
   console.log(`   • Automated email reminders in CBN memo format`);
-  console.log(`   • Smart outcome extraction (1-3 items)`);
-  console.log(`   • Full data display (no truncation)\n`);
+  console.log(`   • Email preview before sending`);
+  console.log(`   • Improved timeout handling for Render deployment\n`);
 });
+
+
+
+// ADD this endpoint to your server.js file (after the /api/directives/:id/remind endpoint)
+
+
+app.post('/api/directives/:id/request-update', async (req, res) => {
+  try {
+    const directive = await Directive.findById(req.params.id);
+    if (!directive) {
+      return res.status(404).json({ success: false, error: 'Directive not found' });
+    }
+
+    const { selectedOutcomes } = req.body;
+    
+    const today = new Date();
+    const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
+    
+    // Filter outcomes if specific ones were selected
+    const outcomesToShow = selectedOutcomes && selectedOutcomes.length > 0
+      ? directive.outcomes.filter(o => selectedOutcomes.includes(o.text))
+      : directive.outcomes;
+    
+    // BUILD FULL INTERACTIVE FORM EMAIL (EXACTLY WHAT RECIPIENT SEES)
+    const outcomesHtml = outcomesToShow.map((outcome, idx) => {
+      return `
+        <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+          <div style="font-weight: 700; color: #4f46e5; margin-bottom: 8px; font-size: 14px;">Outcome ${idx + 1}</div>
+          <div style="color: #374151; font-size: 13px; line-height: 1.6; margin-bottom: 12px;">${outcome.text}</div>
+          
+          <div style="margin-bottom: 12px;">
+            <label style="display: block; font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 6px;">Current Implementation Status</label>
+            <select style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white;">
+              <option ${outcome.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
+              <option ${outcome.status === 'Being Implemented' ? 'selected' : ''}>Being Implemented</option>
+              <option ${outcome.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
+              <option ${outcome.status === 'Completed' ? 'selected' : ''}>Completed</option>
+            </select>
+          </div>
+          
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 6px;">Challenges / Obstacles Encountered</label>
+            <textarea rows="3" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white; font-family: Arial, sans-serif;" placeholder="Document any issues or roadblocks..."></textarea>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; background: #f9fafb; padding: 20px; margin: 0;">
+  <div style="max-width: 700px; margin: 0 auto; background: white; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+    
+    <!-- MEMO HEADER -->
+    <div style="padding: 24px; background: white; border-bottom: 2px solid #e5e7eb;">
+      <table style="width: 100%; font-size: 13px; color: #374151; margin-bottom: 20px;">
+        <tr>
+          <td style="padding: 6px 0; width: 50%;"><strong>To:</strong> ${directive.owner}</td>
+          <td style="padding: 6px 0;"><strong>From:</strong> Secretary to the Board/Director</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0;"><strong>Ref:</strong> ${directive.ref || 'N/A'}</td>
+          <td style="padding: 6px 0;"><strong>Date:</strong> ${dateStr}</td>
+        </tr>
+      </table>
+      <div>
+        <strong style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Subject:</strong>
+        <div style="font-weight: 700; color: #111827; font-size: 14px; margin-top: 4px;">REQUEST FOR STATUS OF COMPLIANCE WITH BOARD DECISIONS</div>
+      </div>
+    </div>
+    
+    <!-- INTRO TEXT -->
+    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
+      <p style="color: #374151; font-size: 13px; line-height: 1.6; margin: 0;">
+        The Corporate Secretariat is compiling the status of SBU's compliance with ${directive.source === 'CG' ? 'Council of Governors' : 'Board of Directors'} decisions from January to September 2025. Please send your submission by <strong>24th October 2025</strong>.
+      </p>
+    </div>
+    
+    <!-- DIRECTIVE DETAILS -->
+    <div style="padding: 20px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+      <h3 style="font-size: 13px; font-weight: 700; color: #111827; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 12px 0;">Directive Details</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <span style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 4px;">Subject</span>
+          <span style="font-size: 13px; color: #111827; font-weight: 600;">${directive.subject}</span>
+        </div>
+        <div>
+          <span style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 4px;">Process Owner</span>
+          <span style="font-size: 13px; color: #111827; font-weight: 600;">${directive.owner}</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- SUBMIT YOUR UPDATE SECTION -->
+    <div style="padding: 24px; background: #eff6ff;">
+      <div style="display: flex; align-items: center; margin-bottom: 20px;">
+        <div style="background: #4f46e5; border-radius: 50%; padding: 8px; margin-right: 12px;">
+          <svg style="width: 16px; height: 16px; color: white;" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+          </svg>
+        </div>
+        <h3 style="font-size: 16px; font-weight: 700; color: #111827; margin: 0;">Submit Your Update</h3>
+      </div>
+      
+      <!-- Timeline Inputs -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Implementation Timeline (New Project)</label>
+          <input type="text" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white;" placeholder="e.g. Jan 2025 - Dec 2025">
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Months Left for Implementation (All Projects)</label>
+          <input type="number" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white;" placeholder="e.g. 6">
+        </div>
+      </div>
+      
+      <!-- OUTCOMES BOX -->
+      <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h4 style="font-size: 13px; font-weight: 700; color: #111827; text-transform: uppercase; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; margin: 0 0 20px 0;">Update Status for Action Points / Outcomes</h4>
+        ${outcomesHtml}
+      </div>
+      
+      <!-- Comments -->
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Comments / Additional Details</label>
+        <textarea rows="3" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white; font-family: Arial, sans-serif;"></textarea>
+      </div>
+      
+      <!-- File Upload -->
+      <div style="margin-bottom: 24px;">
+        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Upload Supporting Documents</label>
+        <div style="border: 2px dashed #d1d5db; border-radius: 8px; padding: 32px; text-align: center; background: white;">
+          <svg style="width: 40px; height: 40px; color: #9ca3af; margin: 0 auto 8px;" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div style="font-size: 13px; color: #6b7280;">
+            <span style="font-weight: 600; color: #4f46e5;">Upload a file</span> or drag and drop
+          </div>
+          <p style="font-size: 11px; color: #9ca3af; margin-top: 4px;">PNG, JPG, PDF up to 10MB</p>
+        </div>
+      </div>
+      
+      <!-- SUBMIT BUTTON -->
+      <div style="text-align: right;">
+        <button style="background: #15803d; color: white; font-weight: 700; padding: 12px 24px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          Submit Update to Secretariat
+        </button>
+      </div>
+    </div>
+    
+    <!-- FOOTER -->
+    <div style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+      <p style="color: #6b7280; font-size: 11px; margin: 0;">
+        This is an automated request from the CBN Directives Management System
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    // Send email if transporter is configured
+    let emailSent = false;
+    if (emailTransporter) {
+      try {
+        const recipients = [directive.primaryEmail];
+        if (directive.secondaryEmail && directive.secondaryEmail.trim() !== '') {
+          recipients.push(directive.secondaryEmail);
+        }
+
+        const mailOptions = {
+          from: `"CBN Directives System" <${process.env.EMAIL_USER}>`,
+          to: recipients.join(', '),
+          subject: `Status Update Request - ${directive.ref}`,
+          html: emailHtml
+        };
+
+        await emailTransporter.sendMail(mailOptions);
+        emailSent = true;
+        console.log(`✅ Request update email sent to: ${recipients.join(', ')}`);
+      } catch (emailError) {
+        console.error('❌ Email send failed:', emailError.message);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      emailSent,
+      message: emailSent ? 'Request update email sent successfully' : 'Request logged but email could not be sent'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
