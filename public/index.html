@@ -1,0 +1,2137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBN Directives Management Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        
+        /* Professional Table Styling */
+        .data-table {
+            width: 100%;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .data-table thead {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .data-table thead th {
+            padding: 12px 10px;
+            text-align: left;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: white;
+            white-space: nowrap;
+        }
+        
+        .data-table tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+        
+        .data-table tbody tr:hover {
+            background: #f9fafb;
+        }
+        
+        .data-table tbody td {
+            padding: 12px 10px;
+            font-size: 12px;
+            color: #374151;
+            vertical-align: top;
+        }
+        
+        .col-ref { width: 110px; min-width: 110px; }
+        .col-date { width: 90px; min-width: 90px; }
+        .col-subject { width: 200px; min-width: 200px; }
+        .col-particulars { width: 300px; min-width: 300px; }
+        .col-outcomes { width: 280px; min-width: 280px; }
+        .col-owner { width: 180px; min-width: 180px; }
+        .col-amount { width: 100px; min-width: 100px; }
+        .col-impl-dates { width: 160px; min-width: 160px; }
+        .col-days { width: 70px; min-width: 70px; text-align: center; }
+        .col-reminder { width: 90px; min-width: 90px; text-align: center; }
+        .col-impl-status { width: 120px; min-width: 120px; }
+        .col-monitor-status { width: 120px; min-width: 120px; }
+        .col-action { width: 150px; min-width: 150px; }
+        
+        .status-badge {
+            display: inline-flex;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.025em;
+            cursor: help;
+        }
+        
+        .status-completed { background: #d1fae5; color: #065f46; }
+        .status-track { background: #dbeafe; color: #1e40af; }
+        .status-risk { background: #fef3c7; color: #92400e; }
+        .status-high-risk { background: #fee2e2; color: #991b1b; }
+        .status-non-responsive { background: #dc2626; color: white; }
+        
+        .status-not-started { background: #e5e7eb; color: #374151; }
+        .status-being-implemented { background: #dbeafe; color: #1e40af; }
+        .status-delayed { background: #fef3c7; color: #92400e; }
+        
+        /* Tooltip */
+        .status-tooltip {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 100;
+            transition: opacity 0.3s;
+            min-width: 250px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        
+        .status-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1f2937 transparent transparent transparent;
+        }
+        
+        .status-badge:hover .status-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .status-history-item {
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .status-history-item:last-child {
+            border-bottom: none;
+        }
+        
+        /* Info Button with Tooltip - RIGHT ALIGNED */
+        .info-button {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border-radius: 50%;
+            cursor: help;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+        
+        .info-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+        }
+        
+        .info-button svg {
+            width: 14px;
+            height: 14px;
+            color: white;
+        }
+        
+        .info-tooltip {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            top: 32px;
+            right: 0;
+            background: white;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            padding: 16px;
+            width: 420px;
+            z-index: 1000;
+            transition: opacity 0.3s;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        
+        .info-button:hover .info-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .info-tooltip::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            right: 8px;
+            border-width: 8px;
+            border-style: solid;
+            border-color: transparent transparent #3b82f6 transparent;
+        }
+        
+        .info-tooltip-header {
+            font-weight: 700;
+            color: #1e40af;
+            margin-bottom: 12px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .info-tooltip-content {
+            font-size: 11px;
+            color: #1e3a8a;
+            line-height: 1.6;
+        }
+        
+        .info-lifecycle {
+            background: #eff6ff;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #1e40af;
+        }
+        
+        .info-status-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        
+        .info-status-item {
+            display: flex;
+            align-items: start;
+            gap: 8px;
+            font-size: 10px;
+        }
+        
+        .info-status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 9px;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        /* Sheet Tabs - Bottom Style */
+        .sheet-tabs-bottom {
+            display: flex;
+            gap: 4px;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border-top: 2px solid #e5e7eb;
+            border-radius: 0 0 12px 12px;
+            overflow-x: auto;
+        }
+        
+        .sheet-tab-bottom {
+            padding: 6px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px 6px 0 0;
+            background: white;
+            transition: all 0.2s;
+            cursor: pointer;
+            color: #6b7280;
+            border: 1px solid #e5e7eb;
+            border-bottom: none;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        .sheet-tab-bottom:hover {
+            color: #374151;
+            background: #f9fafb;
+        }
+        
+        .sheet-tab-bottom.active {
+            color: #4f46e5;
+            background: white;
+            border-color: #6366f1;
+            font-weight: 700;
+            box-shadow: 0 -2px 4px rgba(99, 102, 241, 0.1);
+        }
+        
+        .custom-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f8fafc; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; border: 3px solid #f8fafc; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal-content {
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #4f46e5;
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 12px;
+            border: 2px solid #e5e7eb;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-secondary:hover {
+            border-color: #6366f1;
+            background: #f0f1ff;
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        .animate-slide-in { animation: slideIn 0.3s ease-out; }
+        .loading-spinner { animation: spin 1s linear infinite; }
+        
+        .hidden { display: none !important; }
+        
+        /* Outcome List */
+        .outcome-item {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        
+        .outcome-number {
+            color: #6366f1;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        
+        /* Table Container */
+        .table-container {
+            background: white;
+            border-radius: 12px 12px 0 0;
+            border: 1px solid #e5e7eb;
+            border-bottom: none;
+            overflow: hidden;
+        }
+        
+        .table-wrapper {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: calc(100vh - 220px);
+        }
+        
+        .filter-input, .date-input {
+            padding: 8px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 13px;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        
+        .filter-input:focus, .date-input:focus {
+            border-color: #6366f1;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 modal-backdrop items-center justify-center hidden z-50">
+        <div class="bg-white rounded-2xl p-8 shadow-2xl animate-slide-in">
+            <div class="loading-spinner border-4 border-indigo-200 border-t-indigo-600 rounded-full w-16 h-16 mx-auto mb-4"></div>
+            <p class="text-gray-700 font-semibold text-center">Loading...</p>
+        </div>
+    </div>
+
+    <!-- Test Email Modal -->
+    <div id="test-email-modal" class="fixed inset-0 modal-backdrop items-center justify-center hidden p-6 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-slide-in">
+            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                <h2 class="text-2xl font-bold text-gray-900">Test Email Configuration</h2>
+                <p class="text-sm text-gray-600 mt-1">Send a test email to verify setup</p>
+            </div>
+            <div class="p-6">
+                <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Email Address</label>
+                <input type="email" id="test-email-input" class="filter-input" placeholder="your.email@example.com">
+            </div>
+            <div class="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+                <button onclick="closeTestEmailModal()" class="btn-secondary px-6 py-3">Cancel</button>
+                <button onclick="sendTestEmail()" class="btn-primary px-6 py-3">Send Test Email</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detail-modal" class="fixed inset-0 modal-backdrop items-center justify-center hidden p-6 z-50">
+        <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-5xl animate-slide-in custom-scroll">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-start bg-gradient-to-r from-indigo-50 to-purple-50">
+                <div class="flex-1">
+                    <h2 class="text-2xl font-bold text-gray-900" id="modal-title">Directive Details</h2>
+                    <p class="text-sm text-gray-600 mt-1" id="modal-ref"></p>
+                </div>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="p-8" id="modal-body"></div>
+            
+            <div class="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+                <button onclick="closeModal()" class="btn-secondary px-6 py-3">Close</button>
+                <button onclick="openUpdateViewFromModal()" class="btn-primary px-6 py-3">Provide Update</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Modal -->
+    <div id="update-modal" class="fixed inset-0 modal-backdrop items-center justify-center hidden p-6 z-50">
+        <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-5xl animate-slide-in custom-scroll">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-start bg-gradient-to-r from-green-50 to-emerald-50">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-2xl font-bold text-gray-900">Update Directive Status</h2>
+                        <button onclick="showNotificationPreview()" class="info-button" title="Preview notification">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1" id="update-ref"></p>
+                </div>
+                <button onclick="closeUpdateModal()" class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="p-8">
+                <form onsubmit="event.preventDefault(); submitUpdate();">
+                    <div class="mb-6">
+                        <div class="bg-gray-50 rounded-lg p-5 border border-gray-200">
+                            <div class="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Subject</div>
+                            <div class="text-gray-900 font-semibold" id="update-subject"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Implementation Start Date</label>
+                            <input type="date" id="update-start-date" class="date-input">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Implementation End Date</label>
+                            <input type="date" id="update-end-date" class="date-input">
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Overall Implementation Status</label>
+                        <select id="update-impl-status" class="filter-input">
+                            <option value="Not Started">Not Started</option>
+                            <option value="Being Implemented">Being Implemented</option>
+                            <option value="Delayed">Delayed</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">Update Outcomes</h3>
+                        <div id="update-outcomes-container" class="space-y-4"></div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Additional Comments</label>
+                        <textarea rows="4" class="filter-input" id="update-comments" placeholder="Enter any additional details or notes..."></textarea>
+                    </div>
+
+                    <div class="flex gap-4 justify-end">
+                        <button type="button" onclick="closeUpdateModal()" class="btn-secondary px-8 py-3">Cancel</button>
+                        <button type="submit" class="btn-primary px-8 py-3 shadow-lg">Save Update</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Preview Modal -->
+    <div id="preview-modal" class="fixed inset-0 modal-backdrop items-center justify-center hidden p-6 z-[60]">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl animate-slide-in">
+            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Email Preview - CBN Memo Format</h2>
+                        <p class="text-sm text-gray-600 mt-1">How this update will appear to the process owner</p>
+                    </div>
+                    <button onclick="closePreviewModal()" class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-8 max-h-[70vh] overflow-y-auto custom-scroll" id="preview-content"></div>
+        </div>
+    </div>
+
+    <!-- Edit Directive Modal -->
+    <div id="edit-modal" class="fixed inset-0 modal-backdrop items-center justify-center hidden p-6 z-50">
+        <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-5xl animate-slide-in custom-scroll">
+            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Edit Directive</h2>
+                        <p class="text-sm text-gray-600 mt-1" id="edit-ref"></p>
+                    </div>
+                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-8">
+                <form onsubmit="event.preventDefault(); submitEdit();">
+                    <div class="grid grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Meeting Date</label>
+                            <input type="date" id="edit-meeting-date" class="date-input">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Process Owner</label>
+                            <select id="edit-owner" class="filter-input"></select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Primary Email *</label>
+                            <input type="email" id="edit-primary-email" class="filter-input" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Secondary Email (Optional)</label>
+                            <input type="email" id="edit-secondary-email" class="filter-input">
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Subject</label>
+                        <input type="text" id="edit-subject" class="filter-input">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Particulars</label>
+                        <textarea id="edit-particulars" rows="6" class="filter-input"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Amount</label>
+                            <input type="text" id="edit-amount" class="filter-input" placeholder="e.g., ₦1,000,000">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Implementation Status</label>
+                            <select id="edit-impl-status" class="filter-input">
+                                <option value="Not Started">Not Started</option>
+                                <option value="Being Implemented">Being Implemented</option>
+                                <option value="Delayed">Delayed</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4 justify-end">
+                        <button type="button" onclick="closeEditModal()" class="btn-secondary px-8 py-3">Cancel</button>
+                        <button type="submit" class="btn-primary px-8 py-3 shadow-lg">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reminder Settings Modal -->
+    <div id="reminder-modal" class="fixed inset-0 modal-backdrop items-center justify-center hidden p-6 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl animate-slide-in">
+            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+                <h2 class="text-2xl font-bold text-gray-900">Auto-Reminder Configuration</h2>
+                <p class="text-sm text-gray-600 mt-1">Configure automatic reminders by monitoring status</p>
+            </div>
+            
+            <div class="p-8 max-h-[70vh] overflow-y-auto custom-scroll">
+                <div class="mb-8">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="auto-reminders-enabled" class="w-5 h-5 text-indigo-600 rounded">
+                        <span class="font-semibold text-gray-900">Enable Auto-Reminders</span>
+                    </label>
+                    <p class="text-xs text-gray-600 mt-2 ml-8">System sends 3 reminders spread evenly across the implementation period</p>
+                </div>
+                
+                <div class="space-y-5">
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">Monitoring Status Settings</h3>
+                    
+                    <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+                        <div>
+                            <div class="font-semibold text-gray-900">Awaiting Next Reminder</div>
+                            <div class="text-xs text-gray-600">Within timeline, waiting for next scheduled reminder</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="status-awaiting" checked class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200">
+                        <div>
+                            <div class="font-semibold text-gray-900">At Risk</div>
+                            <div class="text-xs text-gray-600">Less than 30 days to deadline OR 3rd reminder sent</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="status-at-risk" checked class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg border-2 border-red-200">
+                        <div>
+                            <div class="font-semibold text-gray-900">High Risk</div>
+                            <div class="text-xs text-gray-600">Less than 7 days to deadline or overdue</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="status-high-risk" checked class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border-2 border-gray-300">
+                        <div>
+                            <div class="font-semibold text-gray-900">Non-Responsive</div>
+                            <div class="text-xs text-gray-600">3+ reminders with no response (usually disabled)</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="status-non-responsive" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+                <button onclick="closeReminderModal()" class="btn-secondary px-6 py-3">Cancel</button>
+                <button onclick="saveReminderSettings()" class="btn-primary px-6 py-3">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="bg-white shadow-md sticky top-0 z-40 border-b border-gray-200">
+        <div class="max-w-[1600px] mx-auto px-8 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h1 class="text-lg font-bold text-gray-900">CBN Directives</h1>
+                                <!-- Info Button with Tooltip -->
+                                <div class="info-button">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <div class="info-tooltip">
+                                        <div class="info-tooltip-header">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            Status Guide
+                                        </div>
+                                        <div class="info-tooltip-content">
+                                            <div class="info-lifecycle">
+                                                Each directive gets 3 reminders spread evenly. If no dates: sent at 30, 60, 90 days.
+                                            </div>
+                                            
+                                            <div class="info-status-grid">
+                                                <div class="info-status-item">
+                                                    <span class="info-status-badge status-track">Awaiting</span>
+                                                    <span>On track, waiting for next reminder</span>
+                                                </div>
+                                                <div class="info-status-item">
+                                                    <span class="info-status-badge status-risk">At Risk</span>
+                                                    <span>&lt;30 days left OR 3rd reminder sent</span>
+                                                </div>
+                                                <div class="info-status-item">
+                                                    <span class="info-status-badge status-high-risk">High Risk</span>
+                                                    <span>&lt;7 days left OR overdue</span>
+                                                </div>
+                                                <div class="info-status-item">
+                                                    <span class="info-status-badge status-non-responsive">Non-Resp.</span>
+                                                    <span>No response after 3 reminders</span>
+                                                </div>
+                                                <div class="info-status-item">
+                                                    <span class="info-status-badge status-completed">Completed</span>
+                                                    <span>All outcomes done</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb; font-size: 9px; color: #6b7280;">
+                                                Monitoring auto-updates. Implementation is manual.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500">Strategy & Innovation</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex bg-gray-100 rounded-lg p-1">
+                        <button id="toggle-cg" onclick="switchSource('CG')" class="px-4 py-2 rounded-md bg-white shadow-sm text-gray-900 font-semibold text-sm transition-all">
+                            Council of Governors
+                        </button>
+                        <button id="toggle-board" onclick="switchSource('Board')" class="px-4 py-2 rounded-md text-gray-600 font-semibold text-sm transition-all hover:text-gray-900">
+                            Board of Directors
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button onclick="switchView('dashboard')" id="nav-dashboard" class="px-4 py-2 rounded-lg text-sm font-bold bg-indigo-50 text-indigo-700">
+                        Dashboard
+                    </button>
+                    <button onclick="switchView('report')" id="nav-report" class="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100">
+                        Reports
+                    </button>
+                    <button onclick="switchView('add')" id="nav-add" class="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100">
+                        Add Directive
+                    </button>
+                    
+                    <button onclick="openTestEmailModal()" class="btn-secondary flex items-center gap-2 ml-4">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                        Test Email
+                    </button>
+                    
+                    <button onclick="openReminderSettings()" class="btn-secondary flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                        </svg>
+                        Reminders
+                    </button>
+                    
+                    <button onclick="syncFromSheets()" class="btn-primary flex items-center gap-2 shadow-lg">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Sync
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-[1600px] mx-auto px-8 py-4">
+
+        <!-- DASHBOARD VIEW -->
+        <div id="view-dashboard" class="space-y-3 animate-fade-in">
+            
+            <!-- Filters -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Search</label>
+                        <input type="text" id="search-input" placeholder="Search..." class="filter-input" oninput="applyFilters()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Owner</label>
+                        <select id="filter-owner" onchange="applyFilters()" class="filter-input">
+                            <option value="All">All Owners</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Status</label>
+                        <select id="filter-status" onchange="applyFilters()" class="filter-input">
+                            <option value="All">All Statuses</option>
+                            <option value="Awaiting Next Reminder">Awaiting Next Reminder</option>
+                            <option value="At Risk">At Risk</option>
+                            <option value="High Risk">High Risk</option>
+                            <option value="Non-Responsive">Non-Responsive</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Sort By</label>
+                        <select id="sort-by" onchange="applyFilters()" class="filter-input">
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="deadline">By End Date</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="resetFilters()" class="btn-secondary w-full py-2">
+                            Reset Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Count -->
+            <div class="flex justify-between items-center px-1">
+                <p class="text-sm font-semibold text-gray-700" id="results-count">Loading...</p>
+                <button onclick="exportToExcel()" class="btn-secondary flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Export to Excel
+                </button>
+            </div>
+
+            <!-- Data Table -->
+            <div class="table-container">
+                <div class="table-wrapper custom-scroll">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="col-ref">Ref No.</th>
+                                <th class="col-date">Meeting Date</th>
+                                <th class="col-subject">Subject</th>
+                                <th class="col-particulars">Particulars</th>
+                                <th class="col-outcomes">Key Outcomes</th>
+                                <th class="col-owner">Process Owner & Email</th>
+                                <th class="col-amount">Amount</th>
+                                <th class="col-impl-dates">Implementation Period</th>
+                                <th class="col-days">Days</th>
+                                <th class="col-reminder">Reminders</th>
+                                <th class="col-impl-status">Impl. Status</th>
+                                <th class="col-monitor-status">Monitor Status</th>
+                                <th class="col-action">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Sheet Tabs at Bottom -->
+            <div class="bg-white rounded-b-xl shadow-sm border border-gray-200 border-t-0">
+                <div id="sheet-tabs" class="sheet-tabs-bottom custom-scroll"></div>
+            </div>
+        </div>
+
+        <!-- REPORT VIEW -->
+        <div id="view-report" class="hidden space-y-6 animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-8">Executive Summary Report</h2>
+                
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-5 mb-8">
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border-2 border-blue-200">
+                        <div class="text-xs font-bold text-blue-700 mb-2 uppercase tracking-wide">Total Directives</div>
+                        <div class="text-4xl font-bold text-blue-900" id="kpi-total">0</div>
+                    </div>
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border-2 border-green-200">
+                        <div class="text-xs font-bold text-green-700 mb-2 uppercase tracking-wide">Completed</div>
+                        <div class="text-4xl font-bold text-green-900" id="kpi-completed">0</div>
+                        <div class="text-xs text-green-600 font-semibold mt-2" id="kpi-compliance-rate">0%</div>
+                    </div>
+                    <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 border-2 border-indigo-200">
+                        <div class="text-xs font-bold text-indigo-700 mb-2 uppercase tracking-wide">On Track</div>
+                        <div class="text-4xl font-bold text-indigo-900" id="kpi-track">0</div>
+                    </div>
+                    <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-6 border-2 border-yellow-200">
+                        <div class="text-xs font-bold text-yellow-700 mb-2 uppercase tracking-wide">At Risk</div>
+                        <div class="text-4xl font-bold text-yellow-900" id="kpi-at-risk">0</div>
+                    </div>
+                    <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-6 border-2 border-red-200">
+                        <div class="text-xs font-bold text-red-700 mb-2 uppercase tracking-wide">High Risk</div>
+                        <div class="text-4xl font-bold text-red-900" id="kpi-high-risk">0</div>
+                        <div class="text-xs text-red-600 font-semibold mt-2" id="kpi-risk-rate">0%</div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">Status Distribution</h3>
+                        <canvas id="statusChart" height="220"></canvas>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">Timeline Analysis</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center p-5 bg-red-100 rounded-lg border-2 border-red-200">
+                                <span class="font-bold text-gray-800">Overdue</span>
+                                <span class="text-3xl font-bold text-red-600" id="timeline-overdue">0</span>
+                            </div>
+                            <div class="flex justify-between items-center p-5 bg-yellow-100 rounded-lg border-2 border-yellow-200">
+                                <span class="font-bold text-gray-800">Due Soon (30 days)</span>
+                                <span class="text-3xl font-bold text-yellow-600" id="timeline-due-soon">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ADD DIRECTIVE VIEW -->
+        <div id="view-add" class="hidden animate-fade-in">
+            <div class="bg-white rounded-xl shadow-lg border border-gray-200 max-w-5xl mx-auto">
+                <div class="p-8 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Add New Directive</h2>
+                    <p class="text-sm text-gray-600">Create a new directive entry with email notifications</p>
+                </div>
+
+                <div class="p-8">
+                    <form onsubmit="event.preventDefault(); submitNewDirective();">
+                        <div class="grid grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Source *</label>
+                                <select id="add-source" class="filter-input" required>
+                                    <option value="CG">Council of Governors (CG)</option>
+                                    <option value="Board">Board of Directors (Board)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Department / Sheet *</label>
+                                <select id="add-department" class="filter-input" required>
+                                    <option value="">Select Department</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Meeting Date *</label>
+                                <input type="date" id="add-meeting-date" class="date-input" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Process Owner *</label>
+                                <select id="add-owner" class="filter-input" required>
+                                    <option value="">Select Process Owner</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- EMAIL FIELDS - NEW -->
+                        <div class="bg-blue-50 p-6 rounded-lg border-2 border-blue-200 mb-6">
+                            <h3 class="text-sm font-bold text-blue-900 mb-4">📧 Email Addresses for Notifications</h3>
+                            <div class="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Primary Email *</label>
+                                    <input type="email" id="add-primary-email" class="filter-input" placeholder="primary@cbn.gov.ng" required>
+                                    <p class="text-xs text-gray-500 mt-1">Required for automated reminders</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Secondary Email (Optional)</label>
+                                    <input type="email" id="add-secondary-email" class="filter-input" placeholder="secondary@cbn.gov.ng">
+                                    <p class="text-xs text-gray-500 mt-1">CC on all notifications</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Subject *</label>
+                            <input type="text" id="add-subject" class="filter-input" placeholder="Enter directive subject" required>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Particulars *</label>
+                            <textarea id="add-particulars" rows="6" class="filter-input" placeholder="Enter directive particulars" required></textarea>
+                            <p class="text-xs text-gray-500 mt-1">The system will automatically extract 1-3 key outcomes from the particulars</p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Amount</label>
+                                <input type="text" id="add-amount" class="filter-input" placeholder="e.g., ₦1,000,000">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Implementation Status</label>
+                                <select id="add-impl-status" class="filter-input">
+                                    <option value="Not Started">Not Started</option>
+                                    <option value="Being Implemented">Being Implemented</option>
+                                    <option value="Delayed">Delayed</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Implementation Start Date</label>
+                                <input type="date" id="add-start-date" class="date-input">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Implementation End Date</label>
+                                <input type="date" id="add-end-date" class="date-input">
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4 justify-end">
+                            <button type="button" onclick="switchView('dashboard')" class="btn-secondary px-8 py-3">Cancel</button>
+                            <button type="submit" class="btn-primary px-8 py-3 shadow-lg">Create Directive</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        
+        let allData = [];
+        let filteredData = [];
+        let currentSource = 'CG';
+        let currentSheet = 'All';
+        let currentView = 'dashboard';
+        let currentDirectiveId = null;
+        let statusChartInstance = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDirectives();
+            loadReminderSettings();
+            loadProcessOwners();
+            loadDepartments();
+        });
+
+        function showLoading(show = true) {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.classList.toggle('hidden', !show);
+            overlay.classList.toggle('flex', show);
+        }
+
+        // Test Email Functions
+        function openTestEmailModal() {
+            document.getElementById('test-email-modal').classList.remove('hidden');
+            document.getElementById('test-email-modal').classList.add('flex');
+        }
+
+        function closeTestEmailModal() {
+            document.getElementById('test-email-modal').classList.add('hidden');
+            document.getElementById('test-email-modal').classList.remove('flex');
+        }
+
+        async function sendTestEmail() {
+            const testEmail = document.getElementById('test-email-input').value;
+            if (!testEmail || !testEmail.includes('@')) {
+                alert('Please enter a valid email address');
+                return;
+            }
+
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE}/test-email`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ testEmail })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert(`✅ ${result.message}\n\nPlease check your inbox (and spam folder) for the test email.`);
+                    closeTestEmailModal();
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                alert('❌ Error sending test email: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function syncFromSheets() {
+            if (!confirm('Sync data from Google Sheets? This will update existing directives.')) return;
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE}/sync-sheets`, { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`✅ Synced: ${result.summary.newDirectives} new, ${result.summary.updatedDirectives} updated`);
+                    loadDirectives();
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function loadDirectives() {
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE}/directives?source=${currentSource}`);
+                const result = await response.json();
+                if (result.success) {
+                    allData = result.data;
+                    const sheets = [...new Set(allData.map(d => d.sheetName).filter(s => s))].sort();
+                    renderSheetTabs(sheets);
+                    populateOwnerFilter();
+                    applyFilters();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function loadProcessOwners() {
+            try {
+                const response = await fetch(`${API_BASE}/process-owners`);
+                const result = await response.json();
+                if (result.success) {
+                    const select = document.getElementById('add-owner');
+                    select.innerHTML = '<option value="">Select Process Owner</option>';
+                    result.data.forEach(owner => {
+                        const option = document.createElement('option');
+                        option.value = owner;
+                        option.textContent = owner;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading owners:', error);
+            }
+        }
+
+        async function loadDepartments() {
+            try {
+                const response = await fetch(`${API_BASE}/departments`);
+                const result = await response.json();
+                if (result.success) {
+                    const select = document.getElementById('add-department');
+                    select.innerHTML = '<option value="">Select Department</option>';
+                    result.data.forEach(dept => {
+                        const option = document.createElement('option');
+                        option.value = dept;
+                        option.textContent = dept;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading departments:', error);
+            }
+        }
+
+        function renderSheetTabs(sheets) {
+            const container = document.getElementById('sheet-tabs');
+            container.innerHTML = '';
+            
+            const createTab = (name, value) => {
+                const btn = document.createElement('button');
+                btn.className = `sheet-tab-bottom ${currentSheet === value ? 'active' : ''}`;
+                btn.textContent = name;
+                btn.onclick = () => { currentSheet = value; renderSheetTabs(sheets); applyFilters(); };
+                container.appendChild(btn);
+            };
+            
+            createTab('All Sheets', 'All');
+            sheets.forEach(sheet => createTab(sheet, sheet));
+        }
+
+        function populateOwnerFilter() {
+            const owners = [...new Set(allData.map(d => d.owner).filter(o => o && o !== 'Unassigned'))].sort();
+            const select = document.getElementById('filter-owner');
+            select.innerHTML = '<option value="All">All Owners</option>';
+            owners.forEach(owner => {
+                const option = document.createElement('option');
+                option.value = owner;
+                option.textContent = owner.length > 50 ? owner.substring(0, 50) + '...' : owner;
+                select.appendChild(option);
+            });
+        }
+
+        function resetFilters() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('filter-owner').value = 'All';
+            document.getElementById('filter-status').value = 'All';
+            document.getElementById('sort-by').value = 'newest';
+            applyFilters();
+        }
+
+        function applyFilters() {
+            let data = allData;
+            
+            if (currentSheet !== 'All') {
+                data = data.filter(d => d.sheetName === currentSheet);
+            }
+            
+            const search = document.getElementById('search-input')?.value.toLowerCase();
+            if (search) {
+                data = data.filter(d => 
+                    d.subject?.toLowerCase().includes(search) ||
+                    d.particulars?.toLowerCase().includes(search) ||
+                    d.owner?.toLowerCase().includes(search) ||
+                    d.ref?.toLowerCase().includes(search)
+                );
+            }
+            
+            const owner = document.getElementById('filter-owner')?.value;
+            if (owner && owner !== 'All') {
+                data = data.filter(d => d.owner && d.owner.includes(owner));
+            }
+            
+            const status = document.getElementById('filter-status')?.value;
+            if (status && status !== 'All') {
+                data = data.filter(d => d.monitoringStatus === status);
+            }
+            
+            const sortBy = document.getElementById('sort-by')?.value || 'newest';
+            if (sortBy === 'newest') {
+                data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            } else if (sortBy === 'oldest') {
+                data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            } else if (sortBy === 'deadline') {
+                data.sort((a, b) => new Date(a.implementationEndDate) - new Date(b.implementationEndDate));
+            }
+            
+            filteredData = data;
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            
+            document.getElementById('results-count').textContent = `${filteredData.length} directive${filteredData.length !== 1 ? 's' : ''} found`;
+            
+            if (filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="13" class="text-center py-12 text-gray-500 font-semibold">No directives found</td></tr>';
+                return;
+            }
+            
+            filteredData.forEach(d => {
+                const tr = document.createElement('tr');
+                
+                const monitorStatusClass = {
+                    'Completed': 'status-completed',
+                    'Awaiting Next Reminder': 'status-track',
+                    'At Risk': 'status-risk',
+                    'High Risk': 'status-high-risk',
+                    'Non-Responsive': 'status-non-responsive'
+                }[d.monitoringStatus] || 'status-track';
+                
+                const implStatusClass = {
+                    'Not Started': 'status-not-started',
+                    'Being Implemented': 'status-being-implemented',
+                    'Delayed': 'status-delayed',
+                    'Completed': 'status-completed'
+                }[d.implementationStatus] || 'status-not-started';
+                
+                const daysCreated = Math.ceil((new Date() - new Date(d.createdAt)) / (1000 * 60 * 60 * 24));
+                const daysClass = daysCreated > 90 ? 'text-red-600 font-bold' : daysCreated > 60 ? 'text-yellow-600 font-semibold' : 'text-gray-700';
+                
+                const outcomesId = `outcomes-${d._id}`;
+                const particularsId = `particulars-${d._id}`;
+                
+                const statusHistory = d.statusHistory || [];
+                const recentHistory = statusHistory.slice(-3).reverse();
+                const tooltipHtml = recentHistory.length > 0 ? `
+                    <div class="status-tooltip">
+                        <div style="font-weight: 700; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 4px;">Recent Status Changes</div>
+                        ${recentHistory.map(h => `
+                            <div class="status-history-item">
+                                <div style="font-weight: 600;">${h.status}</div>
+                                <div style="font-size: 10px; color: rgba(255,255,255,0.8);">${formatDate(h.changedAt)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '';
+                
+                // Full subject display
+                const subjectHtml = d.subject.length > 100 
+                    ? `<div class="expandable" id="subject-${d._id}">
+                         <div class="font-semibold text-gray-900 leading-tight">${d.subject}</div>
+                       </div>
+                       <span class="expand-btn" onclick="toggleExpand('subject-${d._id}')">
+                           <span class="expand-text">See full</span>
+                           <svg class="w-3 h-3 expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition: transform 0.2s;">
+                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                           </svg>
+                       </span>`
+                    : `<div class="font-semibold text-gray-900 leading-tight">${d.subject}</div>`;
+                
+                // Full particulars display  
+                const particularsHtml = d.particulars.length > 150
+                    ? `<div class="expandable" id="${particularsId}">
+                         <div class="text-gray-700 leading-relaxed">${d.particulars}</div>
+                       </div>
+                       <span class="expand-btn" onclick="toggleExpand('${particularsId}')">
+                           <span class="expand-text">Show more</span>
+                           <svg class="w-3 h-3 expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition: transform 0.2s;">
+                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                           </svg>
+                       </span>`
+                    : `<div class="text-gray-700 leading-relaxed">${d.particulars}</div>`;
+                
+                // Outcomes with expand
+                const outcomesHtml = d.outcomes.length > 2
+                    ? `<div class="expandable" id="${outcomesId}">
+                         ${d.outcomes.map((o, i) => `
+                             <div class="outcome-item">
+                                 <span class="outcome-number">${i + 1}.</span>
+                                 <span>${o.text}</span>
+                             </div>
+                         `).join('')}
+                       </div>
+                       <span class="expand-btn" onclick="toggleExpand('${outcomesId}')">
+                           <span class="expand-text">Show all ${d.outcomes.length}</span>
+                           <svg class="w-3 h-3 expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition: transform 0.2s;">
+                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                           </svg>
+                       </span>`
+                    : d.outcomes.map((o, i) => `
+                        <div class="outcome-item">
+                            <span class="outcome-number">${i + 1}.</span>
+                            <span>${o.text}</span>
+                        </div>
+                      `).join('');
+                
+                const implPeriod = d.implementationStartDate && d.implementationEndDate 
+                    ? `${formatDate(d.implementationStartDate)}<br/><strong>to</strong><br/>${formatDate(d.implementationEndDate)}`
+                    : 'Not Set';
+                
+                // Email display
+                const emailHtml = `
+                    <div class="text-gray-900 text-xs mb-2">${d.owner || 'Unassigned'}</div>
+                    <div class="text-xs text-gray-600">
+                        📧 ${d.primaryEmail || 'No email'}
+                        ${d.secondaryEmail ? `<br/>📧 ${d.secondaryEmail}` : ''}
+                    </div>
+                `;
+                
+                tr.innerHTML = `
+                    <td class="col-ref">
+                        <span class="font-mono text-xs bg-gray-100 px-2 py-1 rounded">${d.ref || 'N/A'}</span>
+                    </td>
+                    <td class="col-date">
+                        <span class="text-xs">${formatDate(d.meetingDate)}</span>
+                    </td>
+                    <td class="col-subject">${subjectHtml}</td>
+                    <td class="col-particulars">${particularsHtml}</td>
+                    <td class="col-outcomes">${outcomesHtml}</td>
+                    <td class="col-owner">${emailHtml}</td>
+                    <td class="col-amount">
+                        <span class="font-mono text-xs">${d.amount || 'N/A'}</span>
+                    </td>
+                    <td class="col-impl-dates">
+                        <span class="text-xs ${!d.implementationStartDate ? 'text-gray-400 italic' : ''}">${implPeriod}</span>
+                    </td>
+                    <td class="col-days ${daysClass}">${daysCreated}</td>
+                    <td class="col-reminder">
+                        <span class="text-xs">
+                            ${d.reminders > 0 ? `${d.reminders}/3` : 'None'}
+                            ${d.lastReminderDate ? `<br/><span class="text-gray-500">${formatDate(d.lastReminderDate)}</span>` : ''}
+                        </span>
+                    </td>
+                    <td class="col-impl-status">
+                        <span class="status-badge ${implStatusClass}">${d.implementationStatus}</span>
+                    </td>
+                    <td class="col-monitor-status">
+                        <span class="status-badge ${monitorStatusClass}">${d.monitoringStatus}</span>
+                    </td>
+                    <td class="col-action">
+                        <div class="flex flex-col gap-2">
+                            <button onclick="openDetailModal('${d._id}')" class="text-indigo-600 hover:text-indigo-800 font-semibold text-xs underline">
+                                View
+                            </button>
+                            <button onclick="openUpdateView('${d._id}')" class="text-green-600 hover:text-green-800 font-semibold text-xs underline">
+                                Update
+                            </button>
+                            <button onclick="openEditView('${d._id}')" class="text-purple-600 hover:text-purple-800 font-semibold text-xs underline">
+                                Edit
+                            </button>
+                        </div>
+                    </td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+        }
+
+        function toggleExpand(elementId) {
+            const element = document.getElementById(elementId);
+            element.classList.toggle('expanded');
+            const btn = element.nextElementSibling;
+            if (element.classList.contains('expanded')) {
+                btn.textContent = btn.textContent.includes('subject') ? 'Show less' : 'See less';
+            } else {
+                btn.textContent = btn.textContent.includes('subject') ? 'See full subject' : 'See more';
+            }
+        }
+
+        async function submitNewDirective() {
+            showLoading();
+            try {
+                const source = document.getElementById('add-source').value;
+                const department = document.getElementById('add-department').value;
+                const meetingDate = document.getElementById('add-meeting-date').value;
+                const owner = document.getElementById('add-owner').value;
+                const primaryEmail = document.getElementById('add-primary-email').value;
+                const secondaryEmail = document.getElementById('add-secondary-email').value;
+                const subject = document.getElementById('add-subject').value;
+                const particulars = document.getElementById('add-particulars').value;
+                const amount = document.getElementById('add-amount').value;
+                const startDate = document.getElementById('add-start-date').value;
+                const endDate = document.getElementById('add-end-date').value;
+                const implStatus = document.getElementById('add-impl-status').value;
+                
+                const response = await fetch(`${API_BASE}/directives`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source,
+                        sheetName: department,
+                        meetingDate: new Date(meetingDate),
+                        subject,
+                        particulars,
+                        owner,
+                        primaryEmail,
+                        secondaryEmail,
+                        amount,
+                        implementationStartDate: startDate ? new Date(startDate) : null,
+                        implementationEndDate: endDate ? new Date(endDate) : null,
+                        implementationStatus: implStatus
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('✅ Directive created successfully! Email notifications will be sent automatically based on reminder settings.');
+                    document.querySelector('#view-add form').reset();
+                    switchView('dashboard');
+                    loadDirectives();
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // [Continue with the rest of the JavaScript functions from the previous code...]
+        // The rest remains the same as in the original code
+
+        async function openDetailModal(id) {
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE}/directives/${id}`);
+                const result = await response.json();
+                if (result.success) {
+                    const d = result.data;
+                    currentDirectiveId = id;
+                    
+                    document.getElementById('modal-title').textContent = d.subject;
+                    document.getElementById('modal-ref').textContent = `Reference: ${d.ref}`;
+                    
+                    const daysCreated = Math.ceil((new Date() - new Date(d.createdAt)) / (1000 * 60 * 60 * 24));
+                    
+                    const monitorStatusClass = {
+                        'Completed': 'status-completed',
+                        'Awaiting Next Reminder': 'status-track',
+                        'At Risk': 'status-risk',
+                        'High Risk': 'status-high-risk',
+                        'Non-Responsive': 'status-non-responsive'
+                    }[d.monitoringStatus] || 'status-track';
+                    
+                    const implStatusClass = {
+                        'Not Started': 'status-not-started',
+                        'Being Implemented': 'status-being-implemented',
+                        'Delayed': 'status-delayed',
+                        'Completed': 'status-completed'
+                    }[d.implementationStatus] || 'status-not-started';
+                    
+                    document.getElementById('modal-body').innerHTML = `
+                        <div class="grid grid-cols-3 gap-6 mb-8">
+                            <div>
+                                <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Meeting Date</div>
+                                <div class="text-gray-900 font-semibold">${formatDate(d.meetingDate)}</div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Implementation Period</div>
+                                <div class="text-gray-900 font-semibold">${d.implementationStartDate && d.implementationEndDate ? formatDate(d.implementationStartDate) + ' to ' + formatDate(d.implementationEndDate) : 'Not Set'}</div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Days Created</div>
+                                <div class="text-gray-900 font-semibold">${daysCreated} days</div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Process Owner</div>
+                                <div class="text-gray-900 font-semibold">${d.owner}</div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Primary Email</div>
+                                <div class="text-gray-900 font-semibold">${d.primaryEmail || 'Not set'}</div>
+                            </div>
+                            ${d.secondaryEmail ? `
+                            <div>
+                                <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Secondary Email</div>
+                                <div class="text-gray-900 font-semibold">${d.secondaryEmail}</div>
+                            </div>
+                            ` : ''}
+                            <div>
+                                <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Implementation Status</div>
+                                <span class="status-badge ${implStatusClass}">${d.implementationStatus}</span>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Monitoring Status</div>
+                                <span class="status-badge ${monitorStatusClass}">${d.monitoringStatus}</span>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Reminders Sent</div>
+                                <div class="text-gray-900 font-semibold">${d.reminders}/3</div>
+                            </div>
+                            ${d.amount ? `
+                            <div>
+                                <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Amount</div>
+                                <div class="text-gray-900 font-semibold font-mono">${d.amount}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="mb-8">
+                            <div class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Particulars</div>
+                            <div class="bg-gray-50 rounded-lg p-5 text-gray-800 leading-relaxed border border-gray-200">${d.particulars}</div>
+                        </div>
+                        
+                        <div>
+                            <div class="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wide">Outcomes (${d.outcomes.length})</div>
+                            <div class="space-y-3">
+                                ${d.outcomes.map((o, i) => `
+                                    <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-5 border border-indigo-200">
+                                        <div class="flex gap-4">
+                                            <div class="flex-shrink-0 w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold">${i + 1}</div>
+                                            <div class="flex-1">
+                                                <div class="text-gray-900 font-medium mb-2 leading-relaxed">${o.text}</div>
+                                                <div class="flex gap-4 text-xs">
+                                                    <span class="text-gray-600"><strong>Status:</strong> ${o.status}</span>
+                                                    ${o.challenges ? `<span class="text-gray-600"><strong>Challenges:</strong> ${o.challenges}</span>` : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('detail-modal').classList.remove('hidden');
+                    document.getElementById('detail-modal').classList.add('flex');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('detail-modal').classList.add('hidden');
+            document.getElementById('detail-modal').classList.remove('flex');
+        }
+
+        function openUpdateViewFromModal() {
+            closeModal();
+            openUpdateView(currentDirectiveId);
+        }
+
+        async function openUpdateView(id) {
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE}/directives/${id}`);
+                const result = await response.json();
+                if (result.success) {
+                    const d = result.data;
+                    currentDirectiveId = id;
+                    
+                    document.getElementById('update-ref').textContent = `Reference: ${d.ref || 'N/A'}`;
+                    document.getElementById('update-subject').textContent = d.subject;
+                    
+                    if (d.implementationStartDate) {
+                        document.getElementById('update-start-date').valueAsDate = new Date(d.implementationStartDate);
+                    }
+                    if (d.implementationEndDate) {
+                        document.getElementById('update-end-date').valueAsDate = new Date(d.implementationEndDate);
+                    }
+                    
+                    document.getElementById('update-impl-status').value = d.implementationStatus || 'Not Started';
+                    
+                    const container = document.getElementById('update-outcomes-container');
+                    container.innerHTML = '';
+                    
+                    d.outcomes.forEach((outcome, idx) => {
+                        const div = document.createElement('div');
+                        div.className = "bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200";
+                        div.innerHTML = `
+                            <div class="mb-4">
+                                <div class="flex items-start gap-3 mb-2">
+                                    <div class="flex-shrink-0 w-7 h-7 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">${idx + 1}</div>
+                                    <div class="text-gray-900 leading-relaxed flex-1">${outcome.text}</div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Status</label>
+                                    <select data-outcome="${idx}" class="outcome-status filter-input">
+                                        <option value="Not Started" ${outcome.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
+                                        <option value="Being Implemented" ${outcome.status === 'Being Implemented' ? 'selected' : ''}>Being Implemented</option>
+                                        <option value="Delayed" ${outcome.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
+                                        <option value="Completed" ${outcome.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Challenges / Notes</label>
+                                    <textarea data-outcome="${idx}" class="outcome-challenges filter-input" rows="2" placeholder="Describe any challenges or notes...">${outcome.challenges || ''}</textarea>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(div);
+                    });
+                    
+                    document.getElementById('update-modal').classList.remove('hidden');
+                    document.getElementById('update-modal').classList.add('flex');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function closeUpdateModal() {
+            document.getElementById('update-modal').classList.add('hidden');
+            document.getElementById('update-modal').classList.remove('flex');
+        }
+
+        async function submitUpdate() {
+            showLoading();
+            try {
+                const directive = allData.find(d => d._id === currentDirectiveId);
+                const outcomes = [];
+                
+                document.querySelectorAll('.outcome-status').forEach((select, idx) => {
+                    outcomes.push({
+                        text: directive.outcomes[idx].text,
+                        status: select.value,
+                        challenges: document.querySelector(`.outcome-challenges[data-outcome="${idx}"]`).value
+                    });
+                });
+                
+                const startDate = document.getElementById('update-start-date').value;
+                const endDate = document.getElementById('update-end-date').value;
+                const implStatus = document.getElementById('update-impl-status').value;
+                const comments = document.getElementById('update-comments').value;
+                
+                const response = await fetch(`${API_BASE}/directives/${currentDirectiveId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        outcomes,
+                        implementationStartDate: startDate ? new Date(startDate).toISOString() : null,
+                        implementationEndDate: endDate ? new Date(endDate).toISOString() : null,
+                        implementationStatus: implStatus,
+                        completionNote: comments
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('✅ Update submitted successfully! Monitoring status has been automatically updated.');
+                    closeUpdateModal();
+                    loadDirectives();
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function showEmailPreview() {
+            const directive = allData.find(d => d._id === currentDirectiveId);
+            const startDate = document.getElementById('update-start-date').value;
+            const endDate = document.getElementById('update-end-date').value;
+            const implStatus = document.getElementById('update-impl-status').value;
+            const comments = document.getElementById('update-comments').value;
+            
+            const today = new Date();
+            const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
+            
+            let outcomesHtml = '';
+            document.querySelectorAll('.outcome-status').forEach((select, idx) => {
+                const status = select.value;
+                const challenges = document.querySelector(`.outcome-challenges[data-outcome="${idx}"]`).value;
+                const statusColor = {
+                    'Not Started': '#6b7280',
+                    'Being Implemented': '#3b82f6',
+                    'Delayed': '#f59e0b',
+                    'Completed': '#10b981'
+                }[status];
+                
+                outcomesHtml += `
+                    <div style="margin-bottom: 16px; padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #6366f1;">
+                        <div style="font-weight: 700; color: #6366f1; margin-bottom: 4px;">Outcome ${idx + 1}</div>
+                        <div style="color: #374151; font-size: 13px; line-height: 1.5; margin-bottom: 8px;">${directive.outcomes[idx].text}</div>
+                        <div style="display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; background: ${statusColor}; color: white;">
+                            Status: ${status}
+                        </div>
+                        ${challenges ? `<div style="margin-top: 8px; font-size: 12px; color: #6b7280;"><strong>Challenges:</strong> ${challenges}</div>` : ''}
+                    </div>
+                `;
+            });
+            
+            const previewHtml = `
+                <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; background: white; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                    
+                    <div style="border-bottom: 3px solid #1e40af; padding: 24px; background: white;">
+                        <h2 style="color: #1e40af; font-size: 18px; font-weight: 700; margin: 0 0 12px 0; text-transform: uppercase;">
+                            REQUEST FOR STATUS OF COMPLIANCE WITH BOARD DECISIONS
+                        </h2>
+                        <p style="color: #6b7280; font-size: 13px; margin: 0;">Central Bank of Nigeria - Strategy & Innovation Department</p>
+                    </div>
+                    
+                    <div style="padding: 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                        <table style="width: 100%; font-size: 13px; color: #374151;">
+                            <tr>
+                                <td style="padding: 8px 0; width: 50%;"><strong>To:</strong> ${directive.owner}</td>
+                                <td style="padding: 8px 0;"><strong>From:</strong> Secretary to the Board/Director</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0;"><strong>Ref:</strong> ${directive.ref || 'N/A'}</td>
+                                <td style="padding: 8px 0;"><strong>Date:</strong> ${dateStr}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
+                        <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Subject</div>
+                        <div style="font-weight: 700; color: #111827; font-size: 14px;">${directive.subject}</div>
+                    </div>
+                    
+                    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
+                        <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Directive Particulars</div>
+                        <div style="color: #374151; line-height: 1.6; font-size: 13px;">${directive.particulars}</div>
+                    </div>
+                    
+                    ${startDate || endDate ? `
+                    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
+                        <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Implementation Timeline</div>
+                        <div style="color: #111827; font-size: 13px;">
+                            ${startDate ? formatDate(new Date(startDate)) : 'Not set'} → ${endDate ? formatDate(new Date(endDate)) : 'Not set'}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div style="padding: 20px 24px; background: white;">
+                        <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px;">Required Outcomes & Current Status</div>
+                        <div style="background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                            ${outcomesHtml}
+                        </div>
+                    </div>
+                    
+                    ${comments ? `
+                    <div style="padding: 20px 24px; background: white; border-top: 1px solid #e5e7eb;">
+                        <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Additional Comments</div>
+                        <div style="color: #374151; font-size: 13px; line-height: 1.6;">${comments}</div>
+                    </div>
+                    ` : ''}
+                    
+                    <div style="padding: 20px 24px; background: #eff6ff; border-top: 1px solid #dbeafe;">
+                        <p style="color: #1e40af; font-size: 13px; line-height: 1.6; margin: 0;">
+                            <strong>Action Required:</strong> Please provide an update on the implementation status of the above outcomes. 
+                            Your response is needed to compile the status of compliance with ${directive.source === 'CG' ? 'Council of Governors' : 'Board of Directors'} decisions.
+                        </p>
+                    </div>
+                    
+                    <div style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+                        <p style="color: #6b7280; font-size: 11px; margin: 0;">
+                            This is an automated reminder from the CBN Directives Management System
+                        </p>
+                    </div>
+                    
+                </div>
+            `;
+            
+            document.getElementById('preview-content').innerHTML = previewHtml;
+            document.getElementById('preview-modal').classList.remove('hidden');
+            document.getElementById('preview-modal').classList.add('flex');
+        }
+
+        function closePreviewModal() {
+            document.getElementById('preview-modal').classList.add('hidden');
+            document.getElementById('preview-modal').classList.remove('flex');
+        }
+
+        async function openEditView(id) {
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE}/directives/${id}`);
+                const result = await response.json();
+                if (result.success) {
+                    const d = result.data;
+                    currentDirectiveId = id;
+                    
+                    document.getElementById('edit-ref').textContent = `Reference: ${d.ref || 'N/A'}`;
+                    
+                    if (d.meetingDate) {
+                        document.getElementById('edit-meeting-date').valueAsDate = new Date(d.meetingDate);
+                    }
+                    
+                    const ownerSelect = document.getElementById('edit-owner');
+                    const ownersResponse = await fetch(`${API_BASE}/process-owners`);
+                    const ownersResult = await ownersResponse.json();
+                    if (ownersResult.success) {
+                        ownerSelect.innerHTML = '<option value="">Select Process Owner</option>';
+                        ownersResult.data.forEach(owner => {
+                            const option = document.createElement('option');
+                            option.value = owner;
+                            option.textContent = owner;
+                            if (owner === d.owner) option.selected = true;
+                            ownerSelect.appendChild(option);
+                        });
+                    }
+                    
+                    document.getElementById('edit-primary-email').value = d.primaryEmail || '';
+                    document.getElementById('edit-secondary-email').value = d.secondaryEmail || '';
+                    document.getElementById('edit-subject').value = d.subject || '';
+                    document.getElementById('edit-particulars').value = d.particulars || '';
+                    document.getElementById('edit-amount').value = d.amount || '';
+                    document.getElementById('edit-impl-status').value = d.implementationStatus || 'Not Started';
+                    
+                    document.getElementById('edit-modal').classList.remove('hidden');
+                    document.getElementById('edit-modal').classList.add('flex');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            document.getElementById('edit-modal').classList.remove('flex');
+        }
+
+        async function submitEdit() {
+            showLoading();
+            try {
+                const meetingDate = document.getElementById('edit-meeting-date').value;
+                const owner = document.getElementById('edit-owner').value;
+                const primaryEmail = document.getElementById('edit-primary-email').value;
+                const secondaryEmail = document.getElementById('edit-secondary-email').value;
+                const subject = document.getElementById('edit-subject').value;
+                const particulars = document.getElementById('edit-particulars').value;
+                const amount = document.getElementById('edit-amount').value;
+                const implStatus = document.getElementById('edit-impl-status').value;
+                
+                const response = await fetch(`${API_BASE}/directives/${currentDirectiveId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        meetingDate: meetingDate ? new Date(meetingDate).toISOString() : null,
+                        owner,
+                        primaryEmail,
+                        secondaryEmail,
+                        subject,
+                        particulars,
+                        amount,
+                        implementationStatus: implStatus
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('✅ Directive updated successfully!');
+                    closeEditModal();
+                    loadDirectives();
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function openReminderSettings() {
+            showLoading();
+            try {
+                await loadReminderSettings();
+                
+                document.getElementById('auto-reminders-enabled').checked = reminderSettings.enabled;
+                document.getElementById('status-awaiting').checked = reminderSettings.statusSettings['Awaiting Next Reminder'];
+                document.getElementById('status-at-risk').checked = reminderSettings.statusSettings['At Risk'];
+                document.getElementById('status-high-risk').checked = reminderSettings.statusSettings['High Risk'];
+                document.getElementById('status-non-responsive').checked = reminderSettings.statusSettings['Non-Responsive'];
+                
+                document.getElementById('reminder-modal').classList.remove('hidden');
+                document.getElementById('reminder-modal').classList.add('flex');
+            } catch (error) {
+                alert('Error loading settings: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function closeReminderModal() {
+            document.getElementById('reminder-modal').classList.add('hidden');
+            document.getElementById('reminder-modal').classList.remove('flex');
+        }
+
+        let reminderSettings = {};
+
+        async function loadReminderSettings() {
+            try {
+                const response = await fetch(`${API_BASE}/reminder-settings`);
+                const result = await response.json();
+                if (result.success) {
+                    reminderSettings = result.data;
+                }
+            } catch (error) {
+                console.error('Error loading reminder settings:', error);
+            }
+        }
+
+        async function saveReminderSettings() {
+            showLoading();
+            try {
+                const enabled = document.getElementById('auto-reminders-enabled').checked;
+                const statusSettings = {
+                    'Awaiting Next Reminder': document.getElementById('status-awaiting').checked,
+                    'At Risk': document.getElementById('status-at-risk').checked,
+                    'High Risk': document.getElementById('status-high-risk').checked,
+                    'Non-Responsive': document.getElementById('status-non-responsive').checked
+                };
+                
+                const response = await fetch(`${API_BASE}/reminder-settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled, statusSettings })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('✅ Auto-reminder settings saved successfully!');
+                    reminderSettings = result.data;
+                    closeReminderModal();
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function switchSource(source) {
+            currentSource = source;
+            const btnCG = document.getElementById('toggle-cg');
+            const btnBoard = document.getElementById('toggle-board');
+            
+            if (source === 'CG') {
+                btnCG.classList.add('bg-white', 'shadow-sm', 'text-gray-900');
+                btnCG.classList.remove('text-gray-600');
+                btnBoard.classList.remove('bg-white', 'shadow-sm', 'text-gray-900');
+                btnBoard.classList.add('text-gray-600');
+            } else {
+                btnBoard.classList.add('bg-white', 'shadow-sm', 'text-gray-900');
+                btnBoard.classList.remove('text-gray-600');
+                btnCG.classList.remove('bg-white', 'shadow-sm', 'text-gray-900');
+                btnCG.classList.add('text-gray-600');
+            }
+            
+            loadDirectives();
+        }
+
+        function switchView(view) {
+            currentView = view;
+            ['dashboard', 'report', 'add'].forEach(v => {
+                document.getElementById(`view-${v}`).classList.add('hidden');
+                const navBtn = document.getElementById(`nav-${v}`);
+                if (navBtn) {
+                    navBtn.classList.remove('bg-indigo-50', 'text-indigo-700');
+                    navBtn.classList.add('text-gray-600');
+                }
+            });
+            
+            document.getElementById(`view-${view}`).classList.remove('hidden');
+            const navBtn = document.getElementById(`nav-${view}`);
+            if (navBtn) {
+                navBtn.classList.add('bg-indigo-50', 'text-indigo-700');
+                navBtn.classList.remove('text-gray-600');
+            }
+            
+            if (view === 'report') renderReport();
+        }
+
+        async function renderReport() {
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE}/reports/stats?source=${currentSource}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    
+                    document.getElementById('kpi-total').textContent = data.summary.total;
+                    document.getElementById('kpi-completed').textContent = data.summary.completed;
+                    document.getElementById('kpi-track').textContent = data.summary.track;
+                    document.getElementById('kpi-at-risk').textContent = data.summary.atRisk;
+                    document.getElementById('kpi-high-risk').textContent = data.summary.highRisk + data.summary.nonResponsive;
+                    document.getElementById('kpi-compliance-rate').textContent = `${data.complianceRate}% Compliance`;
+                    document.getElementById('kpi-risk-rate').textContent = `${data.riskRate}% Risk`;
+                    
+                    document.getElementById('timeline-overdue').textContent = data.timeline.overdue;
+                    document.getElementById('timeline-due-soon').textContent = data.timeline.dueSoon;
+                    
+                    if (statusChartInstance) statusChartInstance.destroy();
+                    
+                    const ctx = document.getElementById('statusChart').getContext('2d');
+                    statusChartInstance = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Completed', 'On Track', 'At Risk', 'High Risk'],
+                            datasets: [{
+                                data: [data.summary.completed, data.summary.track, data.summary.atRisk, data.summary.highRisk + data.summary.nonResponsive],
+                                backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444'],
+                                borderWidth: 3,
+                                borderColor: '#fff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: { 
+                                legend: { 
+                                    position: 'bottom',
+                                    labels: { font: { size: 12, weight: 'bold' } }
+                                } 
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function exportToExcel() {
+            try {
+                const exportData = filteredData.map(d => ({
+                    'Ref No': d.ref || 'N/A',
+                    'Meeting Date': formatDate(d.meetingDate),
+                    'Subject': d.subject,
+                    'Particulars': d.particulars,
+                    'Process Owner': d.owner,
+                    'Primary Email': d.primaryEmail || '',
+                    'Secondary Email': d.secondaryEmail || '',
+                    'Amount': d.amount || 'N/A',
+                    'Implementation Start': d.implementationStartDate ? formatDate(d.implementationStartDate) : 'Not Set',
+                    'Implementation End': d.implementationEndDate ? formatDate(d.implementationEndDate) : 'Not Set',
+                    'Implementation Status': d.implementationStatus,
+                    'Monitoring Status': d.monitoringStatus,
+                    'Reminders Sent': d.reminders,
+                    'Days Since Creation': Math.ceil((new Date() - new Date(d.createdAt)) / (1000 * 60 * 60 * 24)),
+                    'Outcome 1': d.outcomes[0]?.text || '',
+                    'Outcome 1 Status': d.outcomes[0]?.status || '',
+                    'Outcome 2': d.outcomes[1]?.text || '',
+                    'Outcome 2 Status': d.outcomes[1]?.status || '',
+                    'Outcome 3': d.outcomes[2]?.text || '',
+                    'Outcome 3 Status': d.outcomes[2]?.status || ''
+                }));
+                
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.json_to_sheet(exportData);
+                
+                const colWidths = [
+                    { wch: 15 }, { wch: 12 }, { wch: 40 }, { wch: 60 }, { wch: 25 }, 
+                    { wch: 30 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+                    { wch: 18 }, { wch: 18 }, { wch: 10 }, { wch: 10 },
+                    { wch: 50 }, { wch: 18 }, { wch: 50 }, { wch: 18 }, { wch: 50 }, { wch: 18 }
+                ];
+                ws['!cols'] = colWidths;
+                
+                XLSX.utils.book_append_sheet(wb, ws, 'Directives');
+                
+                const fileName = `CBN_Directives_${currentSource}_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                alert(`✅ Exported ${filteredData.length} directives to ${fileName}`);
+            } catch (error) {
+                alert('❌ Export failed: ' + error.message);
+            }
+        }
+
+        function formatDate(date) {
+            if (!date) return 'N/A';
+            return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        function getOrdinal(n) {
+            const s = ["th", "st", "nd", "rd"];
+            const v = n % 100;
+            return (s[(v - 20) % 10] || s[v] || s[0]);
+        }
+    </script>
+</body>
+</html>
