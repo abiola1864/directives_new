@@ -7,7 +7,9 @@ const cors = require('cors');
 const { google } = require('googleapis');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');  // ADD THIS LINE
 require('dotenv').config();
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,13 +37,59 @@ let emailTransporter = null;
 
 function setupEmailTransporter() {
   try {
-    // Debug: Check if environment variables exist
     console.log('\n🔍 EMAIL SETUP DEBUG:');
+    
+    // Try SendGrid first
+    if (process.env.SENDGRID_API_KEY) {
+      console.log('   📧 Using SendGrid for email delivery');
+      console.log('   SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? 'SET ✓' : '❌ MISSING');
+      console.log('   EMAIL_USER (sender):', process.env.EMAIL_USER ? `SET (${process.env.EMAIL_USER})` : '❌ MISSING');
+      
+      if (!process.env.EMAIL_USER) {
+        console.log('⚠️  EMAIL_USER required for sender address\n');
+        return null;
+      }
+      
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      
+      // Create wrapper that matches nodemailer interface
+      emailTransporter = {
+        sendMail: async (mailOptions) => {
+          try {
+            const msg = {
+              to: mailOptions.to,
+              from: process.env.EMAIL_USER, // Verified sender in SendGrid
+              subject: mailOptions.subject,
+              html: mailOptions.html
+            };
+            
+            const response = await sgMail.send(msg);
+            console.log('✅ SendGrid email sent successfully');
+            return response;
+          } catch (error) {
+            console.error('❌ SendGrid send error:', error.message);
+            if (error.response) {
+              console.error('   Response body:', error.response.body);
+            }
+            throw error;
+          }
+        },
+        verify: (callback) => {
+          // SendGrid doesn't need connection verification
+          console.log('✅ SendGrid is ready to send emails\n');
+          callback(null, true);
+        }
+      };
+      
+      return emailTransporter;
+    }
+    
+    // Fallback to Gmail if SendGrid not configured
     console.log('   EMAIL_USER:', process.env.EMAIL_USER ? `SET (${process.env.EMAIL_USER})` : '❌ MISSING');
     console.log('   EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? `SET (length: ${process.env.EMAIL_PASSWORD.length} chars)` : '❌ MISSING');
     
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-      console.log('⚠️  Email credentials not found in environment variables\n');
+      console.log('⚠️  Email credentials not found\n');
       return null;
     }
 
@@ -50,64 +98,36 @@ function setupEmailTransporter() {
     emailTransporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
-      secure: false, // Use STARTTLS
+      secure: false,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD
       },
-      connectionTimeout: 30000, // 30 seconds
+      connectionTimeout: 30000,
       greetingTimeout: 30000,
-      socketTimeout: 30000,
-      pool: true,
-      maxConnections: 5,
-      rateDelta: 20000,
-      rateLimit: 5,
-      debug: true, // Enable SMTP debug output
-      logger: true // Log SMTP traffic to console
+      socketTimeout: 30000
     });
 
-    // Verify connection with detailed error handling
     emailTransporter.verify((error, success) => {
       if (error) {
         console.log('\n❌ EMAIL SERVER CONNECTION FAILED:');
-        console.log('   Error Type:', error.code || error.name);
-        console.log('   Error Message:', error.message);
-        console.log('   Command:', error.command || 'N/A');
-        
-        // Specific error guidance
-        if (error.message.includes('timeout')) {
-          console.log('\n   💡 TIMEOUT ERROR - Likely causes:');
-          console.log('      • Gmail is blocking Render\'s IP address');
-          console.log('      • Firewall blocking SMTP ports');
-          console.log('      • Consider switching to SendGrid/Mailgun');
-        } else if (error.message.includes('Invalid login')) {
-          console.log('\n   💡 INVALID LOGIN - Check:');
-          console.log('      • EMAIL_PASSWORD must be App Password (16 chars, no spaces)');
-          console.log('      • EMAIL_USER must be full Gmail address');
-          console.log('      • 2-Step Verification must be enabled on Gmail');
-        } else if (error.code === 'EAUTH') {
-          console.log('\n   💡 AUTHENTICATION ERROR - Check:');
-          console.log('      • App Password is correct (not regular password)');
-          console.log('      • App Password has no spaces');
-          console.log('      • Gmail account has 2FA enabled');
-        }
-        
+        console.log('   Error:', error.message);
         console.log('\n');
         emailTransporter = null;
       } else {
-        console.log('✅ Email server is ready to send messages\n');
+        console.log('✅ Gmail SMTP ready\n');
       }
     });
 
     return emailTransporter;
   } catch (error) {
-    console.error('\n❌ CRITICAL ERROR setting up email transporter:');
+    console.error('\n❌ CRITICAL ERROR setting up email:');
     console.error('   Exception:', error.message);
-    console.error('   Stack:', error.stack);
     console.log('\n');
     return null;
   }
 }
+
 
 
 
