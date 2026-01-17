@@ -36,28 +36,36 @@ let emailTransporter = null;
 function setupEmailTransporter() {
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-      console.log('⚠️  Email credentials not found in .env file');
+      console.log('⚠️  Email credentials not found in environment variables');
+      console.log('EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'MISSING');
+      console.log('EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? 'SET (length: ' + process.env.EMAIL_PASSWORD.length + ')' : 'MISSING');
       return null;
     }
 
-   emailTransporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // Use TLS
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  },
-  connectionTimeout: 30000, // Longer timeout
-  greetingTimeout: 30000,
-  socketTimeout: 30000,
-  pool: true, // Use connection pooling
-  maxConnections: 5
-});
+    emailTransporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // Use STARTTLS
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      },
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
+      pool: true,
+      maxConnections: 5,
+      rateDelta: 20000,
+      rateLimit: 5,
+      debug: true, // Enable debug output
+      logger: true // Log to console
+    });
+
     // Verify connection
     emailTransporter.verify((error, success) => {
       if (error) {
         console.log('❌ Email server connection failed:', error.message);
+        console.log('Full error details:', error);
         emailTransporter = null;
       } else {
         console.log('✅ Email server is ready to send messages');
@@ -67,9 +75,11 @@ function setupEmailTransporter() {
     return emailTransporter;
   } catch (error) {
     console.error('❌ Error setting up email:', error.message);
+    console.error('Full error:', error);
     return null;
   }
 }
+
 
 // Initialize email transporter
 setupEmailTransporter();
