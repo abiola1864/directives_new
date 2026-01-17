@@ -160,7 +160,7 @@ const directiveSchema = new mongoose.Schema({
   particulars: { type: String, required: true },
   owner: { type: String, required: true },
   
-  primaryEmail: { type: String, required: true },
+  primaryEmail: { type: String,  default:'' },
   secondaryEmail: { type: String, default: '' },
   
   amount: String,
@@ -170,11 +170,21 @@ const directiveSchema = new mongoose.Schema({
   implementationStatus: { type: String, default: 'Not Started' },
   ref: { type: String, unique: true, sparse: true },
   
-  monitoringStatus: {
-    type: String,
-    enum: ['Awaiting Next Reminder', 'At Risk', 'High Risk', 'Non-Responsive', 'Completed'],
-    default: 'Awaiting Next Reminder'
-  },
+ monitoringStatus: {
+  type: String,
+  enum: [
+    'Awaiting Next Reminder', 
+    'At Risk', 
+    'High Risk', 
+    'Non-Responsive', 
+    'Completed',
+    'Being Implemented',  // ⭐ ADD THIS
+    'Implemented',        // ⭐ ADD THIS
+    'No response'         // ⭐ ADD THIS
+  ],
+  default: 'Awaiting Next Reminder'
+},
+
   statusHistory: [statusHistorySchema],
   
   reminders: { type: Number, default: 0 },
@@ -499,6 +509,7 @@ function formatDate(date) {
   return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+
 async function sendReminderEmail(directive) {
   if (!emailTransporter) {
     console.log('⚠️  Email transporter not initialized');
@@ -506,6 +517,12 @@ async function sendReminderEmail(directive) {
   }
 
   try {
+    // CHECK IF EMAIL EXISTS AND IS VALID
+    if (!directive.primaryEmail || directive.primaryEmail.trim() === '') {
+      console.log(`   ⚠️  No email address for directive ${directive.ref} (${directive.owner})`);
+      return false;
+    }
+
     const emailHtml = generateMemoEmail(directive);
     
     const recipients = [directive.primaryEmail];
@@ -513,21 +530,31 @@ async function sendReminderEmail(directive) {
       recipients.push(directive.secondaryEmail);
     }
 
+    // VALIDATE EMAIL FORMAT
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const validRecipients = recipients.filter(email => emailRegex.test(email));
+    
+    if (validRecipients.length === 0) {
+      console.log(`   ⚠️  No valid email addresses for directive ${directive.ref}`);
+      return false;
+    }
+
     const mailOptions = {
       from: `"CBN Directives System" <${process.env.EMAIL_USER}>`,
-      to: recipients.join(', '),
+      to: validRecipients.join(', '),
       subject: `Reminder ${directive.reminders + 1}/3: Status Update Required - ${directive.ref}`,
       html: emailHtml
     };
 
     await emailTransporter.sendMail(mailOptions);
-    console.log(`   ✅ Email sent to: ${recipients.join(', ')}`);
+    console.log(`   ✅ Email sent to: ${validRecipients.join(', ')}`);
     return true;
   } catch (error) {
     console.error(`   ❌ Email failed:`, error.message);
     return false;
   }
 }
+
 
 // ==========================================
 // GOOGLE SHEETS INTEGRATION
@@ -554,10 +581,10 @@ async function getGoogleSheetsClient() {
     }
     
     // Method 2: Look for credentials.json in project root
-    const credentialsPath = path.join(__dirname, 'credentials.json');
+    const credentialsPath = path.join(__dirname, '.credentials.json');
     const fs = require('fs');
     
-    if (fs.existsSync(credentialsPath)) {
+   if (fs.existsSync(credentialsPath)) {
       const auth = new google.auth.GoogleAuth({
         keyFile: credentialsPath,
         scopes: SCOPES,
@@ -833,103 +860,284 @@ async function fetchSheetData(sheetName) {
     const tabName = tab.properties.title;
     console.log(`📖 Reading from tab: "${tabName}"`);
     
-    // Read from row 4 onwards (skipping headers) - Columns A through K
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `'${tabName}'!A4:K1000`,
+      range: `'${tabName}'!A1:J1000`,
     });
 
     const rows = response.data.values;
-    if (!rows || rows.length < 2) {
-      console.log(`⚠️  No data found in "${tabName}"`);
+    if (!rows || rows.length < 4) {
+      console.log(`⚠️  Not enough data in "${tabName}"`);
       return [];
     }
 
-    console.log(`✅ Found ${rows.length - 1} data rows in "${tabName}"`);
+    const dataRows = rows.slice(3);
+    console.log(`📊 Total data rows after skipping first 3: ${dataRows.length}`);
 
-    // CORRECTED COLUMN MAPPING based on your sheet structure:
-    // A=Meeting, B=Date, C=Subject, D=Particulars, E=Process Owner, F=Amount, etc.
-    const colMap = {
-      meeting: 0,      // Column A - Meeting reference
-      date: 1,         // Column B - Date
-      subject: 2,      // Column C - Subject Matter
-      particulars: 3,  // Column D - Particulars
-      owner: 4,        // Column E - Process Owner (THIS WAS THE ISSUE!)
-      amount: 5,       // Column F - Amount
-      vendor: 6,       // Column G - Vendor
-      deadline: 7,     // Column H - Implementation Deadline
-      implStatus: 8,   // Column I - Implementation Status
-      monitorStatus: 9 // Column J - Monitoring Status
+    const COL = {
+      REF_NO: 0,
+      DATE: 1,
+      SUBJECT: 2,
+      PARTICULARS: 3,
+      PROCESS_OWNER: 4,
+      AMOUNT: 5,
+      VENDOR: 6,
+      IMPL_DEADLINE: 7,
+      IMPL_STATUS: 8,
+      MONITOR_STATUS: 9
     };
 
-    const headers = rows[0];
-    const data = rows.slice(1);
-
-    const directives = data.map((row, index) => {
-      if (!row || row.every(cell => !cell || cell.trim() === '')) {
-        return null;
+    // ⭐ ULTRA-FLEXIBLE REF EXTRACTION WITH SUB-LETTER PRESERVATION
+    function extractRefNumber(cellText) {
+      if (!cellText) return null;
+      
+      const cleaned = cellText.toString().trim();
+      
+      if (cleaned.toUpperCase().includes('MEETING AT WHICH')) return null;
+      if (cleaned === '' || cleaned === ',,' || cleaned === "'" || cleaned === "''") return null;
+      
+      // ⭐ PATTERN: Captures sub-letters like (a), (b), (c)
+      const pattern = /(CG|BD|Board)\s*\/\s*[A-Z]{3,4}\s*\/\s*\d+\s*\/\s*\d{4}\s*\/\s*\d+\s*(?:\([a-z]\)|\s+\([a-z]\))?/i;
+      const match = cleaned.match(pattern);
+      
+      if (match) {
+        let ref = match[0];
+        ref = ref.replace(/\s+/g, ''); // Remove all spaces
+        ref = ref.toUpperCase(); // Uppercase
+        
+        console.log(`   🔍 Extracted REF: "${ref}" from cell: "${cleaned}"`);
+        return ref;
       }
       
-      const subject = (row[colMap.subject] || '').trim();
-      const particulars = (row[colMap.particulars] || '').trim();
+      return null;
+    }
+
+    // ⭐ SMART AMOUNT PARSER - extracts valid amounts
+    function parseAmount(cellText) {
+      if (!cellText) return null;
       
-      if (!subject && !particulars) {
-        return null;
+      const cleaned = cellText.toString().trim();
+      
+      // Skip empty/placeholder cells
+      if (cleaned === '' || cleaned === ',,' || cleaned === "'" || cleaned === "''") return null;
+      
+      // Must contain numbers OR currency symbols
+      const hasNumbers = /\d/.test(cleaned);
+      const hasCurrency = /[₦$£€]|USD|GBP|EUR|Naira|billion|million/i.test(cleaned);
+      
+      // Skip if looks like a name (starts with capital letter followed by lowercase, has space, then another capital)
+      const looksLikeName = /^[A-Z][a-z]+\s+[A-Z]/.test(cleaned);
+      
+      if ((hasNumbers || hasCurrency) && !looksLikeName) {
+        return cleaned;
       }
       
-      // Skip header rows
-      const meetingText = row[colMap.meeting] || '';
-      if (meetingText.includes('MEETING AT WHICH')) {
-        return null;
-      }
+      return null;
+    }
 
-      const refMatch = meetingText.match(/(CG|BD|Board)\/[A-Z]{3}\/\d+\/\d{4}\/\d+/i);
-      const extractedRef = refMatch ? refMatch[0] : null;
-
-      const finalSubject = subject || (particulars.length > 0 ? particulars.substring(0, 100) : `Directive from ${tabName}`);
-      const finalParticulars = particulars || finalSubject;
-
-      // PROPERLY EXTRACT PROCESS OWNER FROM COLUMN E
-      const rawOwner = (row[colMap.owner] || '').trim();
-      console.log(`   Row ${index + 1}: Raw Owner = "${rawOwner}"`); // Debug log
+    const directiveMap = new Map();
+    let lastValidOwner = 'Unassigned';
+    let refsFound = 0;
+    
+    dataRows.forEach((row, index) => {
+      if (!row || row.length === 0) return;
       
-      const processOwner = extractProcessOwner(rawOwner);
+      const refCell = (row[COL.REF_NO] || '').toString();
+      const extractedRef = extractRefNumber(refCell);
+      
+      if (extractedRef) {
+        // ⭐ NEW REF FOUND
+        refsFound++;
+        
+        if (directiveMap.has(extractedRef)) {
+          // CONTINUATION - add to existing directive
+          const existingGroup = directiveMap.get(extractedRef);
+          
+          // Add particular if present
+          const particular = (row[COL.PARTICULARS] || '').toString().trim();
+          if (particular && particular !== ',,' && particular !== "'") {
+            existingGroup.particulars.push(particular);
+          }
+          
+          // ⭐ ADD AMOUNT from continuation row
+          const amount = parseAmount(row[COL.AMOUNT]);
+          if (amount) {
+            if (existingGroup.amounts.length > 0) {
+              existingGroup.amounts.push(amount);
+            } else {
+              existingGroup.amounts = [amount];
+            }
+            console.log(`   💰 Added amount to ${extractedRef}: ${amount}`);
+          }
+          
+          console.log(`   🔗 Row ${index + 4}: Added to existing ${extractedRef} (${existingGroup.particulars.length} outcomes)`);
+        } else {
+          // ⭐ BRAND NEW DIRECTIVE
+          
+          // Parse owner
+          const rawOwner = (row[COL.PROCESS_OWNER] || '').toString().trim();
+          const isPlaceholder = !rawOwner || rawOwner === '' || rawOwner === ',,' || rawOwner === "'" || rawOwner === "''";
+          
+          let processOwner = lastValidOwner;
+          
+          if (!isPlaceholder) {
+            let cleanOwner = rawOwner
+              .replace(/^['"]+|['"]+$/g, '')
+              .replace(/\s*CC:\s*/gi, '\n')
+              .split('\n')[0]
+              .replace(/Director of/gi, 'Director,')
+              .replace(/,\s*$/, '')
+              .trim();
+            
+            if (cleanOwner && cleanOwner.length > 3 && /[a-zA-Z]{3,}/.test(cleanOwner)) {
+              if (!cleanOwner.includes('₦') && !cleanOwner.includes('billion') && !cleanOwner.includes('trillion')) {
+                processOwner = cleanOwner;
+                lastValidOwner = cleanOwner;
+              }
+            }
+          }
+          
+          // Parse date
+          const dateCell = (row[COL.DATE] || '').toString().trim();
+          let meetingDate = new Date();
+          
+          if (dateCell && dateCell !== ',,' && dateCell !== "'") {
+            const dateMatch = dateCell.match(/(\d{1,2})\w*\s+of\s+([A-Za-z]+)\s+(\d{4})/);
+            if (dateMatch) {
+              meetingDate = new Date(`${dateMatch[2]} ${dateMatch[1]}, ${dateMatch[3]}`);
+            } else {
+              meetingDate = parseDate(dateCell);
+            }
+          }
+          
+          // ⭐ COLLECT AMOUNTS (can be multiple)
+          const amounts = [];
+          const firstAmount = parseAmount(row[COL.AMOUNT]);
+          if (firstAmount) {
+            amounts.push(firstAmount);
+          }
+          
+          // Create new group
+          const newGroup = {
+            refNo: extractedRef,
+            meetingDate: meetingDate,
+            subject: (row[COL.SUBJECT] || '').toString().trim(),
+            processOwner: processOwner,
+            amounts: amounts, // ⭐ Array to hold multiple amounts
+            vendor: (row[COL.VENDOR] || '').toString().trim(),
+            implDeadline: (row[COL.IMPL_DEADLINE] || '').toString().trim(),
+            implStatus: (row[COL.IMPL_STATUS] || '').toString().trim(),
+            monitorStatus: (row[COL.MONITOR_STATUS] || '').toString().trim(),
+            particulars: []
+          };
+          
+          // Add first particular
+          const firstParticular = (row[COL.PARTICULARS] || '').toString().trim();
+          if (firstParticular && firstParticular !== ',,' && firstParticular !== "'") {
+            newGroup.particulars.push(firstParticular);
+          }
+          
+          directiveMap.set(extractedRef, newGroup);
+          console.log(`\n📌 NEW DIRECTIVE: ${extractedRef}`);
+          console.log(`   Owner: "${processOwner}"`);
+          console.log(`   Date: ${meetingDate.toDateString()}`);
+          if (amounts.length > 0) {
+            console.log(`   Amount: ${amounts[0]}`);
+          }
+        }
+      } else {
+        // Row with no REF - continuation of last directive
+        const lastEntry = Array.from(directiveMap.values()).pop();
+        if (lastEntry) {
+          // Add particular if present
+          const particular = (row[COL.PARTICULARS] || '').toString().trim();
+          if (particular && particular !== ',,' && particular !== "'") {
+            lastEntry.particulars.push(particular);
+            console.log(`   └─ Row ${index + 4}: Added particular to ${lastEntry.refNo} (${lastEntry.particulars.length})`);
+          }
+          
+          // ⭐ ADD AMOUNT from continuation row
+          const amount = parseAmount(row[COL.AMOUNT]);
+          if (amount) {
+            lastEntry.amounts.push(amount);
+            console.log(`   └─💰 Added amount: ${amount}`);
+          }
+        }
+      }
+    });
 
-      const extractedOutcomes = parseOutcomes(finalParticulars);
+    const groups = Array.from(directiveMap.values());
+    console.log(`\n✨ SYNC SUMMARY for "${tabName}":`);
+    console.log(`   📋 Total rows scanned: ${dataRows.length}`);
+    console.log(`   🔢 Unique REF numbers found: ${refsFound}`);
+    console.log(`   📦 Directives created: ${groups.length}\n`);
 
+    // Convert to directives
+    const directives = groups.map((group, idx) => {
+      const outcomes = group.particulars.map(particular => ({
+        text: smartTruncate(particular, 300),
+        status: 'Not Started'
+      }));
+      
+      if (outcomes.length === 0) {
+        outcomes.push({
+          text: group.subject || 'Implementation required',
+          status: 'Not Started'
+        });
+      }
+      
+      const combinedParticulars = group.particulars.length > 0 
+        ? group.particulars.join('\n\n') 
+        : group.subject;
+      
+      const implDeadline = parseDate(group.implDeadline);
+      
+      // Normalize monitoring status
+      let monitoringStatus = group.monitorStatus || 'Awaiting Next Reminder';
+      if (monitoringStatus.trim() === '') {
+        monitoringStatus = 'Awaiting Next Reminder';
+      }
+      
+      // ⭐ COMBINE AMOUNTS - join with line breaks
+      const combinedAmount = group.amounts.length > 0 
+        ? group.amounts.join('\n') 
+        : '';
+      
+      console.log(`✅ ${idx + 1}/${groups.length}: ${group.refNo} - ${outcomes.length} outcomes, ${group.amounts.length} amount(s)`);
+      
       return {
         source: tabName.toLowerCase().includes('board') ? 'Board' : 'CG',
         sheetName: tabName,
-        ref: extractedRef,
-        meetingDate: parseDate(row[colMap.date] || new Date()),
-        subject: finalSubject,
-        particulars: finalParticulars,
-        owner: processOwner,
-        primaryEmail: '', // To be filled manually or from another source
+        ref: group.refNo,
+        meetingDate: group.meetingDate,
+        subject: group.subject || 'No Subject',
+        particulars: combinedParticulars,
+        owner: group.processOwner,
+        primaryEmail: '',
         secondaryEmail: '',
-        amount: (row[colMap.amount] || '').trim(),
-        vendor: (row[colMap.vendor] || '').trim(),
+        amount: combinedAmount, // ⭐ All amounts combined
+        vendor: group.vendor || '',
         implementationStartDate: null,
-        implementationEndDate: null,
-        implementationStatus: (row[colMap.implStatus] || 'Not Started').trim(),
-        monitoringStatus: 'Awaiting Next Reminder',
-        outcomes: extractedOutcomes,
+        implementationEndDate: implDeadline,
+        implementationStatus: group.implStatus || 'Not Started',
+        monitoringStatus: monitoringStatus,
+        outcomes: outcomes,
         statusHistory: [{
-          status: 'Awaiting Next Reminder',
+          status: monitoringStatus,
           changedAt: new Date(),
-          notes: 'Initial status'
+          notes: 'Initial status from Google Sheet'
         }]
       };
-    }).filter(d => d !== null);
+    });
 
-    console.log(`   ✅ Processed ${directives.length} valid directives`);
+    console.log(`\n🎉 Successfully created ${directives.length} directives from "${tabName}"\n`);
     return directives;
+    
   } catch (error) {
     console.error(`❌ Error fetching sheet "${sheetName}":`, error.message);
     throw error;
   }
 }
-
 
 
 // ==========================================
@@ -1229,6 +1437,8 @@ app.get('/api/directives/:id', async (req, res) => {
   }
 });
 
+
+
 app.put('/api/directives/:id', async (req, res) => {
   try {
     const directive = await Directive.findById(req.params.id);
@@ -1252,6 +1462,16 @@ app.put('/api/directives/:id', async (req, res) => {
       secondaryEmail
     } = req.body;
     
+    // ⭐ CHECK IF EMAIL WAS CHANGED
+    const emailChanged = (
+      (primaryEmail !== undefined && primaryEmail !== directive.primaryEmail) ||
+      (secondaryEmail !== undefined && secondaryEmail !== directive.secondaryEmail)
+    );
+    
+    const oldOwner = directive.owner;
+    const newOwner = owner || directive.owner;
+    
+    // Update the current directive
     if (outcomes) directive.outcomes = outcomes;
     if (implementationStatus) directive.implementationStatus = implementationStatus;
     if (completionNote) directive.completionNote = completionNote;
@@ -1263,7 +1483,7 @@ app.put('/api/directives/:id', async (req, res) => {
     if (particulars) directive.particulars = particulars;
     if (amount !== undefined) directive.amount = amount;
     if (sheetName) directive.sheetName = sheetName;
-    if (primaryEmail) directive.primaryEmail = primaryEmail;
+    if (primaryEmail !== undefined) directive.primaryEmail = primaryEmail;
     if (secondaryEmail !== undefined) directive.secondaryEmail = secondaryEmail;
     
     if (outcomes) {
@@ -1273,11 +1493,48 @@ app.put('/api/directives/:id', async (req, res) => {
     
     await directive.updateMonitoringStatus(outcomes ? 'SBU update received' : 'Directive edited');
     
-    res.json({ success: true, data: directive });
+    // ⭐ IF EMAIL WAS CHANGED, UPDATE ALL DIRECTIVES WITH THE SAME OWNER
+    if (emailChanged && newOwner) {
+      try {
+        const updateResult = await Directive.updateMany(
+          { 
+            owner: newOwner,
+            _id: { $ne: directive._id } // Don't update the current directive again
+          },
+          {
+            $set: {
+              primaryEmail: directive.primaryEmail,
+              secondaryEmail: directive.secondaryEmail
+            }
+          }
+        );
+        
+        console.log(`✅ Updated email for ${updateResult.modifiedCount} other directive(s) with owner: ${newOwner}`);
+        
+        res.json({ 
+          success: true, 
+          data: directive,
+          emailsUpdated: updateResult.modifiedCount,
+          message: emailChanged ? `Email updated for ${newOwner} across ${updateResult.modifiedCount + 1} directive(s)` : null
+        });
+      } catch (emailUpdateError) {
+        console.error('⚠️  Failed to update emails for other directives:', emailUpdateError);
+        // Still return success for the main directive update
+        res.json({ 
+          success: true, 
+          data: directive,
+          warning: 'Directive updated but failed to sync email to other directives with same owner'
+        });
+      }
+    } else {
+      res.json({ success: true, data: directive });
+    }
+    
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 app.post('/api/directives', async (req, res) => {
   try {
@@ -1502,6 +1759,99 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/submit-update/test', (req, res) => {
+  res.send('<h1>✅ Route is working!</h1>');
+});
+
+
+
+
+// ==========================================
+// EMAIL MANAGEMENT API ROUTES
+// ==========================================
+
+// Get all process owners with their directives
+app.get('/api/process-owners-with-directives', async (req, res) => {
+  try {
+    const directives = await Directive.find().sort({ owner: 1, createdAt: -1 });
+    
+    // Group by owner
+    const ownerMap = new Map();
+    
+    directives.forEach(directive => {
+      const ownerName = directive.owner || 'Unassigned';
+      
+      if (!ownerMap.has(ownerName)) {
+        ownerMap.set(ownerName, {
+          name: ownerName,
+          primaryEmail: directive.primaryEmail || '',
+          secondaryEmail: directive.secondaryEmail || '',
+          directiveCount: 0,
+          directives: []
+        });
+      }
+      
+      const owner = ownerMap.get(ownerName);
+      owner.directiveCount++;
+      owner.directives.push({
+        _id: directive._id,
+        ref: directive.ref,
+        subject: directive.subject,
+        source: directive.source,
+        monitoringStatus: directive.monitoringStatus
+      });
+    });
+    
+    // Convert map to array and sort
+    const owners = Array.from(ownerMap.values()).sort((a, b) => {
+      // Sort: without email first, then by name
+      const aHasEmail = a.primaryEmail && a.primaryEmail.trim() !== '';
+      const bHasEmail = b.primaryEmail && b.primaryEmail.trim() !== '';
+      
+      if (aHasEmail === bHasEmail) {
+        return a.name.localeCompare(b.name);
+      }
+      return aHasEmail ? 1 : -1;
+    });
+    
+    res.json({ success: true, data: owners });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update emails for all directives of a specific owner
+app.post('/api/update-owner-emails', async (req, res) => {
+  try {
+    const { owner, primaryEmail, secondaryEmail } = req.body;
+    
+    if (!owner) {
+      return res.status(400).json({ success: false, error: 'Owner name required' });
+    }
+    
+    // Update all directives for this owner
+    const result = await Directive.updateMany(
+      { owner: owner },
+      {
+        $set: {
+          primaryEmail: primaryEmail || '',
+          secondaryEmail: secondaryEmail || ''
+        }
+      }
+    );
+    
+    res.json({ 
+      success: true, 
+      updated: result.modifiedCount,
+      message: `Updated ${result.modifiedCount} directives for ${owner}`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+
 app.listen(PORT, () => {
   console.log(`\n🚀 CBN Directives Platform - EMAIL INTEGRATED & FIXED`);
   console.log(`📍 Server: http://localhost:${PORT}`);
@@ -1531,35 +1881,48 @@ app.post('/api/directives/:id/request-update', async (req, res) => {
     const today = new Date();
     const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
     
+    // ⭐ GENERATE SUBMISSION LINK
+    const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
+    const submissionUrl = `${baseUrl}/submit-update/${directive._id}`;
+    
     // Filter outcomes if specific ones were selected
     const outcomesToShow = selectedOutcomes && selectedOutcomes.length > 0
       ? directive.outcomes.filter(o => selectedOutcomes.includes(o.text))
       : directive.outcomes;
     
-    // BUILD FULL INTERACTIVE FORM EMAIL (EXACTLY WHAT RECIPIENT SEES)
+    // ⭐ BUILD OUTCOMES DISPLAY (READ-ONLY IN EMAIL)
     const outcomesHtml = outcomesToShow.map((outcome, idx) => {
+      const statusColor = {
+        'Not Started': '#6b7280',
+        'Being Implemented': '#3b82f6',
+        'Delayed': '#f59e0b',
+        'Completed': '#10b981'
+      }[outcome.status] || '#6b7280';
+      
       return `
-        <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+        <div style="margin-bottom: 16px; padding: 16px; background: white; border-radius: 8px; border-left: 4px solid ${statusColor};">
           <div style="font-weight: 700; color: #4f46e5; margin-bottom: 8px; font-size: 14px;">Outcome ${idx + 1}</div>
-          <div style="color: #374151; font-size: 13px; line-height: 1.6; margin-bottom: 12px;">${outcome.text}</div>
-          
-          <div style="margin-bottom: 12px;">
-            <label style="display: block; font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 6px;">Current Implementation Status</label>
-            <select style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white;">
-              <option ${outcome.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
-              <option ${outcome.status === 'Being Implemented' ? 'selected' : ''}>Being Implemented</option>
-              <option ${outcome.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
-              <option ${outcome.status === 'Completed' ? 'selected' : ''}>Completed</option>
-            </select>
+          <div style="color: #374151; font-size: 13px; line-height: 1.6; margin-bottom: 8px;">${outcome.text}</div>
+          <div style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background: ${statusColor}; color: white;">
+            Current Status: ${outcome.status}
           </div>
-          
-          <div>
-            <label style="display: block; font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 6px;">Challenges / Obstacles Encountered</label>
-            <textarea rows="3" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white; font-family: Arial, sans-serif;" placeholder="Document any issues or roadblocks..."></textarea>
-          </div>
+          ${outcome.challenges ? `<div style="margin-top: 8px; font-size: 12px; color: #6b7280;"><strong>Challenges:</strong> ${outcome.challenges}</div>` : ''}
         </div>
       `;
     }).join('');
+
+    const implementationTimeline = directive.implementationStartDate || directive.implementationEndDate
+      ? `
+      <div style="padding: 20px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+        <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Current Implementation Timeline</div>
+        <div style="color: #111827; font-size: 14px; font-weight: 600;">
+          ${directive.implementationStartDate ? formatDate(directive.implementationStartDate) : 'Not set'} 
+          <span style="color: #6b7280; font-weight: 400;">→</span> 
+          ${directive.implementationEndDate ? formatDate(directive.implementationEndDate) : 'Not set'}
+        </div>
+      </div>
+      `
+      : '';
 
     const emailHtml = `
 <!DOCTYPE html>
@@ -1572,24 +1935,28 @@ app.post('/api/directives/:id/request-update', async (req, res) => {
   <div style="max-width: 700px; margin: 0 auto; background: white; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
     
     <!-- MEMO HEADER -->
-    <div style="padding: 24px; background: white; border-bottom: 2px solid #e5e7eb;">
-      <table style="width: 100%; font-size: 13px; color: #374151; margin-bottom: 20px;">
-        <tr>
-          <td style="padding: 6px 0; width: 50%;"><strong>To:</strong> ${directive.owner}</td>
-          <td style="padding: 6px 0;"><strong>From:</strong> Secretary to the Board/Director</td>
-        </tr>
-        <tr>
-          <td style="padding: 6px 0;"><strong>Ref:</strong> ${directive.ref || 'N/A'}</td>
-          <td style="padding: 6px 0;"><strong>Date:</strong> ${dateStr}</td>
-        </tr>
-      </table>
-      <div>
-        <strong style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Subject:</strong>
-        <div style="font-weight: 700; color: #111827; font-size: 14px; margin-top: 4px;">REQUEST FOR STATUS OF COMPLIANCE WITH BOARD DECISIONS</div>
-      </div>
+    <div style="border-bottom: 3px solid #1e40af; padding: 24px; background: white;">
+      <h2 style="color: #1e40af; font-size: 18px; font-weight: 700; margin: 0 0 12px 0; text-transform: uppercase;">
+        REQUEST FOR STATUS OF COMPLIANCE WITH BOARD DECISIONS
+      </h2>
+      <p style="color: #6b7280; font-size: 13px; margin: 0;">Central Bank of Nigeria - Corporate Secretariat</p>
     </div>
     
-    <!-- INTRO TEXT -->
+    <!-- MEMO DETAILS -->
+    <div style="padding: 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+      <table style="width: 100%; font-size: 13px; color: #374151;">
+        <tr>
+          <td style="padding: 8px 0; width: 50%;"><strong>To:</strong> ${directive.owner}</td>
+          <td style="padding: 8px 0;"><strong>From:</strong> Secretary to the Board/Director</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0;"><strong>Ref:</strong> ${directive.ref || 'N/A'}</td>
+          <td style="padding: 8px 0;"><strong>Date:</strong> ${dateStr}</td>
+        </tr>
+      </table>
+    </div>
+    
+    <!-- INTRO -->
     <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
       <p style="color: #374151; font-size: 13px; line-height: 1.6; margin: 0;">
         The Corporate Secretariat is compiling the status of SBU's compliance with ${directive.source === 'CG' ? 'Council of Governors' : 'Board of Directors'} decisions from January to September 2025. Please send your submission by <strong>24th October 2025</strong>.
@@ -1598,82 +1965,82 @@ app.post('/api/directives/:id/request-update', async (req, res) => {
     
     <!-- DIRECTIVE DETAILS -->
     <div style="padding: 20px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-      <h3 style="font-size: 13px; font-weight: 700; color: #111827; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 12px 0;">Directive Details</h3>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-        <div>
-          <span style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 4px;">Subject</span>
-          <span style="font-size: 13px; color: #111827; font-weight: 600;">${directive.subject}</span>
-        </div>
-        <div>
-          <span style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 4px;">Process Owner</span>
-          <span style="font-size: 13px; color: #111827; font-weight: 600;">${directive.owner}</span>
-        </div>
+      <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Subject</div>
+      <div style="font-weight: 700; color: #111827; font-size: 14px; line-height: 1.5; margin-bottom: 16px;">${directive.subject}</div>
+      
+      <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Process Owner</div>
+      <div style="color: #111827; font-size: 14px; font-weight: 600;">${directive.owner}</div>
+    </div>
+    
+    ${implementationTimeline}
+    
+    <!-- OUTCOMES (READ-ONLY) -->
+    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
+      <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px;">Required Outcomes & Current Status</div>
+      <div style="background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
+        ${outcomesHtml}
       </div>
     </div>
     
-    <!-- SUBMIT YOUR UPDATE SECTION -->
-    <div style="padding: 24px; background: #eff6ff;">
-      <div style="display: flex; align-items: center; margin-bottom: 20px;">
-        <div style="background: #4f46e5; border-radius: 50%; padding: 8px; margin-right: 12px;">
-          <svg style="width: 16px; height: 16px; color: white;" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
-          </svg>
-        </div>
-        <h3 style="font-size: 16px; font-weight: 700; color: #111827; margin: 0;">Submit Your Update</h3>
-      </div>
-      
-      <!-- Timeline Inputs -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-        <div>
-          <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Implementation Timeline (New Project)</label>
-          <input type="text" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white;" placeholder="e.g. Jan 2025 - Dec 2025">
-        </div>
-        <div>
-          <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Months Left for Implementation (All Projects)</label>
-          <input type="number" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white;" placeholder="e.g. 6">
-        </div>
-      </div>
-      
-      <!-- OUTCOMES BOX -->
-      <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <h4 style="font-size: 13px; font-weight: 700; color: #111827; text-transform: uppercase; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; margin: 0 0 20px 0;">Update Status for Action Points / Outcomes</h4>
-        ${outcomesHtml}
-      </div>
-      
-      <!-- Comments -->
+    <!-- ⭐ BIG CALL-TO-ACTION BUTTON (LINKS TO WEB FORM) -->
+    <div style="padding: 40px 24px; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); text-align: center;">
       <div style="margin-bottom: 20px;">
-        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Comments / Additional Details</label>
-        <textarea rows="3" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white; font-family: Arial, sans-serif;"></textarea>
+        <svg style="width: 56px; height: 56px; color: white; margin: 0 auto;" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+        </svg>
       </div>
       
-      <!-- File Upload -->
-      <div style="margin-bottom: 24px;">
-        <label style="display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px;">Upload Supporting Documents</label>
-        <div style="border: 2px dashed #d1d5db; border-radius: 8px; padding: 32px; text-align: center; background: white;">
-          <svg style="width: 40px; height: 40px; color: #9ca3af; margin: 0 auto 8px;" fill="none" stroke="currentColor" viewBox="0 0 48 48">
-            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <div style="font-size: 13px; color: #6b7280;">
-            <span style="font-weight: 600; color: #4f46e5;">Upload a file</span> or drag and drop
-          </div>
-          <p style="font-size: 11px; color: #9ca3af; margin-top: 4px;">PNG, JPG, PDF up to 10MB</p>
+      <h3 style="color: white; font-size: 20px; font-weight: 700; margin: 0 0 12px 0;">
+        Submit Your Implementation Update
+      </h3>
+      
+      <p style="color: #e0e7ff; font-size: 14px; line-height: 1.6; margin: 0 0 28px 0; max-width: 500px; margin-left: auto; margin-right: auto;">
+        Click the button below to access the secure submission portal where you can update implementation status, add timeline details, and upload supporting documents.
+      </p>
+      
+      <a href="${submissionUrl}" style="display: inline-block; background: white; color: #4f46e5; font-weight: 700; padding: 18px 48px; border-radius: 10px; text-decoration: none; font-size: 16px; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);">
+        📝 Submit Update Now →
+      </a>
+      
+      <p style="color: #c7d2fe; font-size: 11px; margin: 24px 0 0 0; line-height: 1.5;">
+        Or copy this link to your browser:<br>
+        <span style="background: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 4px; display: inline-block; margin-top: 8px; font-family: monospace; font-size: 10px; word-break: break-all;">
+          ${submissionUrl}
+        </span>
+      </p>
+    </div>
+    
+    <!-- WHAT TO EXPECT -->
+    <div style="padding: 24px; background: #eff6ff; border-top: 1px solid #dbeafe;">
+      <div style="display: flex; align-items-start;">
+        <svg style="width: 20px; height: 20px; color: #1e40af; margin-right: 12px; flex-shrink: 0; margin-top: 2px;" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"/>
+        </svg>
+        <div>
+          <p style="color: #1e40af; font-size: 13px; font-weight: 600; line-height: 1.6; margin: 0 0 8px 0;">
+            <strong>On the submission portal, you can:</strong>
+          </p>
+          <ul style="color: #1e40af; font-size: 12px; line-height: 1.8; margin: 0; padding-left: 20px;">
+            <li>Update outcome statuses (Not Started, Being Implemented, Delayed, Completed)</li>
+            <li>Add or modify implementation timelines with start and end dates</li>
+            <li>Document challenges and obstacles encountered</li>
+            <li>Upload supporting documents (PDF, Excel, Word, images up to 10MB)</li>
+            <li>Provide additional comments and details</li>
+          </ul>
         </div>
-      </div>
-      
-      <!-- SUBMIT BUTTON -->
-      <div style="text-align: right;">
-        <button style="background: #15803d; color: white; font-weight: 700; padding: 12px 24px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          Submit Update to Secretariat
-        </button>
       </div>
     </div>
     
     <!-- FOOTER -->
     <div style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
-      <p style="color: #6b7280; font-size: 11px; margin: 0;">
+      <p style="color: #6b7280; font-size: 11px; margin: 0 0 4px 0;">
         This is an automated request from the CBN Directives Management System
       </p>
+      <p style="color: #9ca3af; font-size: 10px; margin: 0;">
+        For technical support, contact the Corporate Secretariat
+      </p>
     </div>
+    
   </div>
 </body>
 </html>
@@ -1683,30 +2050,61 @@ app.post('/api/directives/:id/request-update', async (req, res) => {
     let emailSent = false;
     if (emailTransporter) {
       try {
+        // CHECK IF EMAIL EXISTS AND IS VALID
+        if (!directive.primaryEmail || directive.primaryEmail.trim() === '') {
+          console.log(`   ⚠️  No email address for directive ${directive.ref} (${directive.owner})`);
+          return res.json({ 
+            success: false, 
+            error: 'No email address configured for this process owner. Please add an email in the Email Management section first.' 
+          });
+        }
+
         const recipients = [directive.primaryEmail];
         if (directive.secondaryEmail && directive.secondaryEmail.trim() !== '') {
           recipients.push(directive.secondaryEmail);
         }
 
+        // VALIDATE EMAIL FORMAT
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const validRecipients = recipients.filter(email => emailRegex.test(email));
+        
+        if (validRecipients.length === 0) {
+          console.log(`   ⚠️  No valid email addresses for directive ${directive.ref}`);
+          return res.json({ 
+            success: false, 
+            error: 'Invalid email address format. Please update the email in Email Management.' 
+          });
+        }
+
         const mailOptions = {
           from: `"CBN Directives System" <${process.env.EMAIL_USER}>`,
-          to: recipients.join(', '),
+          to: validRecipients.join(', '),
           subject: `Status Update Request - ${directive.ref}`,
           html: emailHtml
         };
 
         await emailTransporter.sendMail(mailOptions);
         emailSent = true;
-        console.log(`✅ Request update email sent to: ${recipients.join(', ')}`);
+        console.log(`✅ Request update email sent to: ${validRecipients.join(', ')}`);
       } catch (emailError) {
         console.error('❌ Email send failed:', emailError.message);
+        return res.json({ 
+          success: false, 
+          error: `Failed to send email: ${emailError.message}` 
+        });
       }
+    } else {
+      return res.json({ 
+        success: false, 
+        error: 'Email system not configured. Please check server settings.' 
+      });
     }
 
     res.json({ 
       success: true, 
       emailSent,
-      message: emailSent ? 'Request update email sent successfully' : 'Request logged but email could not be sent'
+      submissionUrl,
+      message: `Request update email sent successfully to ${directive.owner}`
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -1714,3 +2112,319 @@ app.post('/api/directives/:id/request-update', async (req, res) => {
 });
 
 
+
+
+
+/// Replace the DELETE endpoint with this GET version
+app.get('/api/admin/clear-directives', async (req, res) => {
+  try {
+    const result = await Directive.deleteMany({});
+    res.json({ 
+      success: true, 
+      message: `Deleted ${result.deletedCount} directives` 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// ==========================================
+// SUBMISSION PORTAL - GET PAGE
+// ==========================================
+
+app.get('/submit-update/:id', async (req, res) => {
+  try {
+    const directive = await Directive.findById(req.params.id);
+    if (!directive) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html><head><meta charset="UTF-8"><title>Not Found</title></head>
+        <body style="font-family: Arial; text-align: center; padding: 100px;">
+          <h1 style="color: #ef4444;">❌ Directive Not Found</h1>
+          <p style="color: #6b7280;">The directive you're looking for doesn't exist.</p>
+        </body></html>
+      `);
+    }
+    
+    // Build outcomes HTML
+    const outcomesHtml = directive.outcomes.map((outcome, idx) => `
+      <div class="bg-gray-50 rounded-lg border border-gray-200 p-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-bold text-indigo-600">Outcome ${idx + 1}</span>
+          <span class="text-xs px-2 py-1 rounded-full font-semibold ${
+            outcome.status === 'Completed' ? 'bg-green-100 text-green-700' :
+            outcome.status === 'Being Implemented' ? 'bg-blue-100 text-blue-700' :
+            outcome.status === 'Delayed' ? 'bg-orange-100 text-orange-700' :
+            'bg-gray-100 text-gray-700'
+          }">Current: ${outcome.status}</span>
+        </div>
+        
+        <p class="text-sm text-gray-700 mb-3 leading-relaxed">${outcome.text}</p>
+        
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Update Status *</label>
+            <select name="outcomes[${idx}].status" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+              <option value="Not Started" ${outcome.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
+              <option value="Being Implemented" ${outcome.status === 'Being Implemented' ? 'selected' : ''}>Being Implemented</option>
+              <option value="Delayed" ${outcome.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
+              <option value="Completed" ${outcome.status === 'Completed' ? 'selected' : ''}>Completed</option>
+            </select>
+          </div>
+          
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Challenges / Obstacles</label>
+            <textarea name="outcomes[${idx}].challenges" rows="2" placeholder="Document any issues or roadblocks..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">${outcome.challenges || ''}</textarea>
+          </div>
+          
+          <div class="completion-details" style="display: none;">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Completion Details</label>
+            <textarea name="outcomes[${idx}].completionDetails" rows="2" placeholder="Describe what was completed..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">${outcome.completionDetails || ''}</textarea>
+          </div>
+          
+          <div class="delay-reason" style="display: none;">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Reason for Delay</label>
+            <textarea name="outcomes[${idx}].delayReason" rows="2" placeholder="Explain why this is delayed..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">${outcome.delayReason || ''}</textarea>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    
+    // Serve the submission form HTML
+    res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Update - ${directive.ref}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen py-8 px-4">
+    <div class="max-w-4xl mx-auto">
+        
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 mb-6">
+            <div class="border-b-4 border-blue-600 pb-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">📝 Submit Implementation Update</h1>
+                <p class="text-gray-600">Central Bank of Nigeria - Corporate Secretariat</p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-6 text-sm">
+                <div>
+                    <span class="text-gray-500 font-semibold">Reference:</span>
+                    <span class="text-gray-900 font-bold ml-2">${directive.ref || 'N/A'}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500 font-semibold">Process Owner:</span>
+                    <span class="text-gray-900 font-bold ml-2">${directive.owner}</span>
+                </div>
+            </div>
+            
+            <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div class="text-xs text-gray-500 font-semibold mb-1">SUBJECT</div>
+                <div class="text-sm text-gray-900 font-semibold">${directive.subject}</div>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <form id="updateForm" class="space-y-6">
+            
+            <!-- Timeline -->
+            <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-2xl mr-2">📅</span>
+                    Implementation Timeline
+                </h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Start Date</label>
+                        <input type="date" name="implementationStartDate" value="${directive.implementationStartDate ? new Date(directive.implementationStartDate).toISOString().split('T')[0] : ''}" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">End Date</label>
+                        <input type="date" name="implementationEndDate" value="${directive.implementationEndDate ? new Date(directive.implementationEndDate).toISOString().split('T')[0] : ''}" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Outcomes -->
+            <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-2xl mr-2">🎯</span>
+                    Update Status for Outcomes
+                </h2>
+                ${outcomesHtml}
+            </div>
+            
+            <!-- Additional Comments -->
+            <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-2xl mr-2">💬</span>
+                    Additional Comments
+                </h2>
+                <textarea name="completionNote" rows="4" placeholder="Provide any additional details or context..." class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">${directive.completionNote || ''}</textarea>
+            </div>
+            
+            <!-- File Upload -->
+            <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-2xl mr-2">📎</span>
+                    Supporting Documents
+                </h2>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
+                    <input type="file" id="fileInput" name="files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" class="hidden">
+                    <label for="fileInput" class="cursor-pointer">
+                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <p class="text-sm text-gray-600 mb-1">
+                            <span class="font-semibold text-blue-600">Click to upload</span> or drag and drop
+                        </p>
+                        <p class="text-xs text-gray-500">PDF, DOC, XLS, PNG, JPG up to 10MB</p>
+                    </label>
+                </div>
+                <div id="fileList" class="mt-4 space-y-2"></div>
+            </div>
+            
+            <!-- Submit Button -->
+            <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all shadow-lg text-lg">
+                    ✅ Submit Update to Secretariat
+                </button>
+            </div>
+        </form>
+        
+        <!-- Success Message -->
+        <div id="successMessage" class="hidden bg-white rounded-2xl shadow-lg border-4 border-green-500 p-8 text-center">
+            <div class="text-6xl mb-4">✅</div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">Update Submitted Successfully!</h2>
+            <p class="text-gray-600 mb-6">Your implementation update has been received by the Corporate Secretariat.</p>
+            <button onclick="location.reload()" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
+                Submit Another Update
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const directiveId = '${directive._id}';
+        
+        // Show/hide conditional fields based on status
+        document.querySelectorAll('select[name^="outcomes"]').forEach((select, idx) => {
+            select.addEventListener('change', function() {
+                const parent = this.closest('.bg-gray-50');
+                const completionDiv = parent.querySelector('.completion-details');
+                const delayDiv = parent.querySelector('.delay-reason');
+                
+                if (this.value === 'Completed') {
+                    completionDiv.style.display = 'block';
+                    delayDiv.style.display = 'none';
+                } else if (this.value === 'Delayed') {
+                    delayDiv.style.display = 'block';
+                    completionDiv.style.display = 'none';
+                } else {
+                    completionDiv.style.display = 'none';
+                    delayDiv.style.display = 'none';
+                }
+            });
+            
+            // Trigger on load
+            select.dispatchEvent(new Event('change'));
+        });
+        
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        
+        fileInput.addEventListener('change', function() {
+            fileList.innerHTML = '';
+            Array.from(this.files).forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200';
+                fileItem.innerHTML = \`
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z"/>
+                        </svg>
+                        <span class="text-sm font-medium text-gray-700">\${file.name}</span>
+                        <span class="text-xs text-gray-500 ml-2">(\${(file.size / 1024).toFixed(1)} KB)</span>
+                    </div>
+                \`;
+                fileList.appendChild(fileItem);
+            });
+        });
+        
+        // Form submission
+        document.getElementById('updateForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '⏳ Submitting...';
+            
+            try {
+                const formData = new FormData(this);
+                
+                // Build outcomes array
+                const outcomes = [];
+                let outcomeIndex = 0;
+                while (formData.get(\`outcomes[\${outcomeIndex}].status\`)) {
+                    outcomes.push({
+                        text: '${directive.outcomes.map(o => o.text.replace(/'/g, "\\'")).join("', '")}' .split("', '")[outcomeIndex],
+                        status: formData.get(\`outcomes[\${outcomeIndex}].status\`),
+                        challenges: formData.get(\`outcomes[\${outcomeIndex}].challenges\`) || '',
+                        completionDetails: formData.get(\`outcomes[\${outcomeIndex}].completionDetails\`) || '',
+                        delayReason: formData.get(\`outcomes[\${outcomeIndex}].delayReason\`) || ''
+                    });
+                    outcomeIndex++;
+                }
+                
+                const updateData = {
+                    outcomes: outcomes,
+                    implementationStartDate: formData.get('implementationStartDate') || null,
+                    implementationEndDate: formData.get('implementationEndDate') || null,
+                    completionNote: formData.get('completionNote') || '',
+                    updatedBy: '${directive.owner}'
+                };
+                
+                const response = await fetch(\`/api/directives/\${directiveId}\`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+                
+                const data = await response.json();
+                
+                if (!data.success) throw new Error(data.error);
+                
+                // Show success message
+                document.getElementById('updateForm').classList.add('hidden');
+                document.getElementById('successMessage').classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '✅ Submit Update to Secretariat';
+            }
+        });
+    </script>
+</body>
+</html>
+    `);
+  } catch (error) {
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html><head><meta charset="UTF-8"><title>Error</title></head>
+      <body style="font-family: Arial; text-align: center; padding: 100px;">
+        <h1 style="color: #ef4444;">❌ Error</h1>
+        <p style="color: #6b7280;">${error.message}</p>
+      </body></html>
+    `);
+  }
+});

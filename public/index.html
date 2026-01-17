@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Inter', sans-serif; }
@@ -926,6 +927,15 @@
                     <button onclick="switchView('add')" id="nav-add" class="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100">
                         Add Directive
                     </button>
+
+                       <!-- ADD THIS BUTTON HERE -->
+    <a href="/email-updates.html" class="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 flex items-center gap-2">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+        </svg>
+        Manage Emails
+    </a>
                     
                     <button onclick="openReminderSettings()" class="btn-secondary flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -933,6 +943,8 @@
                         </svg>
                         Reminders
                     </button>
+
+                    
                     
                     <button onclick="syncFromSheets()" class="btn-primary flex items-center gap-2 shadow-lg">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1147,11 +1159,59 @@
                             <input type="text" id="add-subject" class="filter-input" placeholder="Enter directive subject" required>
                         </div>
 
-                        <div class="mb-6">
-                            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Particulars *</label>
-                            <textarea id="add-particulars" rows="6" class="filter-input" placeholder="Enter directive particulars" required></textarea>
-                            <p class="text-xs text-gray-500 mt-1">The system will automatically extract 1-3 key outcomes from the particulars</p>
-                        </div>
+                     <!-- REPLACE THE PARTICULARS SECTION WITH THIS -->
+<div class="mb-6">
+    <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Particulars *</label>
+    <textarea id="add-particulars" rows="6" class="filter-input" placeholder="Enter directive particulars" required></textarea>
+    <div class="flex items-center gap-4 mt-3">
+        <p class="text-xs text-gray-500">The system can auto-extract outcomes, or you can add them manually below</p>
+        <button type="button" onclick="autoExtractOutcomes()" class="text-blue-600 hover:text-blue-700 text-xs font-semibold underline">
+            Auto-Extract Outcomes
+        </button>
+    </div>
+</div>
+
+<!-- NEW MANUAL OUTCOMES SECTION -->
+<div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-2 border-purple-200 p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold text-purple-900 uppercase tracking-wide">📋 Outcomes / Action Points</h3>
+        <button type="button" onclick="addOutcomeField()" class="btn-secondary text-xs">
+            + Add Outcome
+        </button>
+    </div>
+    <div id="add-outcomes-container" class="space-y-4">
+        <!-- Outcome fields will be added here -->
+        <div class="bg-white rounded-lg p-4 border border-purple-200 outcome-field" data-outcome-index="0">
+            <div class="flex items-start gap-3 mb-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-gray-700 mb-2">Outcome Text *</label>
+                    <textarea 
+                        class="outcome-text filter-input" 
+                        rows="3" 
+                        placeholder="Describe the expected outcome or action point..."
+                        required
+                    ></textarea>
+                </div>
+                <button type="button" onclick="removeOutcomeField(0)" class="text-red-600 hover:text-red-800 p-1 hidden" id="remove-outcome-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-2">Initial Status</label>
+                <select class="outcome-status filter-input">
+                    <option value="Not Started">Not Started</option>
+                    <option value="Being Implemented">Being Implemented</option>
+                    <option value="Delayed">Delayed</option>
+                    <option value="Completed">Completed</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <p class="text-xs text-gray-600 mt-3">💡 Tip: Add at least 1-3 key outcomes that need to be tracked</p>
+</div>
 
                         <div class="grid grid-cols-2 gap-6 mb-6">
                             <div>
@@ -1613,53 +1673,98 @@ function populateOwnerFilter(owners = null) {
         }
 
         async function submitNewDirective() {
-            showLoading();
-            try {
-                const source = document.getElementById('add-source').value;
-                const department = document.getElementById('add-department').value;
-                const meetingDate = document.getElementById('add-meeting-date').value;
-                const owner = document.getElementById('add-owner').value;
-                const primaryEmail = document.getElementById('add-primary-email').value;
-                const secondaryEmail = document.getElementById('add-secondary-email').value;
-                const subject = document.getElementById('add-subject').value;
-                const particulars = document.getElementById('add-particulars').value;
-                const amount = document.getElementById('add-amount').value;
-                const startDate = document.getElementById('add-start-date').value;
-                const endDate = document.getElementById('add-end-date').value;
-                const implStatus = document.getElementById('add-impl-status').value;
-                
-                const response = await fetch(`${API_BASE}/directives`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        source,
-                        sheetName: department,
-                        meetingDate: new Date(meetingDate),
-                        subject,
-                        particulars,
-                        owner,
-                        primaryEmail,
-                        secondaryEmail,
-                        amount,
-                        implementationStartDate: startDate ? new Date(startDate) : null,
-                        implementationEndDate: endDate ? new Date(endDate) : null,
-                        implementationStatus: implStatus
-                    })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    alert('✅ Directive created successfully! Email notifications will be sent automatically based on reminder settings.');
-                    document.querySelector('#view-add form').reset();
-                    switchView('dashboard');
-                    loadDirectives();
-                }
-            } catch (error) {
-                alert('❌ Error: ' + error.message);
-            } finally {
-                showLoading(false);
+    showLoading();
+    try {
+        const source = document.getElementById('add-source').value;
+        const department = document.getElementById('add-department').value;
+        const meetingDate = document.getElementById('add-meeting-date').value;
+        const owner = document.getElementById('add-owner').value;
+        const primaryEmail = document.getElementById('add-primary-email').value;
+        const secondaryEmail = document.getElementById('add-secondary-email').value;
+        const subject = document.getElementById('add-subject').value;
+        const particulars = document.getElementById('add-particulars').value;
+        const amount = document.getElementById('add-amount').value;
+        const startDate = document.getElementById('add-start-date').value;
+        const endDate = document.getElementById('add-end-date').value;
+        const implStatus = document.getElementById('add-impl-status').value;
+        
+        // Collect manually added outcomes
+        const outcomes = [];
+        document.querySelectorAll('.outcome-field').forEach(field => {
+            const text = field.querySelector('.outcome-text').value.trim();
+            const status = field.querySelector('.outcome-status').value;
+            
+            if (text) {
+                outcomes.push({ text, status });
             }
+        });
+        
+        if (outcomes.length === 0) {
+            alert('Please add at least one outcome');
+            showLoading(false);
+            return;
         }
+        
+        const response = await fetch(`${API_BASE}/directives`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source,
+                sheetName: department,
+                meetingDate: new Date(meetingDate),
+                subject,
+                particulars,
+                owner,
+                primaryEmail,
+                secondaryEmail,
+                amount,
+                implementationStartDate: startDate ? new Date(startDate) : null,
+                implementationEndDate: endDate ? new Date(endDate) : null,
+                implementationStatus: implStatus,
+                outcomes // Send manually created outcomes
+            })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            alert('✅ Directive created successfully with ' + outcomes.length + ' outcome(s)!');
+            document.querySelector('#view-add form').reset();
+            // Reset outcomes to default single field
+            document.getElementById('add-outcomes-container').innerHTML = `
+                <div class="bg-white rounded-lg p-4 border border-purple-200 outcome-field" data-outcome-index="0">
+                    <div class="flex items-start gap-3 mb-3">
+                        <span class="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                        <div class="flex-1">
+                            <label class="block text-xs font-bold text-gray-700 mb-2">Outcome Text *</label>
+                            <textarea class="outcome-text filter-input" rows="3" placeholder="Describe the expected outcome or action point..." required></textarea>
+                        </div>
+                        <button type="button" onclick="removeOutcomeField(0)" class="text-red-600 hover:text-red-800 p-1 hidden" id="remove-outcome-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-2">Initial Status</label>
+                        <select class="outcome-status filter-input">
+                            <option value="Not Started">Not Started</option>
+                            <option value="Being Implemented">Being Implemented</option>
+                            <option value="Delayed">Delayed</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+            outcomeCounter = 1;
+            switchView('dashboard');
+            loadDirectives();
+        }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
 
         // [Continue with the rest of the JavaScript functions from the previous code...]
         // The rest remains the same as in the original code
@@ -2889,14 +2994,13 @@ async function confirmRequestUpdate() {
     
     showLoading();
     try {
-        const response = await fetch(`${API_BASE}/directives/${currentDirectiveId}/request-update`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                selectedOutcomes: selectedOutcomes.map(o => o.text)
-            })
-        });
-        
+     const response = await fetch(`${API_BASE}/directives/${currentDirectiveId}/request-update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            selectedOutcomes: selectedOutcomes.map(o => o.text)
+        })
+    });
         const result = await response.json();
         
         if (result.success) {
@@ -2912,6 +3016,163 @@ async function confirmRequestUpdate() {
         showLoading(false);
     }
 }
+
+
+
+let outcomeCounter = 1;
+
+function addOutcomeField() {
+    outcomeCounter++;
+    const container = document.getElementById('add-outcomes-container');
+    const newField = document.createElement('div');
+    newField.className = "bg-white rounded-lg p-4 border border-purple-200 outcome-field animate-slide-in";
+    newField.setAttribute('data-outcome-index', outcomeCounter - 1);
+    
+    newField.innerHTML = `
+        <div class="flex items-start gap-3 mb-3">
+            <span class="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">${outcomeCounter}</span>
+            <div class="flex-1">
+                <label class="block text-xs font-bold text-gray-700 mb-2">Outcome Text *</label>
+                <textarea 
+                    class="outcome-text filter-input" 
+                    rows="3" 
+                    placeholder="Describe the expected outcome or action point..."
+                    required
+                ></textarea>
+            </div>
+            <button type="button" onclick="removeOutcomeField(${outcomeCounter - 1})" class="text-red-600 hover:text-red-800 p-1" id="remove-outcome-${outcomeCounter - 1}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-gray-700 mb-2">Initial Status</label>
+            <select class="outcome-status filter-input">
+                <option value="Not Started">Not Started</option>
+                <option value="Being Implemented">Being Implemented</option>
+                <option value="Delayed">Delayed</option>
+                <option value="Completed">Completed</option>
+            </select>
+        </div>
+    `;
+    
+    container.appendChild(newField);
+    
+    // Show remove button on first outcome if there's more than one
+    if (outcomeCounter > 1) {
+        document.getElementById('remove-outcome-0').classList.remove('hidden');
+    }
+}
+
+function removeOutcomeField(index) {
+    const field = document.querySelector(`.outcome-field[data-outcome-index="${index}"]`);
+    if (field) {
+        field.remove();
+        outcomeCounter--;
+        
+        // Renumber remaining outcomes
+        const remainingFields = document.querySelectorAll('.outcome-field');
+        remainingFields.forEach((field, idx) => {
+            const numberSpan = field.querySelector('span.bg-purple-600');
+            if (numberSpan) numberSpan.textContent = idx + 1;
+            field.setAttribute('data-outcome-index', idx);
+        });
+        
+        // Hide remove button on first outcome if only one remains
+        if (remainingFields.length === 1) {
+            document.getElementById('remove-outcome-0').classList.add('hidden');
+        }
+    }
+}
+
+function autoExtractOutcomes() {
+    const particulars = document.getElementById('add-particulars').value.trim();
+    
+    if (!particulars) {
+        alert('Please enter particulars first before auto-extracting outcomes');
+        return;
+    }
+    
+    if (!confirm('This will replace any manually added outcomes. Continue?')) {
+        return;
+    }
+    
+    // Simple extraction logic (you can enhance this)
+    const listPatterns = [
+        /(?:^|\n)\s*\(([a-z])\)\s*([^()]+?)(?=\n\s*\([a-z]\)|\n\n|$)/gi,
+        /(?:^|\n)\s*([a-z])\.\s*([^\n]+?)(?=\n\s*[a-z]\.|\n\n|$)/gim,
+        /(?:^|\n)\s*(\d+)\.\s*([^\n]+?)(?=\n\s*\d+\.|\n\n|$)/gm
+    ];
+    
+    let outcomes = [];
+    
+    for (const pattern of listPatterns) {
+        const matches = [...particulars.matchAll(pattern)];
+        if (matches.length >= 1) {
+            outcomes = matches.map(match => match[2].trim()).slice(0, 5);
+            break;
+        }
+    }
+    
+    if (outcomes.length === 0) {
+        // Split by semicolon or "and"
+        outcomes = particulars.split(/;\s+|,\s+and\s+/)
+            .map(s => s.trim())
+            .filter(s => s.length > 30)
+            .slice(0, 3);
+    }
+    
+    if (outcomes.length === 0) {
+        alert('Could not auto-extract outcomes. Please add them manually.');
+        return;
+    }
+    
+    // Clear existing outcomes
+    const container = document.getElementById('add-outcomes-container');
+    container.innerHTML = '';
+    outcomeCounter = 0;
+    
+    // Add extracted outcomes
+    outcomes.forEach((text, idx) => {
+        if (idx === 0) {
+            // Update first field
+            container.innerHTML = `
+                <div class="bg-white rounded-lg p-4 border border-purple-200 outcome-field" data-outcome-index="0">
+                    <div class="flex items-start gap-3 mb-3">
+                        <span class="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                        <div class="flex-1">
+                            <label class="block text-xs font-bold text-gray-700 mb-2">Outcome Text *</label>
+                            <textarea class="outcome-text filter-input" rows="3" required>${text}</textarea>
+                        </div>
+                        <button type="button" onclick="removeOutcomeField(0)" class="text-red-600 hover:text-red-800 p-1 ${outcomes.length > 1 ? '' : 'hidden'}" id="remove-outcome-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-2">Initial Status</label>
+                        <select class="outcome-status filter-input">
+                            <option value="Not Started">Not Started</option>
+                            <option value="Being Implemented">Being Implemented</option>
+                            <option value="Delayed">Delayed</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+            outcomeCounter = 1;
+        } else {
+            addOutcomeField();
+            const lastField = container.lastElementChild;
+            lastField.querySelector('.outcome-text').value = text;
+        }
+    });
+    
+    alert(`✅ Auto-extracted ${outcomes.length} outcome(s)`);
+}
+
 
 
     </script>

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Management - CBN Directives</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .owner-card { transition: all 0.3s; }
+        .owner-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen py-8 px-4">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">Email Management System</h1>
+                        <p class="text-gray-600">Assign email addresses to process owners for automated reminders</p>
+                    </div>
+                    <a href="/" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                        ← Back to Dashboard
+                    </a>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="text-sm text-gray-600 mb-1">Total Process Owners</div>
+                    <div class="text-3xl font-bold text-gray-900" id="totalOwners">-</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="text-sm text-gray-600 mb-1">With Email</div>
+                    <div class="text-3xl font-bold text-green-600" id="withEmail">-</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="text-sm text-gray-600 mb-1">Without Email</div>
+                    <div class="text-3xl font-bold text-orange-600" id="withoutEmail">-</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="text-sm text-gray-600 mb-1">Total Directives</div>
+                    <div class="text-3xl font-bold text-blue-600" id="totalDirectives">-</div>
+                </div>
+            </div>
+
+            <!-- Search and Filter -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1">
+                        <input 
+                            type="text" 
+                            id="searchOwner" 
+                            placeholder="Search process owners..." 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                    </div>
+                    <select id="filterStatus" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="all">All Owners</option>
+                        <option value="with-email">With Email</option>
+                        <option value="without-email">Without Email</option>
+                    </select>
+                    <button onclick="saveAllChanges()" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors">
+                        💾 Save All Changes
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading process owners...</p>
+            </div>
+
+            <!-- Process Owners List -->
+            <div id="ownersContainer" class="hidden space-y-4"></div>
+
+            <!-- No Results -->
+            <div id="noResults" class="hidden bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <p class="text-gray-600">No process owners found matching your search</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="successToast" class="hidden fixed bottom-4 right-4 bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg">
+        <div class="flex items-center">
+            <svg class="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+            </svg>
+            <span id="successMessage">Changes saved successfully!</span>
+        </div>
+    </div>
+
+    <script>
+        let ownersData = [];
+        let changes = {}; // Track changes before saving
+
+        async function loadOwners() {
+            try {
+                const response = await fetch('/api/process-owners-with-directives');
+                const data = await response.json();
+                
+                if (!data.success) throw new Error(data.error);
+                
+                ownersData = data.data;
+                updateStats();
+                displayOwners(ownersData);
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('ownersContainer').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading owners:', error);
+                alert('Error loading data: ' + error.message);
+            }
+        }
+
+        function updateStats() {
+            const totalOwners = ownersData.length;
+            const withEmail = ownersData.filter(o => o.primaryEmail && o.primaryEmail.trim() !== '').length;
+            const withoutEmail = totalOwners - withEmail;
+            const totalDirectives = ownersData.reduce((sum, o) => sum + o.directiveCount, 0);
+            
+            document.getElementById('totalOwners').textContent = totalOwners;
+            document.getElementById('withEmail').textContent = withEmail;
+            document.getElementById('withoutEmail').textContent = withoutEmail;
+            document.getElementById('totalDirectives').textContent = totalDirectives;
+        }
+
+        function displayOwners(owners) {
+            const container = document.getElementById('ownersContainer');
+            
+            if (owners.length === 0) {
+                container.classList.add('hidden');
+                document.getElementById('noResults').classList.remove('hidden');
+                return;
+            }
+            
+            container.classList.remove('hidden');
+            document.getElementById('noResults').classList.add('hidden');
+            
+            container.innerHTML = owners.map(owner => {
+                const hasEmail = owner.primaryEmail && owner.primaryEmail.trim() !== '';
+                const statusBadge = hasEmail 
+                    ? '<span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">✓ Has Email</span>'
+                    : '<span class="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-semibold rounded-full">⚠ No Email</span>';
+                
+                return `
+                    <div class="owner-card bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="p-6">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <h3 class="text-lg font-bold text-gray-900">${owner.name}</h3>
+                                        ${statusBadge}
+                                    </div>
+                                    <p class="text-sm text-gray-600">${owner.directiveCount} directive${owner.directiveCount !== 1 ? 's' : ''}</p>
+                                </div>
+                                <button 
+                                    onclick="toggleDirectives('${owner.name}')" 
+                                    class="text-blue-600 hover:text-blue-700 text-sm font-semibold"
+                                >
+                                    <span id="toggle-${owner.name.replace(/[^a-zA-Z0-9]/g, '_')}">Show Directives ▼</span>
+                                </button>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-2">Primary Email</label>
+                                    <input 
+                                        type="email" 
+                                        id="primary-${owner.name}"
+                                        value="${owner.primaryEmail || ''}"
+                                        onchange="trackChange('${owner.name}', 'primary', this.value)"
+                                        placeholder="e.g., director@cbn.gov.ng"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-2">Secondary Email (Optional)</label>
+                                    <input 
+                                        type="email" 
+                                        id="secondary-${owner.name}"
+                                        value="${owner.secondaryEmail || ''}"
+                                        onchange="trackChange('${owner.name}', 'secondary', this.value)"
+                                        placeholder="e.g., deputy@cbn.gov.ng"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                </div>
+                            </div>
+                            
+                            <button 
+                                onclick="saveOwnerEmail('${owner.name}')" 
+                                class="w-full md:w-auto px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                                Save Email for ${owner.name}
+                            </button>
+                            
+                            <!-- Directives List (Hidden by default) -->
+                            <div id="directives-${owner.name.replace(/[^a-zA-Z0-9]/g, '_')}" class="hidden mt-6 pt-6 border-t border-gray-200">
+                                <h4 class="text-sm font-bold text-gray-700 uppercase mb-3">Directives for ${owner.name}</h4>
+                                <div class="space-y-2">
+                                    ${owner.directives.map(d => `
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                            <div class="flex items-start justify-between">
+                                                <div class="flex-1">
+                                                    <p class="text-xs font-semibold text-blue-600 mb-1">${d.ref || 'No Ref'}</p>
+                                                    <p class="text-sm text-gray-900 font-medium mb-1">${d.subject}</p>
+                                                    <div class="flex items-center gap-2 text-xs text-gray-600">
+                                                        <span class="px-2 py-1 bg-gray-100 rounded">${d.source}</span>
+                                                        <span class="px-2 py-1 bg-gray-100 rounded">${d.monitoringStatus}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleDirectives(ownerName) {
+            const safeName = ownerName.replace(/[^a-zA-Z0-9]/g, '_');
+            const directivesDiv = document.getElementById(`directives-${safeName}`);
+            const toggleBtn = document.getElementById(`toggle-${safeName}`);
+            
+            if (directivesDiv.classList.contains('hidden')) {
+                directivesDiv.classList.remove('hidden');
+                toggleBtn.textContent = 'Hide Directives ▲';
+            } else {
+                directivesDiv.classList.add('hidden');
+                toggleBtn.textContent = 'Show Directives ▼';
+            }
+        }
+
+        function trackChange(ownerName, field, value) {
+            if (!changes[ownerName]) {
+                changes[ownerName] = {};
+            }
+            changes[ownerName][field] = value;
+        }
+
+        async function saveOwnerEmail(ownerName) {
+            const primaryEmail = document.getElementById(`primary-${ownerName}`).value.trim();
+            const secondaryEmail = document.getElementById(`secondary-${ownerName}`).value.trim();
+            
+            try {
+                const response = await fetch('/api/update-owner-emails', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        owner: ownerName,
+                        primaryEmail,
+                        secondaryEmail
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!data.success) throw new Error(data.error);
+                
+                showToast(`✓ Emails saved for ${ownerName} (${data.updated} directives updated)`);
+                
+                // Update local data
+                const owner = ownersData.find(o => o.name === ownerName);
+                if (owner) {
+                    owner.primaryEmail = primaryEmail;
+                    owner.secondaryEmail = secondaryEmail;
+                    updateStats();
+                    displayOwners(filterOwners());
+                }
+                
+                // Clear changes for this owner
+                delete changes[ownerName];
+                
+            } catch (error) {
+                alert('Error saving: ' + error.message);
+            }
+        }
+
+        async function saveAllChanges() {
+            if (Object.keys(changes).length === 0) {
+                alert('No changes to save');
+                return;
+            }
+            
+            const confirmSave = confirm(`Save changes for ${Object.keys(changes).length} process owner(s)?`);
+            if (!confirmSave) return;
+            
+            for (const ownerName of Object.keys(changes)) {
+                await saveOwnerEmail(ownerName);
+            }
+            
+            showToast('All changes saved successfully!');
+        }
+
+        function filterOwners() {
+            const searchTerm = document.getElementById('searchOwner').value.toLowerCase();
+            const filterStatus = document.getElementById('filterStatus').value;
+            
+            return ownersData.filter(owner => {
+                const matchesSearch = owner.name.toLowerCase().includes(searchTerm);
+                
+                let matchesFilter = true;
+                if (filterStatus === 'with-email') {
+                    matchesFilter = owner.primaryEmail && owner.primaryEmail.trim() !== '';
+                } else if (filterStatus === 'without-email') {
+                    matchesFilter = !owner.primaryEmail || owner.primaryEmail.trim() === '';
+                }
+                
+                return matchesSearch && matchesFilter;
+            });
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('successToast');
+            document.getElementById('successMessage').textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        // Event Listeners
+        document.getElementById('searchOwner').addEventListener('input', () => {
+            displayOwners(filterOwners());
+        });
+
+        document.getElementById('filterStatus').addEventListener('change', () => {
+            displayOwners(filterOwners());
+        });
+
+        // Load data on page load
+        loadOwners();
+    </script>
+</body>
+</html>
