@@ -34,6 +34,38 @@ const directiveSchema = new mongoose.Schema({
     default: 'Not Started'
   }, // "IMPLEMENTATION STATUS"
   
+
+
+    
+  // EMAIL FIELDS (ADD IF MISSING)
+  primaryEmail: { type: String, default: '' },
+  secondaryEmail: { type: String, default: '' },
+  
+  // IMPLEMENTATION DATES (ADD IF MISSING)
+  implementationStartDate: Date,
+  implementationEndDate: Date,
+  
+  // SUBMISSION & FILE TRACKING (ADD THESE)
+  attachments: [{
+    filename: String,
+    url: String,
+    mimeType: String,
+    size: Number,
+    uploadedAt: { type: Date, default: Date.now },
+    uploadedBy: String
+  }],
+  
+  updateHistory: [{
+    updatedAt: { type: Date, default: Date.now },
+    updatedBy: String,
+    changes: Object,
+    comment: String
+  }],
+  
+  lastSbuUpdate: Date,
+  
+
+  
   // Generated fields
   ref: { type: String, unique: true, required: true }, // Auto-generated
   monitoringStatus: {

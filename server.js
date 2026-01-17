@@ -322,27 +322,44 @@ function generateMemoEmail(directive) {
   const today = new Date();
   const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
   
+  // Generate submission link
+  const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
+  const submissionUrl = `${baseUrl}/submit-update/${directive._id}`;
+  
   const outcomesHtml = directive.outcomes.map((o, i) => {
     const statusColor = {
       'Not Started': '#6b7280',
       'Being Implemented': '#3b82f6',
       'Delayed': '#f59e0b',
       'Completed': '#10b981'
-    }[o.status];
+    }[o.status] || '#6b7280';
     
     return `
       <div style="margin-bottom: 16px; padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #6366f1;">
-        <div style="font-weight: 700; color: #6366f1; margin-bottom: 4px;">Outcome ${i + 1}</div>
+        <div style="font-weight: 700; color: #6366f1; margin-bottom: 4px; font-size: 12px;">Outcome ${i + 1}</div>
         <div style="color: #374151; font-size: 13px; line-height: 1.5; margin-bottom: 8px;">${o.text}</div>
         <div style="display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; background: ${statusColor}; color: white;">
-          Status: ${o.status}
+          Current Status: ${o.status}
         </div>
-        ${o.challenges ? `<div style="margin-top: 8px; font-size: 12px; color: #6b7280;"><strong>Challenges:</strong> ${o.challenges}</div>` : ''}
-        ${o.completionDetails ? `<div style="margin-top: 8px; font-size: 12px; color: #059669;"><strong>Completed:</strong> ${o.completionDetails}</div>` : ''}
-        ${o.delayReason ? `<div style="margin-top: 8px; font-size: 12px; color: #dc2626;"><strong>Delay Reason:</strong> ${o.delayReason}</div>` : ''}
+        ${o.challenges ? `<div style="margin-top: 8px; font-size: 11px; color: #6b7280;"><strong>Challenges:</strong> ${o.challenges}</div>` : ''}
+        ${o.completionDetails ? `<div style="margin-top: 8px; font-size: 11px; color: #059669;"><strong>Completed:</strong> ${o.completionDetails}</div>` : ''}
+        ${o.delayReason ? `<div style="margin-top: 8px; font-size: 11px; color: #dc2626;"><strong>Delay Reason:</strong> ${o.delayReason}</div>` : ''}
       </div>
     `;
   }).join('');
+
+  const implementationTimeline = directive.implementationStartDate || directive.implementationEndDate
+    ? `
+    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
+      <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Implementation Timeline</div>
+      <div style="color: #111827; font-size: 13px; font-weight: 600;">
+        ${directive.implementationStartDate ? formatDate(directive.implementationStartDate) : 'Not set'} 
+        <span style="color: #6b7280;">→</span> 
+        ${directive.implementationEndDate ? formatDate(directive.implementationEndDate) : 'Not set'}
+      </div>
+    </div>
+    `
+    : '';
 
   const html = `
 <!DOCTYPE html>
@@ -354,6 +371,7 @@ function generateMemoEmail(directive) {
 <body style="font-family: Arial, sans-serif; background: #f9fafb; padding: 20px; margin: 0;">
   <div style="max-width: 700px; margin: 0 auto; background: white; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
     
+    <!-- MEMO HEADER -->
     <div style="border-bottom: 3px solid #1e40af; padding: 24px; background: white;">
       <h2 style="color: #1e40af; font-size: 18px; font-weight: 700; margin: 0 0 12px 0; text-transform: uppercase;">
         REQUEST FOR STATUS OF COMPLIANCE WITH BOARD DECISIONS
@@ -361,6 +379,7 @@ function generateMemoEmail(directive) {
       <p style="color: #6b7280; font-size: 13px; margin: 0;">Central Bank of Nigeria - Strategy & Innovation Department</p>
     </div>
     
+    <!-- MEMO DETAILS -->
     <div style="padding: 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
       <table style="width: 100%; font-size: 13px; color: #374151;">
         <tr>
@@ -374,42 +393,89 @@ function generateMemoEmail(directive) {
       </table>
     </div>
     
+    <!-- INTRO -->
     <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
-      <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Subject</div>
-      <div style="font-weight: 700; color: #111827; font-size: 14px;">${directive.subject}</div>
+      <p style="color: #374151; font-size: 13px; line-height: 1.6; margin: 0;">
+        The Corporate Secretariat is compiling the status of SBU's compliance with ${directive.source === 'CG' ? 'Council of Governors' : 'Board of Directors'} decisions from January to September 2025. Please send your submission by <strong>24th October 2025</strong>.
+      </p>
     </div>
     
+    <!-- SUBJECT -->
+    <div style="padding: 20px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+      <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Subject</div>
+      <div style="font-weight: 700; color: #111827; font-size: 14px; line-height: 1.5;">${directive.subject}</div>
+    </div>
+    
+    <!-- PARTICULARS -->
+    ${directive.particulars && directive.particulars.trim() !== '' ? `
     <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
       <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Directive Particulars</div>
       <div style="color: #374151; line-height: 1.6; font-size: 13px;">${directive.particulars}</div>
     </div>
-    
-    ${directive.implementationStartDate || directive.implementationEndDate ? `
-    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
-      <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Implementation Timeline</div>
-      <div style="color: #111827; font-size: 13px;">
-        ${directive.implementationStartDate ? formatDate(directive.implementationStartDate) : 'Not set'} → ${directive.implementationEndDate ? formatDate(directive.implementationEndDate) : 'Not set'}
-      </div>
-    </div>
     ` : ''}
     
-    <div style="padding: 20px 24px; background: white;">
+    ${implementationTimeline}
+    
+    <!-- OUTCOMES -->
+    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
       <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px;">Required Outcomes & Current Status</div>
       <div style="background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
         ${outcomesHtml}
       </div>
     </div>
     
-    <div style="padding: 20px 24px; background: #eff6ff; border-top: 1px solid #dbeafe;">
-      <p style="color: #1e40af; font-size: 13px; line-height: 1.6; margin: 0;">
-        <strong>Action Required:</strong> Please provide an update on the implementation status of the above outcomes. 
-        Your response is needed to compile the status of compliance with ${directive.source === 'CG' ? 'Council of Governors' : 'Board of Directors'} decisions.
+    <!-- BIG CALL-TO-ACTION BUTTON -->
+    <div style="padding: 40px 24px; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); text-align: center;">
+      <div style="margin-bottom: 20px;">
+        <svg style="width: 56px; height: 56px; color: white; margin: 0 auto;" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+        </svg>
+      </div>
+      
+      <h3 style="color: white; font-size: 20px; font-weight: 700; margin: 0 0 12px 0;">
+        Submit Your Implementation Update
+      </h3>
+      
+      <p style="color: #e0e7ff; font-size: 14px; line-height: 1.6; margin: 0 0 28px 0; max-width: 500px; margin-left: auto; margin-right: auto;">
+        Click the button below to access the secure submission portal where you can update the implementation status, add timeline details, and upload supporting documents.
+      </p>
+      
+      <a href="${submissionUrl}" style="display: inline-block; background: white; color: #4f46e5; font-weight: 700; padding: 18px 48px; border-radius: 10px; text-decoration: none; font-size: 16px; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); transition: transform 0.2s;">
+        Submit Update Now →
+      </a>
+      
+      <p style="color: #c7d2fe; font-size: 11px; margin: 24px 0 0 0; line-height: 1.5;">
+        Or copy this link to your browser:<br>
+        <span style="background: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 4px; display: inline-block; margin-top: 8px; font-family: monospace; font-size: 10px; word-break: break-all;">
+          ${submissionUrl}
+        </span>
       </p>
     </div>
     
+    <!-- ACTION REQUIRED BOX -->
+    <div style="padding: 24px; background: #eff6ff; border-top: 1px solid #dbeafe;">
+      <div style="display: flex; align-items-start;">
+        <svg style="width: 20px; height: 20px; color: #1e40af; margin-right: 12px; flex-shrink: 0; margin-top: 2px;" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"/>
+        </svg>
+        <div>
+          <p style="color: #1e40af; font-size: 13px; font-weight: 600; line-height: 1.6; margin: 0 0 8px 0;">
+            <strong>Action Required:</strong> Please provide an update on the implementation status of the above outcomes.
+          </p>
+          <p style="color: #1e40af; font-size: 12px; line-height: 1.5; margin: 0;">
+            Your response is needed to compile the status of compliance with ${directive.source === 'CG' ? 'Council of Governors' : 'Board of Directors'} decisions. You can update outcome statuses, add implementation timelines, document challenges, and upload supporting files through the submission portal.
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- FOOTER -->
     <div style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
-      <p style="color: #6b7280; font-size: 11px; margin: 0;">
+      <p style="color: #6b7280; font-size: 11px; margin: 0 0 4px 0;">
         This is an automated reminder from the CBN Directives Management System
+      </p>
+      <p style="color: #9ca3af; font-size: 10px; margin: 0;">
+        For technical support, contact the Strategy & Innovation Department
       </p>
     </div>
     
@@ -420,6 +486,7 @@ function generateMemoEmail(directive) {
 
   return html;
 }
+
 
 function getOrdinal(n) {
   const s = ["th", "st", "nd", "rd"];
