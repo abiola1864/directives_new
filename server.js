@@ -35,12 +35,17 @@ let emailTransporter = null;
 
 function setupEmailTransporter() {
   try {
+    // Debug: Check if environment variables exist
+    console.log('\n🔍 EMAIL SETUP DEBUG:');
+    console.log('   EMAIL_USER:', process.env.EMAIL_USER ? `SET (${process.env.EMAIL_USER})` : '❌ MISSING');
+    console.log('   EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? `SET (length: ${process.env.EMAIL_PASSWORD.length} chars)` : '❌ MISSING');
+    
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-      console.log('⚠️  Email credentials not found in environment variables');
-      console.log('EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'MISSING');
-      console.log('EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? 'SET (length: ' + process.env.EMAIL_PASSWORD.length + ')' : 'MISSING');
+      console.log('⚠️  Email credentials not found in environment variables\n');
       return null;
     }
+
+    console.log('   Attempting Gmail SMTP connection...\n');
 
     emailTransporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
@@ -57,28 +62,53 @@ function setupEmailTransporter() {
       maxConnections: 5,
       rateDelta: 20000,
       rateLimit: 5,
-      debug: true, // Enable debug output
-      logger: true // Log to console
+      debug: true, // Enable SMTP debug output
+      logger: true // Log SMTP traffic to console
     });
 
-    // Verify connection
+    // Verify connection with detailed error handling
     emailTransporter.verify((error, success) => {
       if (error) {
-        console.log('❌ Email server connection failed:', error.message);
-        console.log('Full error details:', error);
+        console.log('\n❌ EMAIL SERVER CONNECTION FAILED:');
+        console.log('   Error Type:', error.code || error.name);
+        console.log('   Error Message:', error.message);
+        console.log('   Command:', error.command || 'N/A');
+        
+        // Specific error guidance
+        if (error.message.includes('timeout')) {
+          console.log('\n   💡 TIMEOUT ERROR - Likely causes:');
+          console.log('      • Gmail is blocking Render\'s IP address');
+          console.log('      • Firewall blocking SMTP ports');
+          console.log('      • Consider switching to SendGrid/Mailgun');
+        } else if (error.message.includes('Invalid login')) {
+          console.log('\n   💡 INVALID LOGIN - Check:');
+          console.log('      • EMAIL_PASSWORD must be App Password (16 chars, no spaces)');
+          console.log('      • EMAIL_USER must be full Gmail address');
+          console.log('      • 2-Step Verification must be enabled on Gmail');
+        } else if (error.code === 'EAUTH') {
+          console.log('\n   💡 AUTHENTICATION ERROR - Check:');
+          console.log('      • App Password is correct (not regular password)');
+          console.log('      • App Password has no spaces');
+          console.log('      • Gmail account has 2FA enabled');
+        }
+        
+        console.log('\n');
         emailTransporter = null;
       } else {
-        console.log('✅ Email server is ready to send messages');
+        console.log('✅ Email server is ready to send messages\n');
       }
     });
 
     return emailTransporter;
   } catch (error) {
-    console.error('❌ Error setting up email:', error.message);
-    console.error('Full error:', error);
+    console.error('\n❌ CRITICAL ERROR setting up email transporter:');
+    console.error('   Exception:', error.message);
+    console.error('   Stack:', error.stack);
+    console.log('\n');
     return null;
   }
 }
+
 
 
 // Initialize email transporter
