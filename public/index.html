@@ -443,6 +443,42 @@
     transition: opacity 0.2s ease, z-index 0s 0.2s; /* Delay z-index change until after fade */
 }
 
+.status-badge.mt-1 {
+    margin-top: 4px;
+}
+
+/* Make non-responsive badge more prominent */
+.status-badge.status-non-responsive {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.status-needs-timeline { 
+    background: #fef3c7; 
+    color: #92400e; 
+    border: 2px solid #f59e0b;
+    animation: pulse-warning 2s infinite;
+    font-weight: 800;
+}
+
+@keyframes pulse-warning {
+    0%, 100% { 
+        border-color: #f59e0b;
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+    }
+    50% { 
+        border-color: #dc2626;
+        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
+    }
+}
+
+
+
+.status-needs-timeline { background: #f3f4f6; color: #6b7280; border: 2px dashed #9ca3af; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
@@ -785,42 +821,54 @@
                     </label>
                     <p class="text-xs text-gray-600 mt-2 ml-8">System sends 3 reminders spread evenly across the implementation period</p>
                 </div>
-                
-                <div class="space-y-5">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4">Monitoring Status Settings</h3>
-                    
-                    <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
-                        <div>
-                            <div class="font-semibold text-gray-900">Awaiting Next Reminder</div>
-                            <div class="text-xs text-gray-600">Within timeline, waiting for next scheduled reminder</div>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="status-awaiting" checked class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                        </label>
-                    </div>
-                    
-                    <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200">
-                        <div>
-                            <div class="font-semibold text-gray-900">At Risk</div>
-                            <div class="text-xs text-gray-600">Less than 30 days to deadline OR 3rd reminder sent</div>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="status-at-risk" checked class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                        </label>
-                    </div>
-                    
-                    <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg border-2 border-red-200">
-                        <div>
-                            <div class="font-semibold text-gray-900">High Risk</div>
-                            <div class="text-xs text-gray-600">Less than 7 days to deadline or overdue</div>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="status-high-risk" checked class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                        </label>
-                    </div>
+           <div class="space-y-5">
+    <h3 class="text-lg font-bold text-gray-900 mb-4">Monitoring Status Settings</h3>
+    
+    <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+        <div>
+            <div class="font-semibold text-gray-900">On Track</div>
+            <div class="text-xs text-gray-600">Within timeline, waiting for next scheduled reminder</div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="status-on-track" checked class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+        </label>
+    </div>
+    
+    <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200">
+        <div>
+            <div class="font-semibold text-gray-900">At Risk</div>
+            <div class="text-xs text-gray-600">Less than 30 days to deadline OR 3 reminders sent</div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="status-at-risk" checked class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+        </label>
+    </div>
+    
+    <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg border-2 border-red-200">
+        <div>
+            <div class="font-semibold text-gray-900">High Risk</div>
+            <div class="text-xs text-gray-600">Less than 7 days to deadline or overdue</div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="status-high-risk" checked class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+        </label>
+    </div>
+    
+    <div class="flex items-center justify-between p-4 bg-orange-50 rounded-lg border-2 border-orange-200">
+        <div>
+            <div class="font-semibold text-gray-900">Needs Timeline</div>
+            <div class="text-xs text-gray-600">No implementation timeline set - cannot monitor</div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="status-needs-timeline" checked class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+        </label>
+    </div>
+</div>
+
                     
                     <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border-2 border-gray-300">
                         <div>
@@ -861,46 +909,50 @@
                                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
-                                    <div class="info-tooltip">
-                                        <div class="info-tooltip-header">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                            </svg>
-                                            Monitoring Status Guide
-                                        </div>
-                                        <div class="info-tooltip-content">
-                                            <div class="info-lifecycle">
-                                                3 reminders spread evenly. If no dates: 30, 60, 90 days
-                                            </div>
-                                            
-                                            <div class="info-status-grid">
-                                                <div class="info-status-item">
-                                                    <span class="info-status-badge status-track">Awaiting</span>
-                                                    <span>On track, waiting for next reminder</span>
-                                                </div>
-                                                <div class="info-status-item">
-                                                    <span class="info-status-badge status-risk">At Risk</span>
-                                                    <span>&lt;30 days left OR 3rd reminder sent</span>
-                                                </div>
-                                                <div class="info-status-item">
-                                                    <span class="info-status-badge status-high-risk">High Risk</span>
-                                                    <span>&lt;7 days left OR overdue</span>
-                                                </div>
-                                                <div class="info-status-item">
-                                                    <span class="info-status-badge status-non-responsive">Non-Resp.</span>
-                                                    <span>No response after 3 reminders</span>
-                                                </div>
-                                                <div class="info-status-item">
-                                                    <span class="info-status-badge status-completed">Completed</span>
-                                                    <span>All outcomes done</span>
-                                                </div>
-                                            </div>
-                                            
-                                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 8px; color: #6b7280;">
-                                                Monitoring auto-updates. Implementation is manual.
-                                            </div>
-                                        </div>
-                                    </div>
+                                 <div class="info-tooltip">
+    <div class="info-tooltip-header">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Monitoring Status Guide
+    </div>
+    <div class="info-tooltip-content">
+        <div class="info-lifecycle">
+            3 reminders spread evenly. If no dates: 30, 60, 90 days
+        </div>
+        
+        <div class="info-status-grid">
+            <div class="info-status-item">
+    <span class="info-status-badge status-track">On Track</span>
+    <span>On track, waiting for next reminder</span>
+</div>
+            <div class="info-status-item">
+                <span class="info-status-badge status-risk">At Risk</span>
+                <span>&lt;30 days left OR 3rd reminder sent</span>
+            </div>
+            <div class="info-status-item">
+                <span class="info-status-badge status-high-risk">High Risk</span>
+                <span>&lt;7 days left OR overdue</span>
+            </div>
+            <div class="info-status-item">
+                <span class="info-status-badge status-needs-timeline">Needs Timeline</span>
+                <span>No end date set - <strong>must set timeline!</strong></span>
+            </div>
+            <div class="info-status-item">
+                <span class="info-status-badge status-non-responsive">Non-Resp.</span>
+                <span>No response after 3 reminders</span>
+            </div>
+            <div class="info-status-item">
+                <span class="info-status-badge status-completed">Completed</span>
+                <span>All outcomes done</span>
+            </div>
+        </div>
+        
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 8px; color: #6b7280;">
+            Monitoring auto-updates daily. Implementation is manual.
+        </div>
+    </div>
+</div>
                                 </div>
                             </div>
                             <p class="text-xs text-gray-500">Corporate Service Division</p>
@@ -964,42 +1016,67 @@
             
             <!-- Filters -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Search</label>
-                        <input type="text" id="search-input" placeholder="Search..." class="filter-input" oninput="applyFilters()">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Owner</label>
-                        <select id="filter-owner" onchange="applyFilters()" class="filter-input">
-                            <option value="All">All Owners</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Status</label>
-                        <select id="filter-status" onchange="applyFilters()" class="filter-input">
-                            <option value="All">All Statuses</option>
-                            <option value="Awaiting Next Reminder">Awaiting Next Reminder</option>
-                            <option value="At Risk">At Risk</option>
-                            <option value="High Risk">High Risk</option>
-                            <option value="Non-Responsive">Non-Responsive</option>
-                            <option value="Completed">Completed</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Sort By</label>
-                        <select id="sort-by" onchange="applyFilters()" class="filter-input">
-                            <option value="newest">Newest First</option>
-                            <option value="oldest">Oldest First</option>
-                            <option value="deadline">By End Date</option>
-                        </select>
-                    </div>
-                    <div class="flex items-end">
-                        <button onclick="resetFilters()" class="btn-secondary w-full py-2">
-                            Reset Filters
-                        </button>
-                    </div>
-                </div>
+     <div class="grid grid-cols-1 md:grid-cols-7 gap-3">  <!-- Changed from 6 to 7 -->
+    <div>
+        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Search</label>
+        <input type="text" id="search-input" placeholder="Search..." class="filter-input" oninput="applyFilters()">
+    </div>
+    <div>
+        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Owner</label>
+        <select id="filter-owner" onchange="applyFilters()" class="filter-input">
+            <option value="All">All Owners</option>
+        </select>
+    </div>
+    
+    <!-- Implementation Status Filter -->
+    <div>
+        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Implementation</label>
+        <select id="filter-impl-status" onchange="applyFilters()" class="filter-input">
+            <option value="All">All</option>
+            <option value="Not Started">Not Started</option>
+            <option value="Being Implemented">Being Implemented</option>
+            <option value="Delayed">Delayed</option>
+            <option value="Completed">Completed</option>
+        </select>
+    </div>
+    
+    <!-- Monitoring Status Filter -->
+    <div>
+        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Monitoring</label>
+        <select id="filter-monitor-status" onchange="applyFilters()" class="filter-input">
+            <option value="All">All</option>
+            <option value="On Track">On Track</option>
+            <option value="At Risk">At Risk</option>
+            <option value="High Risk">High Risk</option>
+            <option value="Completed">Completed</option>
+            <option value="Needs Timeline">Needs Timeline</option>
+        </select>
+    </div>
+    
+    <!-- ⭐ NEW: Responsiveness Filter -->
+    <div>
+        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Response</label>
+        <select id="filter-responsive" onchange="applyFilters()" class="filter-input">
+            <option value="All">All</option>
+            <option value="Responsive">Responsive</option>
+            <option value="Non-Responsive">Non-Responsive</option>
+        </select>
+    </div>
+    
+    <div>
+        <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Sort By</label>
+        <select id="sort-by" onchange="applyFilters()" class="filter-input">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="deadline">By End Date</option>
+        </select>
+    </div>
+    <div class="flex items-end">
+        <button onclick="resetFilters()" class="btn-secondary w-full py-2">
+            Reset Filters
+        </button>
+    </div>
+</div>
             </div>
 
             <!-- Results Count -->
@@ -1252,9 +1329,9 @@
     </main>
 
     <script>
-        const API_BASE = window.location.hostname === 'localhost' 
-            ? 'http://localhost:3000/api'
-            : 'https://directives-new.onrender.com/api';
+const API_BASE = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3001/api'  // ⭐ Changed to 3001
+    : 'https://directives-new.onrender.com/api';
         
         let allData = [];
         let filteredData = [];
@@ -1409,54 +1486,82 @@ function populateOwnerFilter(owners = null) {
 }
 
 
+function resetFilters() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('filter-owner').value = 'All';
+    document.getElementById('filter-impl-status').value = 'All';
+    document.getElementById('filter-monitor-status').value = 'All';
+    document.getElementById('filter-responsive').value = 'All';  // ⭐ ADD THIS
+    document.getElementById('sort-by').value = 'newest';
+    applyFilters();
+}
 
-        function resetFilters() {
-            document.getElementById('search-input').value = '';
-            document.getElementById('filter-owner').value = 'All';
-            document.getElementById('filter-status').value = 'All';
-            document.getElementById('sort-by').value = 'newest';
-            applyFilters();
-        }
 
-        function applyFilters() {
-            let data = allData;
-            
-            if (currentSheet !== 'All') {
-                data = data.filter(d => d.sheetName === currentSheet);
-            }
-            
-            const search = document.getElementById('search-input')?.value.toLowerCase();
-            if (search) {
-                data = data.filter(d => 
-                    d.subject?.toLowerCase().includes(search) ||
-                    d.particulars?.toLowerCase().includes(search) ||
-                    d.owner?.toLowerCase().includes(search) ||
-                    d.ref?.toLowerCase().includes(search)
-                );
-            }
-            
-            const owner = document.getElementById('filter-owner')?.value;
-            if (owner && owner !== 'All') {
-                data = data.filter(d => d.owner && d.owner.includes(owner));
-            }
-            
-            const status = document.getElementById('filter-status')?.value;
-            if (status && status !== 'All') {
-                data = data.filter(d => d.monitoringStatus === status);
-            }
-            
-            const sortBy = document.getElementById('sort-by')?.value || 'newest';
-            if (sortBy === 'newest') {
-                data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            } else if (sortBy === 'oldest') {
-                data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-            } else if (sortBy === 'deadline') {
-                data.sort((a, b) => new Date(a.implementationEndDate) - new Date(b.implementationEndDate));
-            }
-            
-            filteredData = data;
-            renderTable();
+
+
+ 
+
+function applyFilters() {
+    let data = allData;
+    
+    if (currentSheet !== 'All') {
+        data = data.filter(d => d.sheetName === currentSheet);
+    }
+    
+    const search = document.getElementById('search-input')?.value.toLowerCase();
+    if (search) {
+        data = data.filter(d => 
+            d.subject?.toLowerCase().includes(search) ||
+            d.particulars?.toLowerCase().includes(search) ||
+            d.owner?.toLowerCase().includes(search) ||
+            d.ref?.toLowerCase().includes(search)
+        );
+    }
+    
+    const owner = document.getElementById('filter-owner')?.value;
+    if (owner && owner !== 'All') {
+        data = data.filter(d => d.owner && d.owner.includes(owner));
+    }
+    
+    // Implementation Status Filter
+    const implStatus = document.getElementById('filter-impl-status')?.value;
+    if (implStatus && implStatus !== 'All') {
+        data = data.filter(d => d.implementationStatus === implStatus);
+    }
+    
+    // Monitoring Status Filter
+    const monitorStatus = document.getElementById('filter-monitor-status')?.value;
+    if (monitorStatus && monitorStatus !== 'All') {
+        if (monitorStatus === 'Needs Timeline') {
+            data = data.filter(d => !d.implementationEndDate);
+        } else {
+            data = data.filter(d => d.monitoringStatus === monitorStatus);
         }
+    }
+    
+    // ⭐ NEW: Responsiveness Filter
+    const responsive = document.getElementById('filter-responsive')?.value;
+    if (responsive && responsive !== 'All') {
+        if (responsive === 'Non-Responsive') {
+            data = data.filter(d => d.isResponsive === false);
+        } else {
+            data = data.filter(d => d.isResponsive !== false);
+        }
+    }
+    
+    const sortBy = document.getElementById('sort-by')?.value || 'newest';
+    if (sortBy === 'newest') {
+        data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } else if (sortBy === 'oldest') {
+        data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    } else if (sortBy === 'deadline') {
+        data.sort((a, b) => new Date(a.implementationEndDate) - new Date(b.implementationEndDate));
+    }
+    
+    filteredData = data;
+    renderTable();
+}
+
 
 
       function renderTable() {
@@ -1473,13 +1578,13 @@ function populateOwnerFilter(owners = null) {
     filteredData.forEach(d => {
         const tr = document.createElement('tr');
         
-        const monitorStatusClass = {
-            'Completed': 'status-completed',
-            'Awaiting Next Reminder': 'status-track',
-            'At Risk': 'status-risk',
-            'High Risk': 'status-high-risk',
-            'Non-Responsive': 'status-non-responsive'
-        }[d.monitoringStatus] || 'status-track';
+  const monitorStatusClass = {
+    'Completed': 'status-completed',
+    'On Track': 'status-track',
+    'At Risk': 'status-risk',
+    'High Risk': 'status-high-risk',
+    'Needs Timeline': 'status-needs-timeline'  // NEW
+}[d.monitoringStatus] || 'status-track';
         
         // Get the actual implementation status from outcomes if available
         let actualImplStatus = d.implementationStatus;
@@ -1582,10 +1687,16 @@ function populateOwnerFilter(owners = null) {
                 `;
               }).join('');
         
-        const implPeriod = d.implementationStartDate && d.implementationEndDate 
-            ? `${formatDate(d.implementationStartDate)}<br/><strong>to</strong><br/>${formatDate(d.implementationEndDate)}`
-            : 'Not Set';
-        
+       let implPeriod;
+if (d.implementationEndDate) {
+    if (d.implementationStartDate) {
+        implPeriod = `${formatDate(d.implementationStartDate)}<br/><strong>to</strong><br/>${formatDate(d.implementationEndDate)}`;
+    } else {
+        implPeriod = `<span class="text-gray-400 italic">No start</span><br/><strong>to</strong><br/>${formatDate(d.implementationEndDate)}`;
+    }
+} else {
+    implPeriod = '<span class="text-red-600 font-bold">⚠️ NOT SET</span>';
+}
         // Email display
         const emailHtml = `
             <div class="text-gray-900 text-xs mb-2">${d.owner || 'Unassigned'}</div>
@@ -1609,35 +1720,52 @@ function populateOwnerFilter(owners = null) {
             <td class="col-amount">
                 <span class="font-mono text-xs">${d.amount || 'N/A'}</span>
             </td>
-            <td class="col-impl-dates">
-                <span class="text-xs ${!d.implementationStartDate ? 'text-gray-400 italic' : ''}">${implPeriod}</span>
-            </td>
-            <td class="col-days ${daysClass}">${daysCreated}</td>
-            <td class="col-reminder">
-                <span class="text-xs">
-                    ${d.reminders > 0 ? `${d.reminders}/3` : 'None'}
-                    ${d.lastReminderDate ? `<br/><span class="text-gray-500">${formatDate(d.lastReminderDate)}</span>` : ''}
-                </span>
-            </td>
+   <td class="col-impl-dates">
+    <span class="text-xs">${implPeriod}</span>
+</td>
             <td class="col-impl-status">
                 <span class="status-badge ${implStatusClass}">${actualImplStatus}</span>
             </td>
-            <td class="col-monitor-status">
-                <div class="status-badge-container">
-                    <span class="status-badge ${monitorStatusClass}">${d.monitoringStatus}</span>
-                    ${recentHistory.length > 0 ? `
-                        <div class="monitoring-tooltip">
-                            <div style="font-weight: 700; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 4px;">Recent Changes</div>
-                            ${recentHistory.map(h => `
-                                <div class="status-history-item">
-                                    <div style="font-weight: 600;">${h.status}</div>
-                                    <div style="font-size: 10px; color: rgba(255,255,255,0.8);">${formatDate(h.changedAt)}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : ''}
-                </div>
-            </td>
+        <td class="col-monitor-status">
+    <div class="status-badge-container">
+        <!-- Timeline-based Monitoring Status -->
+        <span class="status-badge ${monitorStatusClass}">
+            ${d.monitoringStatus === 'Needs Timeline' ? '⚠️ SET TIMELINE!' : d.monitoringStatus}
+        </span>
+        
+        <!-- Non-Responsive Flag (if applicable) -->
+        ${d.isResponsive === false ? `
+            <span class="status-badge status-non-responsive mt-1" style="display: block;">
+                ⚠️ Non-Responsive
+            </span>
+        ` : ''}
+        
+        <!-- Days Remaining (if end date exists) -->
+        ${d.implementationEndDate ? `
+            <div class="text-xs text-gray-500 mt-1">
+                ${(() => {
+                    const daysRemaining = Math.ceil((new Date(d.implementationEndDate) - new Date()) / (1000 * 60 * 60 * 24));
+                    const isOverdue = daysRemaining < 0;
+                    const colorClass = isOverdue ? 'text-red-600 font-bold' : daysRemaining < 7 ? 'text-orange-600 font-semibold' : 'text-gray-600';
+                    return `<span class="${colorClass}">${Math.abs(daysRemaining)} days ${isOverdue ? 'overdue' : 'left'}</span>`;
+                })()}
+            </div>
+        ` : ''}
+        
+        <!-- Status History Tooltip (keep existing) -->
+        ${recentHistory.length > 0 ? `
+            <div class="monitoring-tooltip">
+                <div style="font-weight: 700; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 4px;">Recent Changes</div>
+                ${recentHistory.map(h => `
+                    <div class="status-history-item">
+                        <div style="font-weight: 600;">${h.status}</div>
+                        <div style="font-size: 10px; color: rgba(255,255,255,0.8);">${formatDate(h.changedAt)}</div>
+                    </div>
+                `).join('')}
+            </div>
+        ` : ''}
+    </div>
+</td>
         <td class="col-action">
     <div class="flex flex-col gap-2">
         <button onclick="openDetailModal('${d._id}')" class="text-indigo-600 hover:text-indigo-800 font-semibold text-xs underline">
@@ -1782,14 +1910,13 @@ function populateOwnerFilter(owners = null) {
                     document.getElementById('modal-ref').textContent = `Reference: ${d.ref}`;
                     
                     const daysCreated = Math.ceil((new Date() - new Date(d.createdAt)) / (1000 * 60 * 60 * 24));
-                    
-                    const monitorStatusClass = {
-                        'Completed': 'status-completed',
-                        'Awaiting Next Reminder': 'status-track',
-                        'At Risk': 'status-risk',
-                        'High Risk': 'status-high-risk',
-                        'Non-Responsive': 'status-non-responsive'
-                    }[d.monitoringStatus] || 'status-track';
+            const monitorStatusClass = {
+    'Completed': 'status-completed',
+    'On Track': 'status-track',  // ✅ NEW
+    'At Risk': 'status-risk',
+    'High Risk': 'status-high-risk',
+    'Needs Timeline': 'status-needs-timeline'  // ✅ ADD THIS TOO
+}[d.monitoringStatus] || 'status-track';
                     
                     const implStatusClass = {
                         'Not Started': 'status-not-started',
@@ -2228,25 +2355,28 @@ function confirmEmailAction() {
             }
         }
 
+
         async function openReminderSettings() {
-            showLoading();
-            try {
-                await loadReminderSettings();
-                
-                document.getElementById('auto-reminders-enabled').checked = reminderSettings.enabled;
-                document.getElementById('status-awaiting').checked = reminderSettings.statusSettings['Awaiting Next Reminder'];
-                document.getElementById('status-at-risk').checked = reminderSettings.statusSettings['At Risk'];
-                document.getElementById('status-high-risk').checked = reminderSettings.statusSettings['High Risk'];
-                document.getElementById('status-non-responsive').checked = reminderSettings.statusSettings['Non-Responsive'];
-                
-                document.getElementById('reminder-modal').classList.remove('hidden');
-                document.getElementById('reminder-modal').classList.add('flex');
-            } catch (error) {
-                alert('Error loading settings: ' + error.message);
-            } finally {
-                showLoading(false);
-            }
-        }
+    showLoading();
+    try {
+        await loadReminderSettings();
+        
+        document.getElementById('auto-reminders-enabled').checked = reminderSettings.enabled;
+        document.getElementById('status-on-track').checked = reminderSettings.statusSettings['On Track'] !== false;
+        document.getElementById('status-at-risk').checked = reminderSettings.statusSettings['At Risk'] !== false;
+        document.getElementById('status-high-risk').checked = reminderSettings.statusSettings['High Risk'] !== false;
+        document.getElementById('status-needs-timeline').checked = reminderSettings.statusSettings['Needs Timeline'] !== false;
+        
+        document.getElementById('reminder-modal').classList.remove('hidden');
+        document.getElementById('reminder-modal').classList.add('flex');
+    } catch (error) {
+        alert('Error loading settings: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+
 
         function closeReminderModal() {
             document.getElementById('reminder-modal').classList.add('hidden');
@@ -2267,35 +2397,38 @@ function confirmEmailAction() {
             }
         }
 
-        async function saveReminderSettings() {
-            showLoading();
-            try {
-                const enabled = document.getElementById('auto-reminders-enabled').checked;
-                const statusSettings = {
-                    'Awaiting Next Reminder': document.getElementById('status-awaiting').checked,
-                    'At Risk': document.getElementById('status-at-risk').checked,
-                    'High Risk': document.getElementById('status-high-risk').checked,
-                    'Non-Responsive': document.getElementById('status-non-responsive').checked
-                };
-                
-                const response = await fetch(`${API_BASE}/reminder-settings`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ enabled, statusSettings })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    alert('✅ Auto-reminder settings saved successfully!');
-                    reminderSettings = result.data;
-                    closeReminderModal();
-                }
-            } catch (error) {
-                alert('❌ Error: ' + error.message);
-            } finally {
-                showLoading(false);
-            }
+
+async function saveReminderSettings() {
+    showLoading();
+    try {
+        const enabled = document.getElementById('auto-reminders-enabled').checked;
+        const statusSettings = {
+            'On Track': document.getElementById('status-on-track').checked,
+            'At Risk': document.getElementById('status-at-risk').checked,
+            'High Risk': document.getElementById('status-high-risk').checked,
+            'Needs Timeline': document.getElementById('status-needs-timeline').checked
+        };
+        
+        const response = await fetch(`${API_BASE}/reminder-settings`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled, statusSettings })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            alert('✅ Auto-reminder settings saved successfully!');
+            reminderSettings = result.data;
+            closeReminderModal();
         }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+
 
         function switchSource(source) {
             currentSource = source;

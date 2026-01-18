@@ -12,7 +12,7 @@ require('dotenv').config();
 
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
@@ -170,28 +170,25 @@ const directiveSchema = new mongoose.Schema({
   implementationStatus: { type: String, default: 'Not Started' },
   ref: { type: String, unique: true, sparse: true },
   
- monitoringStatus: {
+   // TIMELINE-BASED MONITORING
+monitoringStatus: {
   type: String,
-  enum: [
-    'Awaiting Next Reminder', 
-    'At Risk', 
-    'High Risk', 
-    'Non-Responsive', 
-    'Completed',
-    'Being Implemented',  // ⭐ ADD THIS
-    'Implemented',        // ⭐ ADD THIS
-    'No response'         // ⭐ ADD THIS
-  ],
-  default: 'Awaiting Next Reminder'
+  enum: ['On Track', 'At Risk', 'High Risk', 'Completed', 'Needs Timeline'],
+  default: 'On Track'
 },
+
 
   statusHistory: [statusHistorySchema],
   
   reminders: { type: Number, default: 0 },
   lastReminderDate: Date,
+  lastSbuUpdate: Date,
   reminderHistory: [reminderHistorySchema],
   
-  isResponsive: { type: Boolean, default: true },
+  isResponsive: { 
+  type: Boolean, 
+  default: true 
+},
   lastResponseDate: Date,
   
   completionNote: String,
@@ -239,6 +236,7 @@ directiveSchema.pre('save', async function(next) {
   next();
 });
 
+
 directiveSchema.methods.updateMonitoringStatus = function(notes = '') {
   const oldStatus = this.monitoringStatus;
   
@@ -247,34 +245,38 @@ directiveSchema.methods.updateMonitoringStatus = function(notes = '') {
   
   if (allOutcomesCompleted || this.implementationStatus === 'Completed') {
     this.monitoringStatus = 'Completed';
+    this.isResponsive = true;
   } else {
-    const today = new Date();
-    let daysUntilEnd = null;
-    
-    if (this.implementationEndDate) {
-      daysUntilEnd = Math.ceil((this.implementationEndDate - today) / (1000 * 60 * 60 * 24));
-    }
-    
-    if (daysUntilEnd !== null && daysUntilEnd <= 7) {
-      this.monitoringStatus = 'High Risk';
-    } else if (
-      (daysUntilEnd !== null && daysUntilEnd < 30) ||
-      this.reminders >= 3
-    ) {
-      this.monitoringStatus = 'At Risk';
-    } else {
-      this.monitoringStatus = 'Awaiting Next Reminder';
-    }
-    
-    if (this.reminders >= 3 && 
-        (!this.lastSbuUpdate || 
-         (this.lastReminderDate && this.lastSbuUpdate < this.lastReminderDate))) {
-      this.isResponsive = false;
-      if (this.reminders >= 4) {
-        this.monitoringStatus = 'Non-Responsive';
+    // ⭐ CHECK IF TIMELINE EXISTS
+    if (!this.implementationEndDate) {
+      this.monitoringStatus = 'Needs Timeline';
+      // Still check responsiveness
+      if (this.reminders >= 2 && 
+          (!this.lastSbuUpdate || 
+           (this.lastReminderDate && this.lastSbuUpdate < this.lastReminderDate))) {
+        this.isResponsive = false;
       }
-    } else if (this.lastSbuUpdate && this.lastSbuUpdate > (this.lastReminderDate || this.createdAt)) {
-      this.isResponsive = true;
+    } else {
+      // Normal timeline-based logic
+      const today = new Date();
+      const daysUntilEnd = Math.ceil((this.implementationEndDate - today) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilEnd <= 7) {
+        this.monitoringStatus = 'High Risk';
+      } else if (daysUntilEnd < 30 || this.reminders >= 3) {
+        this.monitoringStatus = 'At Risk';
+      } else {
+        this.monitoringStatus = 'On Track';
+      }
+      
+      // Check responsiveness
+      if (this.reminders >= 3 && 
+          (!this.lastSbuUpdate || 
+           (this.lastReminderDate && this.lastSbuUpdate < this.lastReminderDate))) {
+        this.isResponsive = false;
+      } else if (this.lastSbuUpdate && this.lastSbuUpdate > (this.lastReminderDate || this.createdAt)) {
+        this.isResponsive = true;
+      }
     }
   }
   
@@ -288,6 +290,9 @@ directiveSchema.methods.updateMonitoringStatus = function(notes = '') {
   
   return this.save();
 };
+
+
+
 
 directiveSchema.methods.isReminderDue = function() {
   if (this.monitoringStatus === 'Completed') return false;
@@ -763,8 +768,9 @@ function smartTruncate(text, maxLength = 300) {
   return truncated + '...';
 }
 
+
 function parseDate(dateStr) {
-  if (!dateStr) return new Date();
+  if (!dateStr || dateStr === '' || dateStr === ',,') return null;  // ✅ Return null for empty
   
   dateStr = String(dateStr).trim();
   
@@ -791,7 +797,7 @@ function parseDate(dateStr) {
     console.warn(`⚠️  Could not parse date: "${dateStr}"`);
   }
   
-  return new Date();
+  return null;  // ✅ Return null instead of today's date
 }
 
 function addDays(date, days) {
@@ -1147,13 +1153,13 @@ async function fetchSheetData(sheetName) {
 const ReminderSettings = mongoose.model('ReminderSettings', new mongoose.Schema({
   enabled: { type: Boolean, default: true },
   statusSettings: {
-    'Awaiting Next Reminder': { type: Boolean, default: true },
+    'On Track': { type: Boolean, default: true },  // Changed from 'Awaiting Next Reminder'
     'At Risk': { type: Boolean, default: true },
-    'High Risk': { type: Boolean, default: true },
-    'Non-Responsive': { type: Boolean, default: false }
+    'High Risk': { type: Boolean, default: true }
   },
   updatedAt: { type: Date, default: Date.now }
 }));
+
 
 async function sendReminders() {
   try {
@@ -1408,6 +1414,9 @@ app.post('/api/sync-sheets', async (req, res) => {
   }
 });
 
+
+
+
 app.get('/api/directives', async (req, res) => {
   try {
     const { source, owner, status, sheetName } = req.query;
@@ -1419,11 +1428,49 @@ app.get('/api/directives', async (req, res) => {
     if (sheetName && sheetName !== 'All') query.sheetName = sheetName;
 
     const directives = await Directive.find(query).sort({ createdAt: -1 });
-    res.json({ success: true, data: directives });
+    
+    const directivesWithStatus = directives.map(d => {
+      const directive = d.toObject();
+      
+      // Calculate real-time monitoring status
+      const allOutcomesCompleted = directive.outcomes?.length > 0 && 
+        directive.outcomes.every(o => o.status === 'Completed');
+      
+      if (allOutcomesCompleted || directive.implementationStatus === 'Completed') {
+        directive.monitoringStatus = 'Completed';
+      } else if (!directive.implementationEndDate) {
+        directive.monitoringStatus = 'Needs Timeline';  // ⭐ Distinct status
+      } else {
+        const today = new Date();
+        const daysUntilEnd = Math.ceil((new Date(directive.implementationEndDate) - today) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilEnd <= 7) {
+          directive.monitoringStatus = 'High Risk';
+        } else if (daysUntilEnd < 30 || directive.reminders >= 3) {
+          directive.monitoringStatus = 'At Risk';
+        } else {
+          directive.monitoringStatus = 'On Track';
+        }
+      }
+      
+      // Check responsiveness
+      if (directive.reminders >= 3 && 
+          (!directive.lastSbuUpdate || 
+           (directive.lastReminderDate && new Date(directive.lastSbuUpdate) < new Date(directive.lastReminderDate)))) {
+        directive.isResponsive = false;
+      } else {
+        directive.isResponsive = true;
+      }
+      
+      return directive;
+    });
+    
+    res.json({ success: true, data: directivesWithStatus });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 app.get('/api/directives/:id', async (req, res) => {
   try {
@@ -1431,11 +1478,44 @@ app.get('/api/directives/:id', async (req, res) => {
     if (!directive) {
       return res.status(404).json({ success: false, error: 'Directive not found' });
     }
-    res.json({ success: true, data: directive });
+    
+    // ⭐ Auto-calculate monitoring status in real-time
+    const directiveObj = directive.toObject();
+    
+    const allOutcomesCompleted = directiveObj.outcomes?.length > 0 && 
+      directiveObj.outcomes.every(o => o.status === 'Completed');
+    
+    if (allOutcomesCompleted || directiveObj.implementationStatus === 'Completed') {
+      directiveObj.monitoringStatus = 'Completed';
+    } else if (!directiveObj.implementationEndDate) {
+      directiveObj.monitoringStatus = 'Needs Timeline';
+    } else {
+      const today = new Date();
+      const daysUntilEnd = Math.ceil((new Date(directiveObj.implementationEndDate) - today) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilEnd <= 7) {
+        directiveObj.monitoringStatus = 'High Risk';
+      } else if (daysUntilEnd < 30 || directiveObj.reminders >= 3) {
+        directiveObj.monitoringStatus = 'At Risk';
+      } else {
+        directiveObj.monitoringStatus = 'On Track';
+      }
+    }
+    
+    if (directiveObj.reminders >= 3 && 
+        (!directiveObj.lastSbuUpdate || 
+         (directiveObj.lastReminderDate && new Date(directiveObj.lastSbuUpdate) < new Date(directiveObj.lastReminderDate)))) {
+      directiveObj.isResponsive = false;
+    } else {
+      directiveObj.isResponsive = true;
+    }
+    
+    res.json({ success: true, data: directiveObj });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 
 
@@ -1611,6 +1691,7 @@ app.get('/api/reports/stats', async (req, res) => {
       monitoringStatus: { $ne: 'Completed' }
     });
     
+
     const dueSoon = await Directive.countDocuments({
       ...query,
       implementationEndDate: { $gte: now, $lte: addDays(now, 30) },

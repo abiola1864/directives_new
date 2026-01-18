@@ -6,3 +6,5 @@ credentials.json
 *.log
 .DS_Store
 .env
+.env
+.env
