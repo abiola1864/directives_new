@@ -8,3 +8,16 @@ credentials.json
 .env
 .env
 .env
+
+# Migration scripts (contain credentials)
+*-status.js
+*-timeline.js
+*-dates.js
+migrate-*.js
+fix-*.js
+check-*.js
+query-*.js
+clean-*.js
+clear-*.js
+inspect-*.js
+recalculate-*.js
