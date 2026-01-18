@@ -65,10 +65,9 @@
         .col-owner { width: 180px; min-width: 180px; }
         .col-amount { width: 100px; min-width: 100px; }
         .col-impl-dates { width: 160px; min-width: 160px; }
-        .col-days { width: 70px; min-width: 70px; text-align: center; }
-        .col-reminder { width: 90px; min-width: 90px; text-align: center; }
+
         .col-impl-status { width: 120px; min-width: 120px; }
-        .col-monitor-status { width: 120px; min-width: 120px; }
+        .col-monitor-status { width: 150px; min-width: 150px; }  /* was 120px */
         .col-action { width: 150px; min-width: 150px; }
         
         .status-badge {
@@ -402,6 +401,8 @@
     z-index: 50;
 }
 
+.col-comments { width: 200px; min-width: 200px; }
+
 #reminder-modal {
     z-index: 50;
 }
@@ -577,6 +578,15 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Additional Comments</label>
                         <textarea rows="4" class="filter-input" id="update-comments" placeholder="Enter any additional details or notes..."></textarea>
                     </div>
+
+                       <!-- ⭐ ADD THE NEW FIELD HERE (AFTER THE EXISTING COMMENTS FIELD) -->
+        <div class="mb-6">
+            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">
+                📝 Add Implementation Comment (will be timestamped & appended)
+            </label>
+            <textarea rows="3" class="filter-input" id="update-additional-comments" placeholder="Add a new comment about implementation progress (this will NOT overwrite previous comments)..."></textarea>
+            <p class="text-xs text-gray-500 mt-1">💡 Previous comments are preserved - each new comment is appended with a timestamp</p>
+        </div>
 
                     <div class="flex gap-4 justify-end">
                         <button type="button" onclick="closeUpdateModal()" class="btn-secondary px-8 py-3">Cancel</button>
@@ -796,6 +806,15 @@
                         </div>
                     </div>
 
+                        <!-- ⭐ ADD HERE TOO -->
+        <div class="mb-6">
+            <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">
+                📝 Add Implementation Comment (Optional)
+            </label>
+            <textarea rows="3" class="filter-input" id="edit-additional-comments" placeholder="Add a timestamped comment..."></textarea>
+        </div>
+
+        
                     <div class="flex gap-4 justify-end">
                         <button type="button" onclick="closeEditModal()" class="btn-secondary px-8 py-3">Cancel</button>
                         <button type="submit" class="btn-primary px-8 py-3 shadow-lg">Save Changes</button>
@@ -1094,23 +1113,22 @@
             <div class="table-container">
                 <div class="table-wrapper custom-scroll">
                     <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th class="col-ref">Ref No.</th>
-                                <th class="col-date">Meeting Date</th>
-                                <th class="col-subject">Subject</th>
-                                <th class="col-particulars">Particulars</th>
-                                <th class="col-outcomes">Key Outcomes</th>
-                                <th class="col-owner">Process Owner & Email</th>
-                                <th class="col-amount">Amount</th>
-                                <th class="col-impl-dates">Implementation Period</th>
-                                <th class="col-days">Days</th>
-                                <th class="col-reminder">Reminders</th>
-                                <th class="col-impl-status">Impl. Status</th>
-                                <th class="col-monitor-status">Monitor Status</th>
-                                <th class="col-action">Actions</th>
-                            </tr>
-                        </thead>
+            <thead>
+    <tr>
+        <th class="col-ref">Ref No.</th>
+        <th class="col-date">Meeting Date</th>
+        <th class="col-subject">Subject</th>
+        <th class="col-particulars">Particulars</th>
+        <th class="col-outcomes">Key Outcomes</th>
+        <th class="col-owner">Process Owner & Email</th>
+        <th class="col-amount">Amount</th>
+        <th class="col-impl-dates">Implementation Period</th>
+        <th class="col-impl-status">Impl. Status</th>
+        <th class="col-comments">Additional Comments</th> <!-- ⭐ ADD THIS -->
+        <th class="col-monitor-status">Monitor Status</th>
+        <th class="col-action">Actions</th>
+    </tr>
+</thead>
                         <tbody id="table-body"></tbody>
                     </table>
                 </div>
@@ -1705,27 +1723,35 @@ if (d.implementationEndDate) {
                 ${d.secondaryEmail ? `<br/>📧 ${d.secondaryEmail}` : ''}
             </div>
         `;
-        
-        tr.innerHTML = `
-            <td class="col-ref">
-                <span class="font-mono text-xs bg-gray-100 px-2 py-1 rounded">${d.ref || 'N/A'}</span>
-            </td>
-            <td class="col-date">
-                <span class="text-xs">${formatDate(d.meetingDate)}</span>
-            </td>
-            <td class="col-subject">${subjectHtml}</td>
-            <td class="col-particulars">${particularsHtml}</td>
-            <td class="col-outcomes">${outcomesHtml}</td>
-            <td class="col-owner">${emailHtml}</td>
-            <td class="col-amount">
-                <span class="font-mono text-xs">${d.amount || 'N/A'}</span>
-            </td>
-   <td class="col-impl-dates">
-    <span class="text-xs">${implPeriod}</span>
-</td>
-            <td class="col-impl-status">
-                <span class="status-badge ${implStatusClass}">${actualImplStatus}</span>
-            </td>
+  tr.innerHTML = `
+    <td class="col-ref">
+        <span class="font-mono text-xs bg-gray-100 px-2 py-1 rounded">${d.ref || 'N/A'}</span>
+    </td>
+    <td class="col-date">
+        <span class="text-xs">${formatDate(d.meetingDate)}</span>
+    </td>
+    <td class="col-subject">${subjectHtml}</td>
+    <td class="col-particulars">${particularsHtml}</td>
+    <td class="col-outcomes">${outcomesHtml}</td>
+    <td class="col-owner">${emailHtml}</td>
+    <td class="col-amount">
+        <span class="font-mono text-xs">${d.amount || 'N/A'}</span>
+    </td>
+    <td class="col-impl-dates">
+        <span class="text-xs">${implPeriod}</span>
+    </td>
+    <td class="col-impl-status">
+        <span class="status-badge ${implStatusClass}">${actualImplStatus}</span>
+    </td>
+    
+    <!-- ⭐ ADD THIS NEW COLUMN -->
+    <td class="col-comments">
+        ${d.additionalComments ? 
+            `<div class="text-xs text-gray-700 leading-relaxed max-h-20 overflow-y-auto">${d.additionalComments.replace(/\n/g, '<br>')}</div>` 
+            : '<span class="text-xs text-gray-400 italic">No comments</span>'
+        }
+    </td>
+    
         <td class="col-monitor-status">
     <div class="status-badge-container">
         <!-- Timeline-based Monitoring Status -->
@@ -2106,17 +2132,18 @@ if (d.implementationEndDate) {
                 const implStatus = document.getElementById('update-impl-status').value;
                 const comments = document.getElementById('update-comments').value;
                 
-                const response = await fetch(`${API_BASE}/directives/${currentDirectiveId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        outcomes,
-                        implementationStartDate: startDate ? new Date(startDate).toISOString() : null,
-                        implementationEndDate: endDate ? new Date(endDate).toISOString() : null,
-                        implementationStatus: implStatus,
-                        completionNote: comments
-                    })
-                });
+               const response = await fetch(`${API_BASE}/directives/${currentDirectiveId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        outcomes,
+        implementationStartDate: startDate ? new Date(startDate).toISOString() : null,
+        implementationEndDate: endDate ? new Date(endDate).toISOString() : null,
+        implementationStatus: implStatus,
+        completionNote: comments,
+        additionalComments: document.getElementById('update-additional-comments').value  // ⭐ ADD THIS
+    })
+});
                 
                 const result = await response.json();
                 if (result.success) {

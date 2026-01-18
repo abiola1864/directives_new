@@ -21,3 +21,14 @@ clean-*.js
 clear-*.js
 inspect-*.js
 recalculate-*.js
+
+# Migration and utility scripts (contain credentials)
+migrate*.js
+check_*.js
+set_default*.js
+force_*.js
+*_migration.js
+
+# Utility/helper scripts
+add-email-api-routes.js
+add-submission-route.js

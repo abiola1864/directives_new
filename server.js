@@ -29,6 +29,43 @@ mongoose.connect(MONGODB_URI, {
 .then(() => console.log('✅ MongoDB Atlas Connected'))
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
+
+
+
+
+// Extract standard status or return empty string
+function extractStandardStatus(statusText) {
+    if (!statusText || statusText.trim() === '') return '';
+    
+    const validStatuses = ['Not Started', 'Being Implemented', 'Delayed', 'Completed'];
+    const cleaned = statusText.trim();
+    
+    // If it's already a valid status, return it
+    if (validStatuses.includes(cleaned)) {
+        return cleaned;
+    }
+    
+    // If it's free text, return empty (will be filled manually later)
+    return '';
+}
+
+// Extract comments from free text (anything that's not a standard status)
+function extractComments(statusText) {
+    if (!statusText || statusText.trim() === '') return '';
+    
+    const validStatuses = ['Not Started', 'Being Implemented', 'Delayed', 'Completed'];
+    const cleaned = statusText.trim();
+    
+    // If it's a standard status, no comments
+    if (validStatuses.includes(cleaned)) {
+        return '';
+    }
+    
+    // If it's free text, treat it as a comment
+    return cleaned;
+}
+
+
 // ==========================================
 // EMAIL CONFIGURATION
 // ==========================================
@@ -152,6 +189,7 @@ const reminderHistorySchema = new mongoose.Schema({
   acknowledged: { type: Boolean, default: false }
 });
 
+
 const directiveSchema = new mongoose.Schema({
   source: { type: String, required: true, enum: ['CG', 'Board'] },
   sheetName: { type: String, required: true },
@@ -168,6 +206,10 @@ const directiveSchema = new mongoose.Schema({
   implementationStartDate: Date,
   implementationEndDate: Date,
   implementationStatus: { type: String, default: 'Not Started' },
+  
+  // ⭐ ADD THIS NEW FIELD
+  additionalComments: { type: String, default: '' },
+  
   ref: { type: String, unique: true, sparse: true },
   
    // TIMELINE-BASED MONITORING
@@ -328,6 +370,8 @@ directiveSchema.methods.isReminderDue = function() {
 };
 
 const Directive = mongoose.model('Directive', directiveSchema);
+
+
 
 // ==========================================
 // EMAIL GENERATION FUNCTIONS
@@ -1125,7 +1169,9 @@ async function fetchSheetData(sheetName) {
         vendor: group.vendor || '',
         implementationStartDate: null,
         implementationEndDate: implDeadline,
-        implementationStatus: group.implStatus || 'Not Started',
+// ⭐ SMART STATUS EXTRACTION
+implementationStatus: extractStandardStatus(group.implStatus),
+additionalComments: extractComments(group.implStatus),
         monitoringStatus: monitoringStatus,
         outcomes: outcomes,
         statusHistory: [{
@@ -1525,22 +1571,24 @@ app.put('/api/directives/:id', async (req, res) => {
     if (!directive) {
       return res.status(404).json({ success: false, error: 'Directive not found' });
     }
+const { 
+  outcomes, 
+  implementationStatus, 
+  completionNote,
+  additionalComments,  // ⭐ ADD THIS
+  implementationStartDate, 
+  implementationEndDate,
+  meetingDate,
+  owner,
+  subject,
+  particulars,
+  amount,
+  sheetName,
+  primaryEmail,
+  secondaryEmail
+} = req.body;
 
-    const { 
-      outcomes, 
-      implementationStatus, 
-      completionNote, 
-      implementationStartDate, 
-      implementationEndDate,
-      meetingDate,
-      owner,
-      subject,
-      particulars,
-      amount,
-      sheetName,
-      primaryEmail,
-      secondaryEmail
-    } = req.body;
+
     
     // ⭐ CHECK IF EMAIL WAS CHANGED
     const emailChanged = (
@@ -1552,9 +1600,31 @@ app.put('/api/directives/:id', async (req, res) => {
     const newOwner = owner || directive.owner;
     
     // Update the current directive
-    if (outcomes) directive.outcomes = outcomes;
-    if (implementationStatus) directive.implementationStatus = implementationStatus;
-    if (completionNote) directive.completionNote = completionNote;
+if (outcomes) directive.outcomes = outcomes;
+if (implementationStatus) directive.implementationStatus = implementationStatus;
+if (completionNote) directive.completionNote = completionNote;
+
+// ⭐ APPEND ADDITIONAL COMMENTS (don't overwrite)
+if (additionalComments && additionalComments.trim()) {
+    const timestamp = new Date().toLocaleString('en-GB', { 
+        day: '2-digit', 
+        month: 'short', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    const newComment = `[${timestamp}] ${additionalComments.trim()}`;
+    
+    if (directive.additionalComments && directive.additionalComments.trim()) {
+        // Append to existing comments
+        directive.additionalComments += '\n\n' + newComment;
+    } else {
+        // First comment
+        directive.additionalComments = newComment;
+    }
+}
+
     if (implementationStartDate) directive.implementationStartDate = new Date(implementationStartDate);
     if (implementationEndDate) directive.implementationEndDate = new Date(implementationEndDate);
     if (meetingDate) directive.meetingDate = new Date(meetingDate);
