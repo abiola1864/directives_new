@@ -2577,3 +2577,10 @@ app.get('/submit-update/:id', async (req, res) => {
     `);
   }
 });
+
+
+// Serve assets folder at root level
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
+
+// Serve public folder
+app.use(express.static(path.join(__dirname, 'public')));

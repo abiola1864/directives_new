@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head><title>Logo Test</title></head>
+<body style="padding: 40px;">
+<h1>CBN Logo Path Tests</h1>
+
+<h2>Test 1: ../assets/cbn_logo.png</h2>
+<img src="../assets/cbn_logo.png" alt="Test 1" style="width: 200px; border: 2px solid red;">
+
+<h2>Test 2: /assets/cbn_logo.png</h2>
+<img src="/assets/cbn_logo.png" alt="Test 2" style="width: 200px; border: 2px solid blue;">
+
+<h2>Test 3: Direct path</h2>
+<img src="../assets/cbn_logo.png" alt="Test 3" style="width: 200px; border: 2px solid green;" 
+     onerror="alert('Image failed to load! Path: ' + this.src);">
+
+<script>
+console.log('Current page:', window.location.href);
+console.log('Trying to load from:', new URL('../assets/cbn_logo.png', window.location.href).href);
+</script>
+</body>
+</html>
