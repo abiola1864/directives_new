@@ -649,13 +649,11 @@
         <div class="p-6" id="panel-content">
             <!-- Populated by JS -->
         </div>
-        <div class="sticky bottom-0 bg-white border-t border-gray-200 p-6 flex gap-3 justify-end">
-            <button onclick="closePanel('detail-panel')" class="btn-flat">Close</button>
-            <button onclick="openEditFromPanel()" class="btn-flat">Edit</button>
-            <button onclick="openRequestUpdateFromPanel()" class="btn-flat">Request Update</button>
-            <button onclick="openUpdateFromPanel()" class="btn-primary-flat">Update Status</button>
-        </div>
-    </div>
+     <div class="sticky bottom-0 bg-white border-t border-gray-200 p-6 flex gap-3 justify-end">
+    <button onclick="closePanel('detail-panel')" class="btn-flat">Close</button>
+    <button onclick="openEditFromPanel()" class="btn-flat">Edit</button>
+    <button onclick="openRequestUpdateFromPanel()" class="btn-primary-flat">Request Update</button>
+</div>
 
     <!-- Filter Panel -->
     <div id="filter-panel" class="slide-panel" style="width: 400px;">
@@ -1414,22 +1412,19 @@
                             ${d.additionalComments ? truncate(d.additionalComments.replace(/\n/g, ' '), 100) : '<span class="text-gray-400 italic">No comments</span>'}
                         </div>
                     </td>
-                    <td onclick="event.stopPropagation()">
-                        <div class="flex flex-col gap-1">
-                            <button onclick="openDetailPanel('${d._id}')" class="action-link text-left">
-                                View
-                            </button>
-                            <button onclick="openUpdateModal('${d._id}')" class="action-link text-left">
-                                Update
-                            </button>
-                            <button onclick="openRequestUpdateModal('${d._id}')" class="action-link text-left">
-                                Request Update
-                            </button>
-                            <button onclick="openEditModal('${d._id}')" class="action-link text-left">
-                                Edit
-                            </button>
-                        </div>
-                    </td>
+                <td onclick="event.stopPropagation()">
+    <div class="flex flex-col gap-1">
+        <button onclick="openDetailPanel('${d._id}')" class="action-link text-left">
+            View
+        </button>
+        <button onclick="openRequestUpdateModal('${d._id}')" class="action-link text-left">
+            Request Update
+        </button>
+        <button onclick="openEditModal('${d._id}')" class="action-link text-left">
+            Edit
+        </button>
+    </div>
+</td>
                 `;
                 
                 tbody.appendChild(tr);
