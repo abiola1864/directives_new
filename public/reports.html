@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard - Board Directives</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        * { 
+            font-family: 'Google Sans', 'Roboto', sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        :root {
+            --cbn-darkest: #0D2818;
+            --cbn-dark: #1B5E20;
+            --cbn-primary: #2E7D32;
+            --cbn-medium: #43A047;
+            --cbn-light: #66BB6A;
+            --cbn-pale: #E8F5E9;
+            --cbn-cream: #F1F8F4;
+            --red-critical: #C62828;
+            --bg-page: #F8F9FA;
+        }
+        
+        body {
+            background: var(--bg-page);
+            color: #202124;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 256px;
+            background: white;
+            border-right: 1px solid #DADCE0;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            overflow-y: auto;
+        }
+        
+        .nav-item {
+            padding: 12px 20px;
+            margin: 2px 8px;
+            border-radius: 24px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #5F6368;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .nav-item:hover {
+            background: var(--cbn-pale);
+        }
+        
+        .nav-item.active {
+            background: var(--cbn-pale);
+            color: var(--cbn-dark);
+            font-weight: 700;
+        }
+        
+        .main-content {
+            margin-left: 256px;
+            height: 100vh;
+            overflow-y: auto;
+            padding: 24px;
+        }
+        
+        .view-section {
+            display: none;
+        }
+        
+        .view-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #DADCE0;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .stat-card:hover {
+            box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px rgba(60,64,67,0.15);
+        }
+        
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid #DADCE0;
+        }
+        
+        .metric-big {
+            font-size: 2.5rem;
+            font-weight: 400;
+            line-height: 1;
+            font-family: 'Google Sans';
+        }
+        
+        .btn-subtle {
+            background: var(--bg-page);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 24px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+            font-size: 14px;
+            color: #5F6368;
+        }
+        
+        .btn-subtle:hover {
+            background: #E8EAED;
+        }
+        
+        .btn-subtle:active {
+            background: #DADCE0;
+            transform: translateY(1px);
+        }
+        
+        .btn-subtle.active {
+            background: var(--cbn-pale);
+            color: var(--cbn-dark);
+        }
+        
+        .btn-primary {
+            background: var(--cbn-primary);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 24px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .btn-primary:hover {
+            background: var(--cbn-dark);
+            box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px rgba(60,64,67,0.15);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(1px);
+        }
+        
+        .badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+        }
+        
+        .badge-green { background: var(--cbn-pale); color: var(--cbn-dark); }
+        .badge-red { background: #FCE8E6; color: var(--red-critical); }
+        .badge-yellow { background: #FEF3C7; color: #92400E; }
+        .badge-blue { background: #E3F2FD; color: #1565C0; }
+        
+        .progress-bar {
+            height: 6px;
+            background: #E8EAED;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            transition: width 0.8s ease;
+            border-radius: 3px;
+            background: var(--cbn-primary);
+        }
+        
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .filter-bar select, .filter-bar input {
+            padding: 8px 16px;
+            border: 1px solid #DADCE0;
+            border-radius: 24px;
+            font-size: 14px;
+            background: white;
+        }
+        
+        .filter-bar input {
+            min-width: 240px;
+        }
+        
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #DADCE0;
+        }
+        
+        .pagination button {
+            padding: 8px 16px;
+            border: 1px solid #DADCE0;
+            background: white;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #5F6368;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .pagination button:hover:not(:disabled) {
+            background: var(--cbn-pale);
+        }
+        
+        .pagination button.active {
+            background: var(--cbn-primary);
+            color: white;
+            border-color: var(--cbn-primary);
+        }
+        
+        .pagination button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .item-card {
+            background: white;
+            border: 1px solid #DADCE0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 12px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .item-card:hover {
+            box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px rgba(60,64,67,0.15);
+        }
+        
+        .grade-badge {
+            width: 72px;
+            height: 72px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: 700;
+            color: white;
+            background: var(--cbn-primary);
+        }
+        
+        @media print {
+            .sidebar, .no-print, .filter-bar, .pagination { display: none !important; }
+            .main-content { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-90 items-center justify-center hidden z-50">
+        <div class="text-center">
+            <div class="inline-block w-12 h-12 border-4 border-gray-200 border-t-green-600 rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-700 font-medium">Loading data...</p>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar no-print">
+        <div class="p-6 border-b border-gray-200">
+            <a href="/" class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-700" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                        <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg" style="color: var(--cbn-dark);">Analytics</h1>
+                    <p class="text-xs text-gray-500">Board Directives</p>
+                </div>
+            </a>
+        </div>
+
+        <!-- Source Selector -->
+        <div class="p-4">
+            <div class="flex gap-2">
+                <button id="src-cg" onclick="switchSource('CG')" class="btn-subtle active flex-1">CG</button>
+                <button id="src-board" onclick="switchSource('Board')" class="btn-subtle flex-1">Board</button>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="py-2">
+             <a href="/index.html" class="nav-item" style="text-decoration: none; color: inherit;">
+        <span>←</span>
+        <span>Back to Dashboard</span>
+    </a>
+            <div class="nav-item active" onclick="showView('overview')">
+                <span>📊</span>
+                <span>Overview</span>
+            </div>
+            <div class="nav-item" onclick="showView('performance')">
+                <span>🎯</span>
+                <span>Performance</span>
+            </div>
+            <div class="nav-item" onclick="showView('status')">
+                <span>📈</span>
+                <span>Status Analysis</span>
+            </div>
+            <div class="nav-item" onclick="showView('timeline')">
+                <span>⏱️</span>
+                <span>Timeline</span>
+            </div>
+            <div class="nav-item" onclick="showView('directives')">
+                <span>📋</span>
+                <span>Directive Outcomes</span>
+            </div>
+            <div class="nav-item" onclick="showView('owners')">
+                <span>👥</span>
+                <span>Process Owners</span>
+            </div>
+
+        </nav>
+
+        <!-- Actions -->
+        <div class="p-4 border-t border-gray-200 mt-auto">
+            <button onclick="window.print()" class="btn-subtle w-full mb-2">
+                🖨️ Print Report
+            </button>
+            <button onclick="exportReport()" class="btn-primary w-full">
+                📥 Export Excel
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        
+        <!-- Overview Section -->
+        <div id="view-overview" class="view-section active">
+            <div class="mb-6">
+                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Overview</h2>
+                <p class="text-sm text-gray-600" id="current-date"></p>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-4 gap-4 mb-6">
+                <div class="stat-card">
+                    <div class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Total</div>
+                    <div class="metric-big" style="color: var(--cbn-dark);" id="ov-total">0</div>
+                    <div class="text-xs text-gray-500 mt-2">Directives</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-primary);">Done</div>
+                    <div class="metric-big" style="color: var(--cbn-primary);" id="ov-done">0</div>
+                    <div class="text-xs font-medium mt-2" style="color: var(--cbn-primary);" id="ov-done-pct">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-medium);">Active</div>
+                    <div class="metric-big" style="color: var(--cbn-medium);" id="ov-active">0</div>
+                    <div class="text-xs mt-2" style="color: var(--cbn-medium);">In progress</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--red-critical);">Risk</div>
+                    <div class="metric-big" style="color: var(--red-critical);" id="ov-risk">0</div>
+                    <div class="text-xs font-medium mt-2" style="color: var(--red-critical);" id="ov-risk-pct">0%</div>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="stat-card mb-6">
+                <h3 class="text-base font-medium mb-2" style="color: var(--cbn-dark);">Summary</h3>
+                <p id="ov-summary" class="text-gray-700 leading-relaxed text-sm"></p>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-2 gap-6">
+                <div class="chart-card">
+                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Status Distribution</h3>
+                    <canvas id="ov-chart" height="200"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Timeline Alerts</h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                            <div>
+                                <div class="font-medium text-sm" style="color: var(--red-critical);">Overdue</div>
+                                <div class="text-xs text-gray-600">Past deadline</div>
+                            </div>
+                            <div class="text-3xl font-light" style="color: var(--red-critical);" id="ov-overdue">0</div>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div>
+                                <div class="font-medium text-sm text-gray-700">Due Soon</div>
+                                <div class="text-xs text-gray-600">Within 30 days</div>
+                            </div>
+                            <div class="text-3xl font-light text-gray-700" id="ov-due-soon">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Section -->
+        <div id="view-performance" class="view-section">
+            <div class="mb-6">
+                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Performance Grades</h2>
+                <p class="text-sm text-gray-600">Overall performance across key metrics</p>
+            </div>
+
+            <div class="grid grid-cols-3 gap-6" id="performance-grades"></div>
+        </div>
+
+        <!-- Status Analysis Section -->
+        <div id="view-status" class="view-section">
+            <div class="mb-6">
+                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Status Analysis</h2>
+                <p class="text-sm text-gray-600">Detailed breakdown of directive statuses</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="chart-card">
+                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Distribution</h3>
+                    <canvas id="status-chart" height="280"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Breakdown</h3>
+                    <div id="status-breakdown"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline Section -->
+        <div id="view-timeline" class="view-section">
+            <div class="mb-6">
+                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Timeline Analysis</h2>
+                <p class="text-sm text-gray-600">Tracking deadlines and implementation dates</p>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="stat-card bg-red-50">
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--red-critical);">Overdue</div>
+                    <div class="text-5xl font-light mb-2" style="color: var(--red-critical);" id="tl-overdue">0</div>
+                    <div class="text-xs" style="color: var(--red-critical);">Past deadline</div>
+                </div>
+                <div class="stat-card bg-gray-50">
+                    <div class="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">Due Soon</div>
+                    <div class="text-5xl font-light text-gray-700 mb-2" id="tl-due-soon">0</div>
+                    <div class="text-xs text-gray-700">Within 30 days</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">No Date</div>
+                    <div class="text-5xl font-light text-gray-600 mb-2" id="tl-no-date">0</div>
+                    <div class="text-xs text-gray-600">Needs scheduling</div>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Timeline Health</h3>
+                <canvas id="timeline-chart" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Directive Outcomes Section -->
+        <div id="view-directives" class="view-section">
+            <div class="mb-6">
+                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Directive Outcomes</h2>
+                <p class="text-sm text-gray-600">Detailed status breakdown and performance insights</p>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-4 gap-4 mb-6">
+                <div class="stat-card">
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-primary);">Completed</div>
+                    <div class="text-4xl font-light" style="color: var(--cbn-primary);" id="dir-completed">0</div>
+                    <div class="text-xs mt-2" style="color: var(--cbn-primary);" id="dir-completed-pct">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-medium);">In Progress</div>
+                    <div class="text-4xl font-light" style="color: var(--cbn-medium);" id="dir-progress">0</div>
+                    <div class="text-xs mt-2" style="color: var(--cbn-medium);" id="dir-progress-pct">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-gray-600">Delayed</div>
+                    <div class="text-4xl font-light text-gray-600" id="dir-delayed">0</div>
+                    <div class="text-xs text-gray-600 mt-2" id="dir-delayed-pct">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-gray-500">Not Started</div>
+                    <div class="text-4xl font-light text-gray-500" id="dir-not-started">0</div>
+                    <div class="text-xs text-gray-500 mt-2" id="dir-not-started-pct">0%</div>
+                </div>
+            </div>
+
+            <!-- Analysis Insights -->
+            <div class="grid grid-cols-2 gap-6 mb-6">
+                <div class="chart-card bg-red-50">
+                    <h3 class="text-base font-medium mb-4 flex items-center" style="color: var(--cbn-dark);">
+                        <span class="text-xl mr-2">🚧</span>
+                        Bottleneck Analysis
+                    </h3>
+                    <div id="bottleneck-analysis"></div>
+                </div>
+
+                <div class="chart-card bg-green-50">
+                    <h3 class="text-base font-medium mb-4 flex items-center" style="color: var(--cbn-dark);">
+                        <span class="text-xl mr-2">⚡</span>
+                        Completion Velocity
+                    </h3>
+                    <div id="velocity-analysis"></div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="chart-card">
+                <div class="filter-bar no-print">
+                    <select id="dir-filter-status" class="flex-1">
+                        <option value="all">All Statuses</option>
+                        <option value="completed">Completed Only</option>
+                        <option value="progress">In Progress</option>
+                        <option value="delayed">Delayed</option>
+                        <option value="not-started">Not Started</option>
+                    </select>
+                    <select id="dir-filter-sort" class="flex-1">
+                        <option value="completion-desc">Completion Rate ↓</option>
+                        <option value="completion-asc">Completion Rate ↑</option>
+                        <option value="velocity-desc">Velocity ↓</option>
+                        <option value="risk-desc">Risk Level ↓</option>
+                    </select>
+                    <input type="text" id="dir-search" placeholder="Search directives...">
+                </div>
+
+                <div id="directives-list"></div>
+            </div>
+        </div>
+
+        <!-- Process Owners Section -->
+        <div id="view-owners" class="view-section">
+            <div class="mb-6">
+                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Process Owners</h2>
+                <p class="text-sm text-gray-600">Performance rankings by owner</p>
+            </div>
+
+            <!-- Filters -->
+            <div class="chart-card">
+                <div class="filter-bar no-print">
+                    <select id="owner-filter-performance" class="flex-1">
+                        <option value="all">All Performance</option>
+                        <option value="excellent">Excellent (80%+)</option>
+                        <option value="good">Good (60-79%)</option>
+                        <option value="needs-improvement">Needs Improvement (<60%)</option>
+                    </select>
+                    <select id="owner-filter-sort" class="flex-1">
+                        <option value="completion-desc">Completion Rate ↓</option>
+                        <option value="completion-asc">Completion Rate ↑</option>
+                        <option value="total-desc">Total Directives ↓</option>
+                        <option value="risk-desc">Risk Level ↓</option>
+                    </select>
+                    <input type="text" id="owner-search" placeholder="Search owners...">
+                </div>
+
+                <div id="owners-list"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const API_BASE = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3001/api'
+            : 'https://directives-new.onrender.com/api';
+        
+        let currentSource = 'CG';
+        let allDirectives = [];
+        let statsData = null;
+        let charts = {};
+        
+        // Pagination state
+        let dirCurrentPage = 1;
+        let dirPageSize = 15;
+        let ownerCurrentPage = 1;
+        let ownerPageSize = 15;
+        
+        // Filter state
+        let dirFilters = { status: 'all', sort: 'completion-desc', search: '' };
+        let ownerFilters = { performance: 'all', sort: 'completion-desc', search: '' };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', {
+                day: '2-digit', month: 'long', year: 'numeric'
+            });
+            setupEventListeners();
+            loadReport();
+        });
+
+        function setupEventListeners() {
+            // Directive filters
+            document.getElementById('dir-filter-status').addEventListener('change', (e) => {
+                dirFilters.status = e.target.value;
+                dirCurrentPage = 1;
+                renderDirectivesList(getFilteredDirectives());
+            });
+            
+            document.getElementById('dir-filter-sort').addEventListener('change', (e) => {
+                dirFilters.sort = e.target.value;
+                dirCurrentPage = 1;
+                renderDirectivesList(getFilteredDirectives());
+            });
+            
+            let dirSearchTimeout;
+            document.getElementById('dir-search').addEventListener('input', (e) => {
+                clearTimeout(dirSearchTimeout);
+                dirSearchTimeout = setTimeout(() => {
+                    dirFilters.search = e.target.value.toLowerCase();
+                    dirCurrentPage = 1;
+                    renderDirectivesList(getFilteredDirectives());
+                }, 300);
+            });
+            
+            // Owner filters
+            document.getElementById('owner-filter-performance').addEventListener('change', (e) => {
+                ownerFilters.performance = e.target.value;
+                ownerCurrentPage = 1;
+                renderOwnersList(getFilteredOwners());
+            });
+            
+            document.getElementById('owner-filter-sort').addEventListener('change', (e) => {
+                ownerFilters.sort = e.target.value;
+                ownerCurrentPage = 1;
+                renderOwnersList(getFilteredOwners());
+            });
+            
+            let ownerSearchTimeout;
+            document.getElementById('owner-search').addEventListener('input', (e) => {
+                clearTimeout(ownerSearchTimeout);
+                ownerSearchTimeout = setTimeout(() => {
+                    ownerFilters.search = e.target.value.toLowerCase();
+                    ownerCurrentPage = 1;
+                    renderOwnersList(getFilteredOwners());
+                }, 300);
+            });
+        }
+
+        function showLoading(show = true) {
+            document.getElementById('loading-overlay').classList.toggle('hidden', !show);
+            document.getElementById('loading-overlay').classList.toggle('flex', show);
+        }
+
+        function showView(viewName) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${viewName}`).classList.add('active');
+            
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+        }
+
+        function switchSource(source) {
+            currentSource = source;
+            document.getElementById('src-cg').classList.toggle('active', source === 'CG');
+            document.getElementById('src-board').classList.toggle('active', source === 'Board');
+            loadReport();
+        }
+
+        async function loadReport() {
+            showLoading();
+            try {
+                const [directivesRes, statsRes] = await Promise.all([
+                    fetch(`${API_BASE}/directives?source=${currentSource}`),
+                    fetch(`${API_BASE}/reports/stats?source=${currentSource}`)
+                ]);
+                
+                const directivesData = await directivesRes.json();
+                const stats = await statsRes.json();
+                
+                if (directivesData.success) allDirectives = directivesData.data;
+                if (stats.success) {
+                    statsData = stats.data;
+                    renderAll(statsData);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error loading data');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function renderAll(data) {
+            renderOverview(data);
+            renderPerformance(data);
+            renderStatus(data);
+            renderTimeline(data);
+            renderDirectives();
+            renderOwners();
+        }
+
+        function renderOverview(data) {
+            document.getElementById('ov-total').textContent = data.summary.total;
+            document.getElementById('ov-done').textContent = data.summary.completed;
+            document.getElementById('ov-active').textContent = data.summary.track + data.summary.atRisk;
+            document.getElementById('ov-risk').textContent = data.summary.highRisk;
+            document.getElementById('ov-done-pct').textContent = `${data.complianceRate}%`;
+            document.getElementById('ov-risk-pct').textContent = `${data.riskRate}%`;
+            document.getElementById('ov-overdue').textContent = data.timeline.overdue;
+            document.getElementById('ov-due-soon').textContent = data.timeline.dueSoon;
+            
+            const completionRate = parseFloat(data.complianceRate);
+            const grade = completionRate >= 80 ? 'A+' : completionRate >= 70 ? 'A' : completionRate >= 60 ? 'B' : 'C';
+            
+            document.getElementById('ov-summary').innerHTML = `Performance grade <strong>${grade}</strong>. ${data.summary.completed} of ${data.summary.total} directives completed (${data.complianceRate}%). ${data.summary.highRisk > 0 ? `<span style="color: var(--red-critical);">${data.summary.highRisk} at high risk.</span>` : ''}`;
+            
+            if (charts.overview) charts.overview.destroy();
+            const ctx = document.getElementById('ov-chart').getContext('2d');
+            charts.overview = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Completed', 'On Track', 'At Risk', 'High Risk'],
+                    datasets: [{
+                        data: [data.summary.completed, data.summary.track, data.summary.atRisk, data.summary.highRisk],
+                        backgroundColor: ['#43A047', '#66BB6A', '#A5D6A7', '#C62828'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10 } }
+                    }
+                }
+            });
+        }
+
+        function renderPerformance(data) {
+            const completionRate = parseFloat(data.complianceRate);
+            const riskRate = parseFloat(data.riskRate);
+            const implRate = data.summary.total > 0 ? Math.round(((data.summary.track + data.summary.atRisk + data.summary.completed) / data.summary.total) * 100) : 0;
+            
+            const metrics = [
+                {
+                    label: 'Compliance',
+                    value: completionRate,
+                    grade: completionRate >= 80 ? 'A+' : completionRate >= 70 ? 'A' : completionRate >= 60 ? 'B' : 'C',
+                    desc: 'Overall completion rate'
+                },
+                {
+                    label: 'Risk Control',
+                    value: 100 - riskRate,
+                    grade: riskRate <= 20 ? 'A+' : riskRate <= 30 ? 'A' : riskRate <= 40 ? 'B' : 'C',
+                    desc: 'Risk management'
+                },
+                {
+                    label: 'Implementation',
+                    value: implRate,
+                    grade: implRate >= 80 ? 'A' : implRate >= 60 ? 'B' : 'C',
+                    desc: 'Active progress'
+                }
+            ];
+            
+            const html = metrics.map(m => `
+                <div class="stat-card text-center">
+                    <div class="grade-badge mx-auto mb-4">${m.grade}</div>
+                    <div class="font-medium text-lg mb-2" style="color: var(--cbn-dark);">${m.label}</div>
+                    <div class="text-4xl font-light mb-2" style="color: var(--cbn-primary);">${m.value}%</div>
+                    <div class="text-sm text-gray-600 mb-3">${m.desc}</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${m.value}%;"></div>
+                    </div>
+                </div>
+            `).join('');
+            
+            document.getElementById('performance-grades').innerHTML = html;
+        }
+
+        function renderStatus(data) {
+            if (charts.status) charts.status.destroy();
+            const ctx = document.getElementById('status-chart').getContext('2d');
+            charts.status = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Completed', 'On Track', 'At Risk', 'High Risk'],
+                    datasets: [{
+                        data: [data.summary.completed, data.summary.track, data.summary.atRisk, data.summary.highRisk],
+                        backgroundColor: ['#43A047', '#66BB6A', '#A5D6A7', '#C62828'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+            
+            const breakdown = `
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span class="font-medium text-sm text-green-900">Completed</span>
+                        <span class="text-2xl font-light text-green-600">${data.summary.completed}</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span class="font-medium text-sm text-gray-900">On Track</span>
+                        <span class="text-2xl font-light text-gray-700">${data.summary.track}</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
+                        <span class="font-medium text-sm text-gray-900">At Risk</span>
+                        <span class="text-2xl font-light text-gray-700">${data.summary.atRisk}</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                        <span class="font-medium text-sm text-red-900">High Risk</span>
+                        <span class="text-2xl font-light text-red-600">${data.summary.highRisk}</span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('status-breakdown').innerHTML = breakdown;
+        }
+
+        function renderTimeline(data) {
+            document.getElementById('tl-overdue').textContent = data.timeline.overdue;
+            document.getElementById('tl-due-soon').textContent = data.timeline.dueSoon;
+            document.getElementById('tl-no-date').textContent = allDirectives.filter(d => !d.implementationEndDate).length;
+            
+            if (charts.timeline) charts.timeline.destroy();
+            const ctx = document.getElementById('timeline-chart').getContext('2d');
+            charts.timeline = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Overdue', 'Due Soon', 'On Schedule', 'No Timeline'],
+                    datasets: [{
+                        data: [
+                            data.timeline.overdue,
+                            data.timeline.dueSoon,
+                            data.summary.total - data.timeline.overdue - data.timeline.dueSoon - allDirectives.filter(d => !d.implementationEndDate).length,
+                            allDirectives.filter(d => !d.implementationEndDate).length
+                        ],
+                        backgroundColor: ['#C62828', '#9E9E9E', '#43A047', '#E0E0E0'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, grid: { display: false } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+       function renderDirectives() {
+    let totalOutcomes = 0;
+    let completedOutcomes = 0;
+    let inProgressOutcomes = 0;
+    let delayedOutcomes = 0;
+    let notStartedOutcomes = 0;
+    
+    const directiveAnalysis = [];
+    
+    allDirectives.forEach(d => {
+        // Include ALL directives, even those without outcomes
+        const hasOutcomes = d.outcomes && d.outcomes.length > 0;
+        
+        const analysis = {
+            directive: d,
+            total: hasOutcomes ? d.outcomes.length : 0,
+            completed: hasOutcomes ? d.outcomes.filter(o => o.status === 'Completed').length : 0,
+            inProgress: hasOutcomes ? d.outcomes.filter(o => o.status === 'Being Implemented').length : 0,
+            delayed: hasOutcomes ? d.outcomes.filter(o => o.status === 'Delayed').length : 0,
+            notStarted: hasOutcomes ? d.outcomes.filter(o => o.status === 'Not Started').length : 0,
+            isNonResponsive: d.isResponsive === false,
+            daysSinceCreation: Math.ceil((new Date() - new Date(d.createdAt || Date.now())) / (1000 * 60 * 60 * 24)),
+            reminders: d.reminders || 0
+        };
+        
+        analysis.completionRate = analysis.total > 0 ? Math.round((analysis.completed / analysis.total) * 100) : 0;
+        const monthsSinceCreation = analysis.daysSinceCreation / 30;
+        analysis.velocity = monthsSinceCreation > 0 && analysis.completed > 0 ? (analysis.completed / monthsSinceCreation).toFixed(2) : 0;
+        
+        if (hasOutcomes) {
+            totalOutcomes += analysis.total;
+            completedOutcomes += analysis.completed;
+            inProgressOutcomes += analysis.inProgress;
+            delayedOutcomes += analysis.delayed;
+            notStartedOutcomes += analysis.notStarted;
+        }
+        
+        directiveAnalysis.push(analysis);
+    });
+    
+    // Update summary
+    document.getElementById('dir-completed').textContent = completedOutcomes;
+    document.getElementById('dir-completed-pct').textContent = totalOutcomes > 0 ? `${Math.round((completedOutcomes / totalOutcomes) * 100)}%` : '0%';
+    document.getElementById('dir-progress').textContent = inProgressOutcomes;
+    document.getElementById('dir-progress-pct').textContent = totalOutcomes > 0 ? `${Math.round((inProgressOutcomes / totalOutcomes) * 100)}%` : '0%';
+    document.getElementById('dir-delayed').textContent = delayedOutcomes;
+    document.getElementById('dir-delayed-pct').textContent = totalOutcomes > 0 ? `${Math.round((delayedOutcomes / totalOutcomes) * 100)}%` : '0%';
+    document.getElementById('dir-not-started').textContent = notStartedOutcomes;
+    document.getElementById('dir-not-started-pct').textContent = totalOutcomes > 0 ? `${Math.round((notStartedOutcomes / totalOutcomes) * 100)}%` : '0%';
+    
+    // Bottleneck Analysis
+    const bottlenecks = directiveAnalysis
+        .filter(a => a.delayed > 0 || (a.notStarted > 0 && a.daysSinceCreation > 60))
+        .sort((a, b) => (b.delayed + b.notStarted) - (a.delayed + a.notStarted))
+        .slice(0, 5);
+    
+    document.getElementById('bottleneck-analysis').innerHTML = bottlenecks.length > 0 ? `
+        <div class="space-y-2">
+            ${bottlenecks.map((b, idx) => `
+                <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-bold text-red-600">#${idx + 1}</span>
+                            <span class="text-xs font-mono font-medium text-gray-700">${b.directive.ref || 'N/A'}</span>
+                            ${b.isNonResponsive ? '<span class="badge badge-red">NON-RESPONSIVE</span>' : ''}
+                        </div>
+                        <div class="text-xs text-gray-600 mb-1">${b.directive.subject.substring(0, 50)}...</div>
+                        <div class="text-xs text-gray-500">${b.delayed} delayed • ${b.notStarted} not started</div>
+                    </div>
+                    <div class="text-right ml-4">
+                        <div class="text-2xl font-light text-red-600">${b.delayed + b.notStarted}</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    ` : '<p class="text-gray-500 text-sm text-center py-6">No significant bottlenecks detected ✓</p>';
+    
+    // Velocity Analysis
+    const fastMovers = directiveAnalysis
+        .filter(a => a.completed > 0 && parseFloat(a.velocity) > 0)
+        .sort((a, b) => parseFloat(b.velocity) - parseFloat(a.velocity))
+        .slice(0, 5);
+    
+    document.getElementById('velocity-analysis').innerHTML = fastMovers.length > 0 ? `
+        <div class="space-y-2">
+            ${fastMovers.map((f, idx) => `
+                <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-bold text-green-600">#${idx + 1}</span>
+                            <span class="text-xs font-mono font-medium text-gray-700">${f.directive.ref || 'N/A'}</span>
+                        </div>
+                        <div class="text-xs text-gray-600 mb-1">${f.directive.subject.substring(0, 50)}...</div>
+                        <div class="text-xs text-gray-500">${f.completed}/${f.total} completed (${f.completionRate}%)</div>
+                    </div>
+                    <div class="text-right ml-4">
+                        <div class="text-2xl font-light text-green-600">${f.velocity}</div>
+                        <div class="text-xs text-green-600">per mo</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    ` : '<p class="text-gray-500 text-sm text-center py-6">No completed outcomes yet</p>';
+    
+    renderDirectivesList(getFilteredDirectives());
+}
+
+
+       function getFilteredDirectives() {
+    let directiveAnalysis = [];
+    
+    allDirectives.forEach(d => {
+        // Include ALL directives, even those without outcomes
+        const hasOutcomes = d.outcomes && d.outcomes.length > 0;
+        
+        const analysis = {
+            directive: d,
+            total: hasOutcomes ? d.outcomes.length : 0,
+            completed: hasOutcomes ? d.outcomes.filter(o => o.status === 'Completed').length : 0,
+            inProgress: hasOutcomes ? d.outcomes.filter(o => o.status === 'Being Implemented').length : 0,
+            delayed: hasOutcomes ? d.outcomes.filter(o => o.status === 'Delayed').length : 0,
+            notStarted: hasOutcomes ? d.outcomes.filter(o => o.status === 'Not Started').length : 0,
+            isNonResponsive: d.isResponsive === false,
+            daysSinceCreation: Math.ceil((new Date() - new Date(d.createdAt || Date.now())) / (1000 * 60 * 60 * 24)),
+            reminders: d.reminders || 0
+        };
+        
+        analysis.completionRate = analysis.total > 0 ? Math.round((analysis.completed / analysis.total) * 100) : 0;
+        const monthsSinceCreation = analysis.daysSinceCreation / 30;
+        analysis.velocity = monthsSinceCreation > 0 && analysis.completed > 0 ? (analysis.completed / monthsSinceCreation).toFixed(2) : 0;
+        
+        directiveAnalysis.push(analysis);
+    });
+    
+    // Apply filters
+    if (dirFilters.status !== 'all') {
+        directiveAnalysis = directiveAnalysis.filter(a => {
+            switch(dirFilters.status) {
+                case 'completed': return a.completionRate === 100;
+                case 'progress': return a.inProgress > 0;
+                case 'delayed': return a.delayed > 0;
+                case 'not-started': return a.notStarted === a.total;
+                default: return true;
+            }
+        });
+    }
+    
+    if (dirFilters.search) {
+        directiveAnalysis = directiveAnalysis.filter(a => 
+            a.directive.subject.toLowerCase().includes(dirFilters.search) ||
+            (a.directive.ref && a.directive.ref.toLowerCase().includes(dirFilters.search)) ||
+            (a.directive.owner && a.directive.owner.toLowerCase().includes(dirFilters.search))
+        );
+    }
+    
+    // Apply sorting
+    directiveAnalysis.sort((a, b) => {
+        switch(dirFilters.sort) {
+            case 'completion-desc': return b.completionRate - a.completionRate;
+            case 'completion-asc': return a.completionRate - b.completionRate;
+            case 'velocity-desc': return parseFloat(b.velocity) - parseFloat(a.velocity);
+            case 'risk-desc': return (b.delayed + b.notStarted) - (a.delayed + a.notStarted);
+            default: return b.completionRate - a.completionRate;
+        }
+    });
+    
+    return directiveAnalysis;
+}
+
+
+        function renderDirectivesList(data) {
+            if (data.length === 0) {
+                document.getElementById('directives-list').innerHTML = '<p class="text-gray-500 text-sm text-center py-12">No directives found</p>';
+                return;
+            }
+            
+            const totalPages = Math.ceil(data.length / dirPageSize);
+            const startIdx = (dirCurrentPage - 1) * dirPageSize;
+            const endIdx = Math.min(startIdx + dirPageSize, data.length);
+            const pageData = data.slice(startIdx, endIdx);
+            
+            const html = `
+                <div class="text-xs text-gray-500 mb-4">Showing ${startIdx + 1}-${endIdx} of ${data.length} directives</div>
+                <div class="space-y-3">
+                    ${pageData.map((analysis, idx) => {
+                        const globalIdx = startIdx + idx;
+                        return `
+                            <div class="item-card ${analysis.isNonResponsive ? 'border-2 border-red-500' : ''}">
+                                <div class="flex items-start justify-between mb-3">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="badge ${analysis.completionRate === 100 ? 'badge-green' : analysis.completionRate >= 50 ? 'badge-blue' : 'badge-red'}">#${globalIdx + 1}</span>
+                                            <span class="text-xs font-mono font-medium" style="color: var(--cbn-primary);">${analysis.directive.ref || 'N/A'}</span>
+                                            ${analysis.isNonResponsive ? '<span class="badge badge-red">⚠️ NON-RESPONSIVE</span>' : ''}
+                                        </div>
+                                        <div class="font-medium text-sm text-gray-900 mb-2">${analysis.directive.subject}</div>
+                                        <div class="text-xs text-gray-600">
+                                            <strong>Owner:</strong> ${analysis.directive.owner} • 
+                                            <strong>Age:</strong> ${analysis.daysSinceCreation} days • 
+                                            <strong>Reminders:</strong> ${analysis.reminders}/3
+                                        </div>
+                                    </div>
+                                    <div class="text-right ml-6">
+                                        <div class="text-4xl font-light" style="color: var(--cbn-primary);">${analysis.completionRate}%</div>
+                                        ${analysis.velocity > 0 ? `<div class="text-xs text-green-600 font-medium mt-1">${analysis.velocity}/mo</div>` : ''}
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-4 gap-2 mb-3">
+                                    <div class="bg-green-50 rounded-lg p-2 text-center">
+                                        <div class="text-xl font-light text-green-600">${analysis.completed}</div>
+                                        <div class="text-xs text-green-700 font-medium">Completed</div>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg p-2 text-center">
+                                        <div class="text-xl font-light text-gray-700">${analysis.inProgress}</div>
+                                        <div class="text-xs text-gray-700 font-medium">In Progress</div>
+                                    </div>
+                                    <div class="bg-gray-100 rounded-lg p-2 text-center">
+                                        <div class="text-xl font-light text-gray-700">${analysis.delayed}</div>
+                                        <div class="text-xs text-gray-700 font-medium">Delayed</div>
+                                    </div>
+                                    <div class="bg-gray-200 rounded-lg p-2 text-center">
+                                        <div class="text-xl font-light text-gray-600">${analysis.notStarted}</div>
+                                        <div class="text-xs text-gray-600 font-medium">Not Started</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${analysis.completionRate}%;"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                
+                ${totalPages > 1 ? renderPagination(dirCurrentPage, totalPages, 'dir') : ''}
+            `;
+            
+            document.getElementById('directives-list').innerHTML = html;
+        }
+
+      
+
+
+        function renderOwners() {
+    const ownerStats = {};
+    
+    allDirectives.forEach(d => {
+        const owner = d.owner || 'Unassigned';
+        if (!ownerStats[owner]) {
+            ownerStats[owner] = {
+                name: owner,
+                total: 0,
+                completed: 0,
+                onTrack: 0,
+                atRisk: 0,
+                highRisk: 0,
+                totalOutcomes: 0,
+                completedOutcomes: 0
+            };
+        }
+        
+        ownerStats[owner].total++;
+        
+        // ✅ FIXED: Use monitoringStatus instead of implementationStatus
+        switch (d.monitoringStatus) {
+            case 'Completed':
+                ownerStats[owner].completed++;
+                break;
+            case 'On Track':
+                ownerStats[owner].onTrack++;
+                break;
+            case 'At Risk':
+                ownerStats[owner].atRisk++;
+                break;
+            case 'High Risk':
+                ownerStats[owner].highRisk++;
+                break;
+        }
+        
+        if (d.outcomes && d.outcomes.length > 0) {
+            ownerStats[owner].totalOutcomes += d.outcomes.length;
+            ownerStats[owner].completedOutcomes += d.outcomes.filter(o => o.status === 'Completed').length;
+        }
+    });
+    
+    let owners = Object.values(ownerStats).map(owner => {
+        owner.completionRate = owner.total > 0 ? Math.round((owner.completed / owner.total) * 100) : 0;
+        owner.outcomeRate = owner.totalOutcomes > 0 ? Math.round((owner.completedOutcomes / owner.totalOutcomes) * 100) : 0;
+        owner.riskCount = owner.atRisk + owner.highRisk;
+        return owner;
+    });
+    
+    renderOwnersList(getFilteredOwners());
+}
+
+
+
+
+function getFilteredOwners() {
+    const ownerStats = {};
+    
+    allDirectives.forEach(d => {
+        const owner = d.owner || 'Unassigned';
+        if (!ownerStats[owner]) {
+            ownerStats[owner] = {
+                name: owner,
+                total: 0,
+                completed: 0,
+                onTrack: 0,
+                atRisk: 0,
+                highRisk: 0,
+                totalOutcomes: 0,
+                completedOutcomes: 0
+            };
+        }
+        
+        ownerStats[owner].total++;
+        
+        // ✅ FIXED: Use monitoringStatus instead of implementationStatus
+        switch (d.monitoringStatus) {
+            case 'Completed':
+                ownerStats[owner].completed++;
+                break;
+            case 'On Track':
+                ownerStats[owner].onTrack++;
+                break;
+            case 'At Risk':
+                ownerStats[owner].atRisk++;
+                break;
+            case 'High Risk':
+                ownerStats[owner].highRisk++;
+                break;
+        }
+        
+        if (d.outcomes && d.outcomes.length > 0) {
+            ownerStats[owner].totalOutcomes += d.outcomes.length;
+            ownerStats[owner].completedOutcomes += d.outcomes.filter(o => o.status === 'Completed').length;
+        }
+    });
+    
+    let owners = Object.values(ownerStats).map(owner => {
+        owner.completionRate = owner.total > 0 ? Math.round((owner.completed / owner.total) * 100) : 0;
+        owner.outcomeRate = owner.totalOutcomes > 0 ? Math.round((owner.completedOutcomes / owner.totalOutcomes) * 100) : 0;
+        owner.riskCount = owner.atRisk + owner.highRisk;
+        return owner;
+    });
+    
+    // Apply filters
+    if (ownerFilters.performance !== 'all') {
+        owners = owners.filter(o => {
+            switch(ownerFilters.performance) {
+                case 'excellent': return o.completionRate >= 80;
+                case 'good': return o.completionRate >= 60 && o.completionRate < 80;
+                case 'needs-improvement': return o.completionRate < 60;
+                default: return true;
+            }
+        });
+    }
+    
+    if (ownerFilters.search) {
+        owners = owners.filter(o => o.name.toLowerCase().includes(ownerFilters.search));
+    }
+    
+    // Apply sorting
+    owners.sort((a, b) => {
+        switch(ownerFilters.sort) {
+            case 'completion-desc': return b.completionRate - a.completionRate;
+            case 'completion-asc': return a.completionRate - b.completionRate;
+            case 'total-desc': return b.total - a.total;
+            case 'risk-desc': return b.riskCount - a.riskCount;
+            default: return b.completionRate - a.completionRate;
+        }
+    });
+    
+    return owners;
+}
+
+
+        function renderOwnersList(data) {
+            if (data.length === 0) {
+                document.getElementById('owners-list').innerHTML = '<p class="text-gray-500 text-sm text-center py-12">No owners found</p>';
+                return;
+            }
+            
+            const totalPages = Math.ceil(data.length / ownerPageSize);
+            const startIdx = (ownerCurrentPage - 1) * ownerPageSize;
+            const endIdx = Math.min(startIdx + ownerPageSize, data.length);
+            const pageData = data.slice(startIdx, endIdx);
+            
+            const html = `
+                <div class="text-xs text-gray-500 mb-4">Showing ${startIdx + 1}-${endIdx} of ${data.length} process owners</div>
+                <div class="space-y-3">
+                    ${pageData.map((owner, idx) => {
+                        const globalIdx = startIdx + idx;
+                        const gradeColor = owner.completionRate >= 80 ? 'green' : 
+                                           owner.completionRate >= 60 ? 'blue' : 'red';
+                        
+                        return `
+                            <div class="item-card">
+                                <div class="flex items-start justify-between mb-3">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-3 mb-2">
+                                            <span class="badge badge-${gradeColor}">Rank #${globalIdx + 1}</span>
+                                            <span class="text-lg font-medium" style="color: var(--cbn-dark);">${owner.name}</span>
+                                        </div>
+                                        <div class="grid grid-cols-3 gap-4 text-sm mb-3">
+                                            <div>
+                                                <div class="text-xs text-gray-500 mb-1">Total Directives</div>
+                                                <div class="font-medium text-xl" style="color: var(--cbn-primary);">${owner.total}</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-xs text-gray-500 mb-1">Completed</div>
+                                                <div class="font-medium text-xl text-green-600">${owner.completed}</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-xs text-gray-500 mb-1">At Risk</div>
+                                                <div class="font-medium text-xl text-red-600">${owner.riskCount}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-right ml-6">
+                                        <div class="text-4xl font-light" style="color: var(--cbn-primary);">${owner.completionRate}%</div>
+                                        <div class="text-xs text-gray-500 mt-1">completion</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-4 gap-2 mb-3">
+                                    <div class="bg-green-50 rounded-lg p-2 text-center">
+                                        <div class="text-lg font-light text-green-600">${owner.completed}</div>
+                                        <div class="text-xs text-green-700 font-medium">Done</div>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg p-2 text-center">
+                                        <div class="text-lg font-light text-gray-700">${owner.onTrack}</div>
+                                        <div class="text-xs text-gray-700 font-medium">On Track</div>
+                                    </div>
+                                    <div class="bg-gray-100 rounded-lg p-2 text-center">
+                                        <div class="text-lg font-light text-gray-700">${owner.atRisk}</div>
+                                        <div class="text-xs text-gray-700 font-medium">At Risk</div>
+                                    </div>
+                                    <div class="bg-red-50 rounded-lg p-2 text-center">
+                                        <div class="text-lg font-light text-red-600">${owner.highRisk}</div>
+                                        <div class="text-xs text-red-700 font-medium">High Risk</div>
+                                    </div>
+                                </div>
+                                
+                                ${owner.totalOutcomes > 0 ? `
+                                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-xs">
+                                        <span class="font-medium text-gray-700">Outcomes Progress:</span>
+                                        <span class="font-medium" style="color: var(--cbn-primary);">
+                                            ${owner.completedOutcomes}/${owner.totalOutcomes} (${owner.outcomeRate}%)
+                                        </span>
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="progress-bar mt-3">
+                                    <div class="progress-fill" style="width: ${owner.completionRate}%;"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                
+                ${totalPages > 1 ? renderPagination(ownerCurrentPage, totalPages, 'owner') : ''}
+            `;
+            
+            document.getElementById('owners-list').innerHTML = html;
+        }
+
+        function renderPagination(currentPage, totalPages, type) {
+            const maxButtons = 7;
+            let startPage, endPage;
+            
+            if (totalPages <= maxButtons) {
+                startPage = 1;
+                endPage = totalPages;
+            } else if (currentPage <= 4) {
+                startPage = 1;
+                endPage = maxButtons;
+            } else if (currentPage >= totalPages - 3) {
+                startPage = totalPages - maxButtons + 1;
+                endPage = totalPages;
+            } else {
+                startPage = currentPage - 3;
+                endPage = currentPage + 3;
+            }
+            
+            let buttons = '';
+            for (let i = startPage; i <= endPage; i++) {
+                buttons += `
+                    <button onclick="changePage('${type}', ${i})" 
+                            class="${i === currentPage ? 'active' : ''}">
+                        ${i}
+                    </button>
+                `;
+            }
+            
+            return `
+                <div class="pagination no-print">
+                    <button onclick="changePage('${type}', ${currentPage - 1})" 
+                            ${currentPage === 1 ? 'disabled' : ''}>
+                        ← Previous
+                    </button>
+                    ${buttons}
+                    <button onclick="changePage('${type}', ${currentPage + 1})" 
+                            ${currentPage === totalPages ? 'disabled' : ''}>
+                        Next →
+                    </button>
+                </div>
+            `;
+        }
+
+        function changePage(type, page) {
+            if (type === 'dir') {
+                dirCurrentPage = page;
+                renderDirectivesList(getFilteredDirectives());
+            } else {
+                ownerCurrentPage = page;
+                renderOwnersList(getFilteredOwners());
+            }
+            
+            const view = type === 'dir' ? 'directives' : 'owners';
+            document.getElementById(`view-${view}`).scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function exportReport() {
+            const wb = XLSX.utils.book_new();
+            
+            const summaryData = [
+                ['Board Directives Report'],
+                ['Date:', new Date().toLocaleDateString()],
+                ['Source:', currentSource === 'CG' ? 'Committee of Governors' : 'Board of Directors'],
+                [],
+                ['Metric', 'Value'],
+                ['Total', statsData.summary.total],
+                ['Completed', statsData.summary.completed],
+                ['In Progress', statsData.summary.track + statsData.summary.atRisk],
+                ['At Risk', statsData.summary.highRisk]
+            ];
+            
+            const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
+            
+            const detailsData = allDirectives.map(d => ({
+                'Ref': d.ref || 'N/A',
+                'Subject': d.subject,
+                'Owner': d.owner,
+                'Status': d.implementationStatus,
+                'Outcomes': d.outcomes?.length || 0,
+                'Completed': d.outcomes?.filter(o => o.status === 'Completed').length || 0
+            }));
+            
+            const ws2 = XLSX.utils.json_to_sheet(detailsData);
+            XLSX.utils.book_append_sheet(wb, ws2, 'Directives');
+            
+            XLSX.writeFile(wb, `Report_${currentSource}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+    </script>
+</body>
+</html>

@@ -435,7 +435,7 @@ function generateMemoEmail(directive) {
       <h2 style="color: #1e40af; font-size: 18px; font-weight: 700; margin: 0 0 12px 0; text-transform: uppercase;">
         REQUEST FOR STATUS OF COMPLIANCE WITH BOARD DECISIONS
       </h2>
-      <p style="color: #6b7280; font-size: 13px; margin: 0;">Central Bank of Nigeria - Strategy & Innovation Department</p>
+      <p style="color: #6b7280; font-size: 13px; margin: 0;">Central Bank of Nigeria - Corporate Secretariat</p>
     </div>
     
     <!-- MEMO DETAILS -->
@@ -455,7 +455,7 @@ function generateMemoEmail(directive) {
     <!-- INTRO -->
     <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
       <p style="color: #374151; font-size: 13px; line-height: 1.6; margin: 0;">
-        The Corporate Secretariat is compiling the status of SBU's compliance with ${directive.source === 'CG' ? 'Council of Governors' : 'Board of Directors'} decisions from January to September 2025. Please send your submission by <strong>24th October 2025</strong>.
+        The Corporate Secretariat is compiling the status of SBU's compliance with ${directive.source === 'CG' ? 'Committee of Governors' : 'Board of Directors'} decisions from January to September 2025. Please send your submission by <strong>24th October 2025</strong>.
       </p>
     </div>
     
@@ -1214,14 +1214,13 @@ async function sendReminders() {
     let settings = await ReminderSettings.findOne();
     if (!settings) {
       settings = await ReminderSettings.create({
-        enabled: true,
-        statusSettings: {
-          'Awaiting Next Reminder': true,
-          'At Risk': true,
-          'High Risk': true,
-          'Non-Responsive': false
-        }
-      });
+  enabled: true,
+  statusSettings: {
+    'On Track': true,  // ✅ CORRECT
+    'At Risk': true,
+    'High Risk': true
+  }
+});
     }
     
     if (!settings.enabled) {
@@ -1733,7 +1732,7 @@ app.get('/api/reports/stats', async (req, res) => {
 
     const total = await Directive.countDocuments(query);
     const completed = await Directive.countDocuments({ ...query, monitoringStatus: 'Completed' });
-    const track = await Directive.countDocuments({ ...query, monitoringStatus: 'Awaiting Next Reminder' });
+   const track = await Directive.countDocuments({ ...query, monitoringStatus: 'On Track' });
     const atRisk = await Directive.countDocuments({ ...query, monitoringStatus: 'At Risk' });
     const highRisk = await Directive.countDocuments({ ...query, monitoringStatus: 'High Risk' });
     const nonResponsive = await Directive.countDocuments({ ...query, monitoringStatus: 'Non-Responsive' });
@@ -1846,15 +1845,14 @@ app.get('/api/reminder-settings', async (req, res) => {
   try {
     let settings = await ReminderSettings.findOne();
     if (!settings) {
-      settings = await ReminderSettings.create({
-        enabled: true,
-        statusSettings: {
-          'Awaiting Next Reminder': true,
-          'At Risk': true,
-          'High Risk': true,
-          'Non-Responsive': false
-        }
-      });
+     settings = await ReminderSettings.create({
+  enabled: true,
+  statusSettings: {
+    'On Track': true,  // ✅ CORRECT
+    'At Risk': true,
+    'High Risk': true
+  }
+});
     }
     res.json({ success: true, data: settings });
   } catch (error) {
