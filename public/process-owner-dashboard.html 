@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Process Owner Dashboard - CBN Directives</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>* { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-green-600 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                            <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-gray-900">Process Owner Portal</h1>
+                        <p class="text-xs text-gray-500">CBN Corporate Secretariat</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="text-sm font-medium text-gray-900" id="user-name">Loading...</p>
+                        <p class="text-xs text-gray-500" id="user-email">Loading...</p>
+                    </div>
+                    <button onclick="logout()" class="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        
+        <!-- Stats -->
+        <div class="grid grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-xl p-6 border border-gray-200">
+                <div class="text-sm text-gray-500 mb-1">Total Assigned</div>
+                <div class="text-3xl font-bold text-gray-900" id="stat-total">0</div>
+            </div>
+            <div class="bg-white rounded-xl p-6 border border-gray-200">
+                <div class="text-sm text-gray-500 mb-1">Completed</div>
+                <div class="text-3xl font-bold text-green-600" id="stat-completed">0</div>
+            </div>
+            <div class="bg-white rounded-xl p-6 border border-gray-200">
+                <div class="text-sm text-gray-500 mb-1">In Progress</div>
+                <div class="text-3xl font-bold text-blue-600" id="stat-progress">0</div>
+            </div>
+            <div class="bg-white rounded-xl p-6 border border-gray-200">
+                <div class="text-sm text-gray-500 mb-1">Needs Attention</div>
+                <div class="text-3xl font-bold text-red-600" id="stat-attention">0</div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl p-4 mb-6 border border-gray-200">
+            <div class="flex gap-4">
+                <select id="filter-status" class="px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="all">All Status</option>
+                    <option value="not-started">Not Started</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                </select>
+                <input type="text" id="search" placeholder="Search directives..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm">
+            </div>
+        </div>
+
+        <!-- Directives List -->
+        <div id="directives-list" class="space-y-4">
+            <!-- Will be populated by JavaScript -->
+        </div>
+    </main>
+
+    <!-- Update Modal -->
+    <div id="update-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-gray-900">Update Directive</h2>
+                <button onclick="closeUpdateModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="update-form" class="p-6">
+                <input type="hidden" id="directive-id">
+                
+                <!-- Directive Info -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div class="text-sm text-gray-500 mb-1">Reference</div>
+                    <div class="font-medium text-gray-900" id="modal-ref">N/A</div>
+                    <div class="text-sm text-gray-700 mt-2" id="modal-subject"></div>
+                </div>
+
+                <!-- Outcomes -->
+                <div id="outcomes-container" class="space-y-4 mb-6">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+
+                <!-- Timeline -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Implementation Start Date</label>
+                        <input type="date" id="start-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Implementation End Date</label>
+                        <input type="date" id="end-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                </div>
+
+                <!-- Comments -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Additional Comments</label>
+                    <textarea id="comments" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Any updates or notes..."></textarea>
+                </div>
+
+                <!-- Submit -->
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition">
+                        Submit Update
+                    </button>
+                    <button type="button" onclick="closeUpdateModal()" class="px-6 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3001/api'
+            : 'https://directives-new.onrender.com/api';
+
+        let allDirectives = [];
+        let currentDirective = null;
+
+        // Check authentication
+        if (sessionStorage.getItem('isLoggedIn') !== 'true' || sessionStorage.getItem('userType') !== 'processOwner') {
+            window.location.href = '/login.html';
+        }
+
+        // Load user info
+        const userName = sessionStorage.getItem('userName');
+        const userEmail = sessionStorage.getItem('userEmail');
+        document.getElementById('user-name').textContent = userName || 'Process Owner';
+        document.getElementById('user-email').textContent = userEmail || '';
+
+        // Load directives
+        async function loadDirectives() {
+            try {
+                // For now, we'll filter by owner name matching the logged-in user
+                // In production, you'd want a dedicated API endpoint
+                const response = await fetch(`${API_BASE}/directives`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Filter directives assigned to this owner
+                    allDirectives = result.data.filter(d => d.owner === userName);
+                    updateStats();
+                    renderDirectives();
+                }
+            } catch (error) {
+                console.error('Error loading directives:', error);
+                alert('Error loading your directives');
+            }
+        }
+
+        function updateStats() {
+            const total = allDirectives.length;
+            const completed = allDirectives.filter(d => d.monitoringStatus === 'Completed').length;
+            const inProgress = allDirectives.filter(d => 
+                d.monitoringStatus === 'On Track' || d.monitoringStatus === 'Being Implemented'
+            ).length;
+            const attention = allDirectives.filter(d => 
+                d.monitoringStatus === 'At Risk' || d.monitoringStatus === 'High Risk'
+            ).length;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-completed').textContent = completed;
+            document.getElementById('stat-progress').textContent = inProgress;
+            document.getElementById('stat-attention').textContent = attention;
+        }
+
+        function renderDirectives() {
+            const filter = document.getElementById('filter-status').value;
+            const search = document.getElementById('search').value.toLowerCase();
+
+            let filtered = allDirectives;
+
+            // Apply status filter
+            if (filter !== 'all') {
+                filtered = filtered.filter(d => {
+                    if (!d.outcomes || d.outcomes.length === 0) return filter === 'not-started';
+                    
+                    const allCompleted = d.outcomes.every(o => o.status === 'Completed');
+                    const anyInProgress = d.outcomes.some(o => o.status === 'Being Implemented');
+                    const noneStarted = d.outcomes.every(o => o.status === 'Not Started');
+
+                    if (filter === 'completed') return allCompleted;
+                    if (filter === 'in-progress') return anyInProgress;
+                    if (filter === 'not-started') return noneStarted;
+                    return true;
+                });
+            }
+
+            // Apply search
+            if (search) {
+                filtered = filtered.filter(d => 
+                    (d.subject || '').toLowerCase().includes(search) ||
+                    (d.ref || '').toLowerCase().includes(search)
+                );
+            }
+
+            const html = filtered.length > 0 ? filtered.map(d => {
+                const outcomeStats = getOutcomeStats(d);
+                const statusColor = 
+                    d.monitoringStatus === 'Completed' ? 'green' :
+                    d.monitoringStatus === 'On Track' ? 'blue' :
+                    d.monitoringStatus === 'At Risk' ? 'yellow' :
+                    'red';
+
+                return `
+                    <div class="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-xs font-mono font-medium text-green-700">${d.ref || 'N/A'}</span>
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-${statusColor}-100 text-${statusColor}-700">
+                                        ${d.monitoringStatus || 'Unknown'}
+                                    </span>
+                                </div>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-2">${d.subject}</h3>
+                                <div class="text-sm text-gray-600">
+                                    <strong>Source:</strong> ${d.source || 'N/A'} • 
+                                    <strong>Created:</strong> ${new Date(d.createdAt).toLocaleDateString()} •
+                                    ${d.implementationEndDate ? `<strong>Due:</strong> ${new Date(d.implementationEndDate).toLocaleDateString()}` : 'No deadline'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-4 gap-2 mb-4">
+                            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                <div class="text-sm text-gray-500">Total</div>
+                                <div class="text-xl font-bold text-gray-900">${outcomeStats.total}</div>
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-3 text-center">
+                                <div class="text-sm text-green-700">Completed</div>
+                                <div class="text-xl font-bold text-green-700">${outcomeStats.completed}</div>
+                            </div>
+                            <div class="bg-blue-50 rounded-lg p-3 text-center">
+                                <div class="text-sm text-blue-700">In Progress</div>
+                                <div class="text-xl font-bold text-blue-700">${outcomeStats.inProgress}</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                <div class="text-sm text-gray-500">Not Started</div>
+                                <div class="text-xl font-bold text-gray-700">${outcomeStats.notStarted}</div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 bg-gray-200 rounded-full h-2 mr-4">
+                                <div class="bg-green-600 h-2 rounded-full" style="width: ${outcomeStats.completionRate}%"></div>
+                            </div>
+                            <div class="text-sm font-medium text-gray-900">${outcomeStats.completionRate}%</div>
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-gray-200 flex gap-2">
+                            <button onclick="openUpdateModal('${d._id}')" class="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition">
+                                Submit Update
+                            </button>
+                            <button onclick="viewHistory('${d._id}')" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+                                View History
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('') : '<div class="text-center py-12 text-gray-500">No directives found</div>';
+
+            document.getElementById('directives-list').innerHTML = html;
+        }
+
+        function getOutcomeStats(directive) {
+            if (!directive.outcomes || directive.outcomes.length === 0) {
+                return { total: 0, completed: 0, inProgress: 0, notStarted: 0, completionRate: 0 };
+            }
+
+            const total = directive.outcomes.length;
+            const completed = directive.outcomes.filter(o => o.status === 'Completed').length;
+            const inProgress = directive.outcomes.filter(o => o.status === 'Being Implemented').length;
+            const notStarted = directive.outcomes.filter(o => o.status === 'Not Started').length;
+            const completionRate = Math.round((completed / total) * 100);
+
+            return { total, completed, inProgress, notStarted, completionRate };
+        }
+
+        function openUpdateModal(directiveId) {
+            currentDirective = allDirectives.find(d => d._id === directiveId);
+            if (!currentDirective) return;
+
+            document.getElementById('directive-id').value = directiveId;
+            document.getElementById('modal-ref').textContent = currentDirective.ref || 'N/A';
+            document.getElementById('modal-subject').textContent = currentDirective.subject;
+            
+            if (currentDirective.implementationStartDate) {
+                document.getElementById('start-date').value = new Date(currentDirective.implementationStartDate).toISOString().split('T')[0];
+            }
+            if (currentDirective.implementationEndDate) {
+                document.getElementById('end-date').value = new Date(currentDirective.implementationEndDate).toISOString().split('T')[0];
+            }
+
+            // Render outcomes
+            const outcomesHtml = (currentDirective.outcomes || []).map((outcome, idx) => `
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="font-medium text-sm text-gray-900 mb-3">Outcome ${idx + 1}</div>
+                    <div class="text-sm text-gray-700 mb-3">${outcome.text}</div>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                            <select name="outcome-status-${idx}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <option value="Not Started" ${outcome.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
+                                <option value="Being Implemented" ${outcome.status === 'Being Implemented' ? 'selected' : ''}>Being Implemented</option>
+                                <option value="Delayed" ${outcome.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
+                                <option value="Completed" ${outcome.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Challenges / Notes</label>
+                            <textarea name="outcome-challenges-${idx}" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">${outcome.challenges || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('outcomes-container').innerHTML = outcomesHtml;
+            document.getElementById('update-modal').classList.remove('hidden');
+            document.getElementById('update-modal').classList.add('flex');
+        }
+
+        function closeUpdateModal() {
+            document.getElementById('update-modal').classList.add('hidden');
+            document.getElementById('update-modal').classList.remove('flex');
+            currentDirective = null;
+        }
+
+        document.getElementById('update-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const directiveId = document.getElementById('directive-id').value;
+            const formData = new FormData(e.target);
+            
+            // Collect outcomes
+            const outcomes = [];
+            currentDirective.outcomes.forEach((_, idx) => {
+                outcomes.push({
+                    originalIndex: idx,
+                    status: document.querySelector(`[name="outcome-status-${idx}"]`).value,
+                    challenges: document.querySelector(`[name="outcome-challenges-${idx}"]`).value
+                });
+            });
+
+            const updateData = {
+                outcomes: outcomes,
+                implementationStartDate: document.getElementById('start-date').value,
+                implementationEndDate: document.getElementById('end-date').value,
+                completionNote: document.getElementById('comments').value,
+                updateSource: 'self-initiated' // Track that this was self-initiated
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/submit-update/${directiveId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Update submitted successfully!');
+                    closeUpdateModal();
+                    loadDirectives();
+                } else {
+                    alert('Error: ' + (result.error || 'Submission failed'));
+                }
+            } catch (error) {
+                console.error('Submission error:', error);
+                alert('Error submitting update');
+            }
+        });
+
+        function viewHistory(directiveId) {
+            // TODO: Implement history view
+            alert('History view coming soon');
+        }
+
+        function logout() {
+            sessionStorage.clear();
+            window.location.href = '/login.html';
+        }
+
+        // Event listeners
+        document.getElementById('filter-status').addEventListener('change', renderDirectives);
+        document.getElementById('search').addEventListener('input', renderDirectives);
+
+        // Load on page load
+        loadDirectives();
+    </script>
+</body>
+</html>

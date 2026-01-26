@@ -263,22 +263,139 @@
             box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px rgba(60,64,67,0.15);
         }
         
-        .grade-badge {
-            width: 72px;
-            height: 72px;
-            border-radius: 12px;
-            display: flex;
+        .tooltip-icon {
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
-            font-weight: 700;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #E8EAED;
+            color: #5F6368;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: help;
+            margin-left: 4px;
+            position: relative;
+        }
+        
+        .tooltip-icon:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 12px;
+            background: #202124;
             color: white;
-            background: var(--cbn-primary);
+            font-size: 12px;
+            font-weight: normal;
+            white-space: nowrap;
+            border-radius: 8px;
+            z-index: 1000;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .tooltip-icon:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid #202124;
+            margin-bottom: 2px;
+            z-index: 1001;
         }
         
         @media print {
-            .sidebar, .no-print, .filter-bar, .pagination { display: none !important; }
-            .main-content { margin-left: 0; }
+            /* Hide non-printable elements */
+            .sidebar, .no-print, .filter-bar, .pagination, .tooltip-icon { display: none !important; }
+            
+            /* Reset layout for print */
+            body {
+                background: white;
+                overflow: visible !important;
+            }
+            
+            .main-content {
+                margin-left: 0;
+                padding: 0;
+                overflow: visible !important;
+                height: auto !important;
+            }
+            
+            /* Show all sections for printing */
+            .view-section {
+                display: block !important;
+                page-break-after: always;
+            }
+            
+            .view-section:last-child {
+                page-break-after: auto;
+            }
+            
+            /* Adjust card spacing for print */
+            .stat-card, .chart-card, .item-card {
+                page-break-inside: avoid;
+                box-shadow: none !important;
+                border: 1px solid #ddd;
+            }
+            
+            /* Add page breaks strategically */
+            .grid {
+                page-break-inside: avoid;
+            }
+            
+            /* Ensure directives and owners lists print completely */
+            #directives-list, #owners-list, #reminders-list {
+                display: block !important;
+            }
+            
+            #directives-list .item-card,
+            #owners-list .item-card,
+            #reminders-list .item-card {
+                page-break-inside: avoid;
+                margin-bottom: 12px;
+            }
+            
+            /* Charts should fit on one page */
+            canvas {
+                max-height: 300px !important;
+            }
+            
+            /* Print-specific title for each section */
+            .view-section h2::before {
+                content: "CBN Board Directives Report - ";
+                font-size: 0.7em;
+                color: #666;
+                display: block;
+                margin-bottom: 0.5em;
+            }
+            
+            /* Add page numbers */
+            @page {
+                margin: 1.5cm;
+                @bottom-right {
+                    content: "Page " counter(page) " of " counter(pages);
+                    font-size: 9pt;
+                    color: #666;
+                }
+            }
+            
+            /* Print header on each page */
+            @page {
+                @top-center {
+                    content: "CBN Board Directives - Analytics Report";
+                    font-size: 10pt;
+                    font-weight: bold;
+                    color: #1B5E20;
+                }
+            }
         }
     </style>
 </head>
@@ -327,10 +444,6 @@
                 <span>📊</span>
                 <span>Overview</span>
             </div>
-            <div class="nav-item" onclick="showView('performance')">
-                <span>🎯</span>
-                <span>Performance</span>
-            </div>
             <div class="nav-item" onclick="showView('status')">
                 <span>📈</span>
                 <span>Status Analysis</span>
@@ -342,6 +455,10 @@
             <div class="nav-item" onclick="showView('directives')">
                 <span>📋</span>
                 <span>Directive Outcomes</span>
+            </div>
+            <div class="nav-item" onclick="showView('reminders')">
+                <span>📧</span>
+                <span>Reminder Analysis</span>
             </div>
             <div class="nav-item" onclick="showView('owners')">
                 <span>👥</span>
@@ -374,37 +491,81 @@
             <!-- Quick Stats -->
             <div class="grid grid-cols-4 gap-4 mb-6">
                 <div class="stat-card">
-                    <div class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Total</div>
+                    <div class="flex items-center text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                        Total
+                        <span class="tooltip-icon" data-tooltip="Total number of directives">ℹ️</span>
+                    </div>
                     <div class="metric-big" style="color: var(--cbn-dark);" id="ov-total">0</div>
                     <div class="text-xs text-gray-500 mt-2">Directives</div>
                 </div>
                 <div class="stat-card">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-primary);">Done</div>
+                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-primary);">
+                        Completed
+                        <span class="tooltip-icon" data-tooltip="Directives with all outcomes completed">ℹ️</span>
+                    </div>
                     <div class="metric-big" style="color: var(--cbn-primary);" id="ov-done">0</div>
                     <div class="text-xs font-medium mt-2" style="color: var(--cbn-primary);" id="ov-done-pct">0%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-medium);">Active</div>
+                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-medium);">
+                        Active
+                        <span class="tooltip-icon" data-tooltip="On Track + At Risk directives">ℹ️</span>
+                    </div>
                     <div class="metric-big" style="color: var(--cbn-medium);" id="ov-active">0</div>
                     <div class="text-xs mt-2" style="color: var(--cbn-medium);">In progress</div>
                 </div>
                 <div class="stat-card">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--red-critical);">Risk</div>
+                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--red-critical);">
+                        High Risk
+                        <span class="tooltip-icon" data-tooltip="Directives with no response to 3 reminders">ℹ️</span>
+                    </div>
                     <div class="metric-big" style="color: var(--red-critical);" id="ov-risk">0</div>
                     <div class="text-xs font-medium mt-2" style="color: var(--red-critical);" id="ov-risk-pct">0%</div>
                 </div>
             </div>
 
+            <!-- Additional Metrics -->
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="stat-card bg-green-50">
+                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
+                        Response Rate
+                        <span class="tooltip-icon" data-tooltip="% of directives that have received updates">ℹ️</span>
+                    </div>
+                    <div class="text-4xl font-light text-green-700" id="ov-response-rate">0%</div>
+                </div>
+                <div class="stat-card bg-blue-50">
+                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
+                        Avg. Days to Complete
+                        <span class="tooltip-icon" data-tooltip="Average time from creation to completion">ℹ️</span>
+                    </div>
+                    <div class="text-4xl font-light text-blue-700" id="ov-avg-completion">--</div>
+                </div>
+                <div class="stat-card bg-gray-50">
+                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
+                        Outcome Completion
+                        <span class="tooltip-icon" data-tooltip="% of individual outcomes completed">ℹ️</span>
+                    </div>
+                    <div class="text-4xl font-light text-gray-700" id="ov-outcome-completion">0%</div>
+                </div>
+            </div>
+
             <!-- Summary -->
             <div class="stat-card mb-6">
-                <h3 class="text-base font-medium mb-2" style="color: var(--cbn-dark);">Summary</h3>
+                <h3 class="text-base font-medium mb-2 flex items-center" style="color: var(--cbn-dark);">
+                    Summary
+                    <span class="tooltip-icon" data-tooltip="Overall performance assessment">ℹ️</span>
+                </h3>
                 <p id="ov-summary" class="text-gray-700 leading-relaxed text-sm"></p>
             </div>
 
             <!-- Charts -->
             <div class="grid grid-cols-2 gap-6">
                 <div class="chart-card">
-                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Status Distribution</h3>
+                    <h3 class="text-base font-medium mb-2 flex items-center" style="color: var(--cbn-dark);">
+                        Directive-Level Status
+                        <span class="tooltip-icon" data-tooltip="Overall status based on outcome completion & responsiveness">ℹ️</span>
+                    </h3>
+                    <p class="text-xs text-gray-500 mb-4">Monitoring Status (based on outcomes & responses)</p>
                     <canvas id="ov-chart" height="200"></canvas>
                 </div>
                 <div class="chart-card">
@@ -429,21 +590,31 @@
             </div>
         </div>
 
-        <!-- Performance Section -->
-        <div id="view-performance" class="view-section">
-            <div class="mb-6">
-                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Performance Grades</h2>
-                <p class="text-sm text-gray-600">Overall performance across key metrics</p>
-            </div>
-
-            <div class="grid grid-cols-3 gap-6" id="performance-grades"></div>
-        </div>
-
         <!-- Status Analysis Section -->
         <div id="view-status" class="view-section">
             <div class="mb-6">
                 <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Status Analysis</h2>
                 <p class="text-sm text-gray-600">Detailed breakdown of directive statuses</p>
+            </div>
+
+            <!-- Status Definitions -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="stat-card bg-green-50 border-2 border-green-200">
+                    <div class="font-medium text-sm text-green-900 mb-2">✅ Completed</div>
+                    <div class="text-xs text-gray-700">All outcomes completed (100% completion rate)</div>
+                </div>
+                <div class="stat-card bg-blue-50 border-2 border-blue-200">
+                    <div class="font-medium text-sm text-blue-900 mb-2">🟢 On Track</div>
+                    <div class="text-xs text-gray-700">Making progress, responded to updates, <60 days old</div>
+                </div>
+                <div class="stat-card bg-yellow-50 border-2 border-yellow-200">
+                    <div class="font-medium text-sm text-yellow-900 mb-2">⚠️ At Risk</div>
+                    <div class="text-xs text-gray-700">Has delayed outcomes OR no progress for 60+ days OR 1-2 reminders sent</div>
+                </div>
+                <div class="stat-card bg-red-50 border-2 border-red-200">
+                    <div class="font-medium text-sm text-red-900 mb-2">🔴 High Risk</div>
+                    <div class="text-xs text-gray-700">No response after 3 reminders (non-responsive)</div>
+                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-6">
@@ -499,22 +670,34 @@
             <!-- Summary Cards -->
             <div class="grid grid-cols-4 gap-4 mb-6">
                 <div class="stat-card">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-primary);">Completed</div>
+                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-primary);">
+                        Completed Outcomes
+                        <span class="tooltip-icon" data-tooltip="Individual outcomes marked as completed">ℹ️</span>
+                    </div>
                     <div class="text-4xl font-light" style="color: var(--cbn-primary);" id="dir-completed">0</div>
                     <div class="text-xs mt-2" style="color: var(--cbn-primary);" id="dir-completed-pct">0%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-medium);">In Progress</div>
+                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-medium);">
+                        In Progress
+                        <span class="tooltip-icon" data-tooltip="Outcomes currently being implemented">ℹ️</span>
+                    </div>
                     <div class="text-4xl font-light" style="color: var(--cbn-medium);" id="dir-progress">0</div>
                     <div class="text-xs mt-2" style="color: var(--cbn-medium);" id="dir-progress-pct">0%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-gray-600">Delayed</div>
+                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2 text-gray-600">
+                        Delayed
+                        <span class="tooltip-icon" data-tooltip="Outcomes marked as delayed by owner">ℹ️</span>
+                    </div>
                     <div class="text-4xl font-light text-gray-600" id="dir-delayed">0</div>
                     <div class="text-xs text-gray-600 mt-2" id="dir-delayed-pct">0%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-gray-500">Not Started</div>
+                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2 text-gray-500">
+                        Not Started
+                        <span class="tooltip-icon" data-tooltip="Outcomes not yet begun">ℹ️</span>
+                    </div>
                     <div class="text-4xl font-light text-gray-500" id="dir-not-started">0</div>
                     <div class="text-xs text-gray-500 mt-2" id="dir-not-started-pct">0%</div>
                 </div>
@@ -523,18 +706,22 @@
             <!-- Analysis Insights -->
             <div class="grid grid-cols-2 gap-6 mb-6">
                 <div class="chart-card bg-red-50">
-                    <h3 class="text-base font-medium mb-4 flex items-center" style="color: var(--cbn-dark);">
+                    <h3 class="text-base font-medium mb-2 flex items-center" style="color: var(--cbn-dark);">
                         <span class="text-xl mr-2">🚧</span>
                         Bottleneck Analysis
+                        <span class="tooltip-icon" data-tooltip="Directives with most delayed/not-started outcomes">ℹ️</span>
                     </h3>
+                    <p class="text-xs text-gray-600 mb-4">Top 5 directives with implementation challenges</p>
                     <div id="bottleneck-analysis"></div>
                 </div>
 
                 <div class="chart-card bg-green-50">
-                    <h3 class="text-base font-medium mb-4 flex items-center" style="color: var(--cbn-dark);">
+                    <h3 class="text-base font-medium mb-2 flex items-center" style="color: var(--cbn-dark);">
                         <span class="text-xl mr-2">⚡</span>
                         Completion Velocity
+                        <span class="tooltip-icon" data-tooltip="Outcomes completed per month">ℹ️</span>
                     </h3>
+                    <p class="text-xs text-gray-600 mb-4">Top 5 fastest-moving directives</p>
                     <div id="velocity-analysis"></div>
                 </div>
             </div>
@@ -559,6 +746,83 @@
                 </div>
 
                 <div id="directives-list"></div>
+            </div>
+        </div>
+
+        <!-- Reminder Analysis Section -->
+        <div id="view-reminders" class="view-section">
+            <div class="mb-6">
+                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Reminder Analysis</h2>
+                <p class="text-sm text-gray-600">Tracking update request reminders sent to process owners</p>
+            </div>
+
+            <!-- Reminder Stats -->
+            <div class="grid grid-cols-4 gap-4 mb-6">
+                <div class="stat-card bg-green-50">
+                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
+                        0 Reminders
+                        <span class="tooltip-icon" data-tooltip="No reminders needed yet">ℹ️</span>
+                    </div>
+                    <div class="text-4xl font-light text-green-700" id="rem-zero">0</div>
+                    <div class="text-xs text-green-700 mt-2">No action needed</div>
+                </div>
+                <div class="stat-card bg-blue-50">
+                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
+                        1 Reminder
+                        <span class="tooltip-icon" data-tooltip="First reminder sent">ℹ️</span>
+                    </div>
+                    <div class="text-4xl font-light text-blue-700" id="rem-one">0</div>
+                    <div class="text-xs text-blue-700 mt-2">First follow-up</div>
+                </div>
+                <div class="stat-card bg-yellow-50">
+                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
+                        2 Reminders
+                        <span class="tooltip-icon" data-tooltip="Second reminder sent">ℹ️</span>
+                    </div>
+                    <div class="text-4xl font-light text-yellow-700" id="rem-two">0</div>
+                    <div class="text-xs text-yellow-700 mt-2">Escalating</div>
+                </div>
+                <div class="stat-card bg-red-50">
+                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
+                        3+ Reminders
+                        <span class="tooltip-icon" data-tooltip="Non-responsive (High Risk)">ℹ️</span>
+                    </div>
+                    <div class="text-4xl font-light text-red-700" id="rem-three">0</div>
+                    <div class="text-xs text-red-700 mt-2">Non-responsive</div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-2 gap-6 mb-6">
+                <div class="chart-card">
+                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Reminder Distribution</h3>
+                    <canvas id="reminder-chart" height="200"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Most Reminders</h3>
+                    <div id="most-reminders"></div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="chart-card">
+                <div class="filter-bar no-print">
+                    <select id="rem-filter" class="flex-1">
+                        <option value="all">All Reminder Levels</option>
+                        <option value="0">0 Reminders</option>
+                        <option value="1">1 Reminder</option>
+                        <option value="2">2 Reminders</option>
+                        <option value="3">3+ Reminders</option>
+                    </select>
+                    <select id="rem-sort" class="flex-1">
+                        <option value="reminders-desc">Most Reminders First</option>
+                        <option value="reminders-asc">Fewest Reminders First</option>
+                        <option value="age-desc">Oldest First</option>
+                    </select>
+                    <input type="text" id="rem-search" placeholder="Search by owner or ref...">
+                </div>
+
+                <div id="reminders-list"></div>
             </div>
         </div>
 
@@ -608,10 +872,13 @@
         let dirPageSize = 15;
         let ownerCurrentPage = 1;
         let ownerPageSize = 15;
+        let remCurrentPage = 1;
+        let remPageSize = 15;
         
         // Filter state
         let dirFilters = { status: 'all', sort: 'completion-desc', search: '' };
         let ownerFilters = { performance: 'all', sort: 'completion-desc', search: '' };
+        let remFilters = { level: 'all', sort: 'reminders-desc', search: '' };
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', {
@@ -667,6 +934,29 @@
                     renderOwnersList(getFilteredOwners());
                 }, 300);
             });
+
+            // Reminder filters
+            document.getElementById('rem-filter').addEventListener('change', (e) => {
+                remFilters.level = e.target.value;
+                remCurrentPage = 1;
+                renderRemindersList(getFilteredReminders());
+            });
+
+            document.getElementById('rem-sort').addEventListener('change', (e) => {
+                remFilters.sort = e.target.value;
+                remCurrentPage = 1;
+                renderRemindersList(getFilteredReminders());
+            });
+
+            let remSearchTimeout;
+            document.getElementById('rem-search').addEventListener('input', (e) => {
+                clearTimeout(remSearchTimeout);
+                remSearchTimeout = setTimeout(() => {
+                    remFilters.search = e.target.value.toLowerCase();
+                    remCurrentPage = 1;
+                    renderRemindersList(getFilteredReminders());
+                }, 300);
+            });
         }
 
         function showLoading(show = true) {
@@ -715,14 +1005,15 @@
 
         function renderAll(data) {
             renderOverview(data);
-            renderPerformance(data);
             renderStatus(data);
             renderTimeline(data);
             renderDirectives();
+            renderReminders();
             renderOwners();
         }
 
         function renderOverview(data) {
+            // Basic stats
             document.getElementById('ov-total').textContent = data.summary.total;
             document.getElementById('ov-done').textContent = data.summary.completed;
             document.getElementById('ov-active').textContent = data.summary.track + data.summary.atRisk;
@@ -732,11 +1023,49 @@
             document.getElementById('ov-overdue').textContent = data.timeline.overdue;
             document.getElementById('ov-due-soon').textContent = data.timeline.dueSoon;
             
+            // Additional metrics
+            const responsiveCount = allDirectives.filter(d => d.isResponsive !== false).length;
+            const responseRate = data.summary.total > 0 ? Math.round((responsiveCount / data.summary.total) * 100) : 0;
+            document.getElementById('ov-response-rate').textContent = `${responseRate}%`;
+
+            // Average completion time
+            const completedDirectives = allDirectives.filter(d => d.monitoringStatus === 'Completed' && d.createdAt);
+            if (completedDirectives.length > 0) {
+                const avgDays = completedDirectives.reduce((sum, d) => {
+                    const created = new Date(d.createdAt);
+                    const completed = new Date(d.lastSbuUpdate || Date.now());
+                    return sum + Math.ceil((completed - created) / (1000 * 60 * 60 * 24));
+                }, 0) / completedDirectives.length;
+                document.getElementById('ov-avg-completion').textContent = Math.round(avgDays);
+            } else {
+                document.getElementById('ov-avg-completion').textContent = '--';
+            }
+
+            // Outcome completion rate
+            let totalOutcomes = 0;
+            let completedOutcomes = 0;
+            allDirectives.forEach(d => {
+                if (d.outcomes && d.outcomes.length > 0) {
+                    totalOutcomes += d.outcomes.length;
+                    completedOutcomes += d.outcomes.filter(o => o.status === 'Completed').length;
+                }
+            });
+            const outcomeRate = totalOutcomes > 0 ? Math.round((completedOutcomes / totalOutcomes) * 100) : 0;
+            document.getElementById('ov-outcome-completion').textContent = `${outcomeRate}%`;
+            
+            // Summary text
             const completionRate = parseFloat(data.complianceRate);
-            const grade = completionRate >= 80 ? 'A+' : completionRate >= 70 ? 'A' : completionRate >= 60 ? 'B' : 'C';
+            const grade = completionRate >= 80 ? 'Excellent' : completionRate >= 70 ? 'Good' : completionRate >= 60 ? 'Satisfactory' : 'Needs Improvement';
             
-            document.getElementById('ov-summary').innerHTML = `Performance grade <strong>${grade}</strong>. ${data.summary.completed} of ${data.summary.total} directives completed (${data.complianceRate}%). ${data.summary.highRisk > 0 ? `<span style="color: var(--red-critical);">${data.summary.highRisk} at high risk.</span>` : ''}`;
+            document.getElementById('ov-summary').innerHTML = `
+                <strong>Overall Performance: ${grade}</strong>. 
+                ${data.summary.completed} of ${data.summary.total} directives completed (${data.complianceRate}% directive-level completion). 
+                ${completedOutcomes} of ${totalOutcomes} individual outcomes completed (${outcomeRate}% outcome-level completion). 
+                ${responseRate}% response rate from process owners.
+                ${data.summary.highRisk > 0 ? `<span style="color: var(--red-critical);"> ⚠️ ${data.summary.highRisk} non-responsive directive(s) require immediate attention.</span>` : ''}
+            `;
             
+            // Chart
             if (charts.overview) charts.overview.destroy();
             const ctx = document.getElementById('ov-chart').getContext('2d');
             charts.overview = new Chart(ctx, {
@@ -745,7 +1074,7 @@
                     labels: ['Completed', 'On Track', 'At Risk', 'High Risk'],
                     datasets: [{
                         data: [data.summary.completed, data.summary.track, data.summary.atRisk, data.summary.highRisk],
-                        backgroundColor: ['#43A047', '#66BB6A', '#A5D6A7', '#C62828'],
+                        backgroundColor: ['#43A047', '#66BB6A', '#FDD835', '#C62828'],
                         borderWidth: 0
                     }]
                 },
@@ -759,47 +1088,6 @@
             });
         }
 
-        function renderPerformance(data) {
-            const completionRate = parseFloat(data.complianceRate);
-            const riskRate = parseFloat(data.riskRate);
-            const implRate = data.summary.total > 0 ? Math.round(((data.summary.track + data.summary.atRisk + data.summary.completed) / data.summary.total) * 100) : 0;
-            
-            const metrics = [
-                {
-                    label: 'Compliance',
-                    value: completionRate,
-                    grade: completionRate >= 80 ? 'A+' : completionRate >= 70 ? 'A' : completionRate >= 60 ? 'B' : 'C',
-                    desc: 'Overall completion rate'
-                },
-                {
-                    label: 'Risk Control',
-                    value: 100 - riskRate,
-                    grade: riskRate <= 20 ? 'A+' : riskRate <= 30 ? 'A' : riskRate <= 40 ? 'B' : 'C',
-                    desc: 'Risk management'
-                },
-                {
-                    label: 'Implementation',
-                    value: implRate,
-                    grade: implRate >= 80 ? 'A' : implRate >= 60 ? 'B' : 'C',
-                    desc: 'Active progress'
-                }
-            ];
-            
-            const html = metrics.map(m => `
-                <div class="stat-card text-center">
-                    <div class="grade-badge mx-auto mb-4">${m.grade}</div>
-                    <div class="font-medium text-lg mb-2" style="color: var(--cbn-dark);">${m.label}</div>
-                    <div class="text-4xl font-light mb-2" style="color: var(--cbn-primary);">${m.value}%</div>
-                    <div class="text-sm text-gray-600 mb-3">${m.desc}</div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${m.value}%;"></div>
-                    </div>
-                </div>
-            `).join('');
-            
-            document.getElementById('performance-grades').innerHTML = html;
-        }
-
         function renderStatus(data) {
             if (charts.status) charts.status.destroy();
             const ctx = document.getElementById('status-chart').getContext('2d');
@@ -809,7 +1097,7 @@
                     labels: ['Completed', 'On Track', 'At Risk', 'High Risk'],
                     datasets: [{
                         data: [data.summary.completed, data.summary.track, data.summary.atRisk, data.summary.highRisk],
-                        backgroundColor: ['#43A047', '#66BB6A', '#A5D6A7', '#C62828'],
+                        backgroundColor: ['#43A047', '#66BB6A', '#FDD835', '#C62828'],
                         borderRadius: 8
                     }]
                 },
@@ -834,9 +1122,9 @@
                         <span class="font-medium text-sm text-gray-900">On Track</span>
                         <span class="text-2xl font-light text-gray-700">${data.summary.track}</span>
                     </div>
-                    <div class="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
-                        <span class="font-medium text-sm text-gray-900">At Risk</span>
-                        <span class="text-2xl font-light text-gray-700">${data.summary.atRisk}</span>
+                    <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                        <span class="font-medium text-sm text-yellow-900">At Risk</span>
+                        <span class="text-2xl font-light text-yellow-700">${data.summary.atRisk}</span>
                     </div>
                     <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">
                         <span class="font-medium text-sm text-red-900">High Risk</span>
@@ -892,7 +1180,6 @@
     const directiveAnalysis = [];
     
     allDirectives.forEach(d => {
-        // Include ALL directives, even those without outcomes
         const hasOutcomes = d.outcomes && d.outcomes.length > 0;
         
         const analysis = {
@@ -940,22 +1227,28 @@
     
     document.getElementById('bottleneck-analysis').innerHTML = bottlenecks.length > 0 ? `
         <div class="space-y-2">
-            ${bottlenecks.map((b, idx) => `
-                <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200">
-                    <div class="flex-1">
+            ${bottlenecks.map((b, idx) => {
+                const totalProblems = b.delayed + b.notStarted;
+                return `
+                <div class="flex items-start justify-between p-3 bg-white rounded-lg border border-red-200">
+                    <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1">
                             <span class="text-xs font-bold text-red-600">#${idx + 1}</span>
-                            <span class="text-xs font-mono font-medium text-gray-700">${b.directive.ref || 'N/A'}</span>
-                            ${b.isNonResponsive ? '<span class="badge badge-red">NON-RESPONSIVE</span>' : ''}
+                            <span class="text-xs font-mono font-medium text-gray-700 truncate">${b.directive.ref || 'N/A'}</span>
+                            ${b.isNonResponsive ? '<span class="badge badge-red text-xs py-0">NON-RESP</span>' : ''}
                         </div>
-                        <div class="text-xs text-gray-600 mb-1">${b.directive.subject.substring(0, 50)}...</div>
-                        <div class="text-xs text-gray-500">${b.delayed} delayed • ${b.notStarted} not started</div>
+                        <div class="text-xs text-gray-600 mb-1 truncate">${(b.directive.subject || '').substring(0, 60)}...</div>
+                        <div class="text-xs text-gray-500">
+                            ${b.delayed} delayed • ${b.notStarted} not started • ${b.daysSinceCreation}d old
+                        </div>
                     </div>
-                    <div class="text-right ml-4">
-                        <div class="text-2xl font-light text-red-600">${b.delayed + b.notStarted}</div>
+                    <div class="text-right ml-4 flex-shrink-0">
+                        <div class="text-2xl font-light text-red-600">${totalProblems}</div>
+                        <div class="text-xs text-red-600">problems</div>
                     </div>
                 </div>
-            `).join('')}
+            `;
+            }).join('')}
         </div>
     ` : '<p class="text-gray-500 text-sm text-center py-6">No significant bottlenecks detected ✓</p>';
     
@@ -968,18 +1261,18 @@
     document.getElementById('velocity-analysis').innerHTML = fastMovers.length > 0 ? `
         <div class="space-y-2">
             ${fastMovers.map((f, idx) => `
-                <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
-                    <div class="flex-1">
+                <div class="flex items-start justify-between p-3 bg-white rounded-lg border border-green-200">
+                    <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1">
                             <span class="text-xs font-bold text-green-600">#${idx + 1}</span>
-                            <span class="text-xs font-mono font-medium text-gray-700">${f.directive.ref || 'N/A'}</span>
+                            <span class="text-xs font-mono font-medium text-gray-700 truncate">${f.directive.ref || 'N/A'}</span>
                         </div>
-                        <div class="text-xs text-gray-600 mb-1">${f.directive.subject.substring(0, 50)}...</div>
-                        <div class="text-xs text-gray-500">${f.completed}/${f.total} completed (${f.completionRate}%)</div>
+                        <div class="text-xs text-gray-600 mb-1 truncate">${(f.directive.subject || '').substring(0, 60)}...</div>
+                        <div class="text-xs text-gray-500">${f.completed}/${f.total} done (${f.completionRate}%) • ${f.daysSinceCreation}d old</div>
                     </div>
-                    <div class="text-right ml-4">
+                    <div class="text-right ml-4 flex-shrink-0">
                         <div class="text-2xl font-light text-green-600">${f.velocity}</div>
-                        <div class="text-xs text-green-600">per mo</div>
+                        <div class="text-xs text-green-600">per month</div>
                     </div>
                 </div>
             `).join('')}
@@ -994,7 +1287,6 @@
     let directiveAnalysis = [];
     
     allDirectives.forEach(d => {
-        // Include ALL directives, even those without outcomes
         const hasOutcomes = d.outcomes && d.outcomes.length > 0;
         
         const analysis = {
@@ -1031,9 +1323,9 @@
     
     if (dirFilters.search) {
         directiveAnalysis = directiveAnalysis.filter(a => 
-            a.directive.subject.toLowerCase().includes(dirFilters.search) ||
-            (a.directive.ref && a.directive.ref.toLowerCase().includes(dirFilters.search)) ||
-            (a.directive.owner && a.directive.owner.toLowerCase().includes(dirFilters.search))
+            (a.directive.subject || '').toLowerCase().includes(dirFilters.search) ||
+            (a.directive.ref || '').toLowerCase().includes(dirFilters.search) ||
+            (a.directive.owner || '').toLowerCase().includes(dirFilters.search)
         );
     }
     
@@ -1080,7 +1372,7 @@
                                         <div class="font-medium text-sm text-gray-900 mb-2">${analysis.directive.subject}</div>
                                         <div class="text-xs text-gray-600">
                                             <strong>Owner:</strong> ${analysis.directive.owner} • 
-                                            <strong>Age:</strong> ${analysis.daysSinceCreation} days • 
+                                            <strong>Age:</strong> ${analysis.daysSinceCreation} days since creation • 
                                             <strong>Reminders:</strong> ${analysis.reminders}/3
                                         </div>
                                     </div>
@@ -1123,6 +1415,159 @@
             document.getElementById('directives-list').innerHTML = html;
         }
 
+        function renderReminders() {
+            const reminderCounts = { zero: 0, one: 0, two: 0, three: 0 };
+            
+            allDirectives.forEach(d => {
+                const rem = d.reminders || 0;
+                if (rem === 0) reminderCounts.zero++;
+                else if (rem === 1) reminderCounts.one++;
+                else if (rem === 2) reminderCounts.two++;
+                else reminderCounts.three++;
+            });
+            
+            document.getElementById('rem-zero').textContent = reminderCounts.zero;
+            document.getElementById('rem-one').textContent = reminderCounts.one;
+            document.getElementById('rem-two').textContent = reminderCounts.two;
+            document.getElementById('rem-three').textContent = reminderCounts.three;
+            
+            // Chart
+            if (charts.reminders) charts.reminders.destroy();
+            const ctx = document.getElementById('reminder-chart').getContext('2d');
+            charts.reminders = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['0 Reminders', '1 Reminder', '2 Reminders', '3+ Reminders'],
+                    datasets: [{
+                        data: [reminderCounts.zero, reminderCounts.one, reminderCounts.two, reminderCounts.three],
+                        backgroundColor: ['#43A047', '#2196F3', '#FDD835', '#C62828'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+            
+            // Most reminders
+            const mostReminded = allDirectives
+                .filter(d => (d.reminders || 0) > 0)
+                .sort((a, b) => (b.reminders || 0) - (a.reminders || 0))
+                .slice(0, 5);
+            
+            document.getElementById('most-reminders').innerHTML = mostReminded.length > 0 ? `
+                <div class="space-y-2">
+                    ${mostReminded.map(d => `
+                        <div class="flex items-center justify-between p-3 ${(d.reminders || 0) >= 3 ? 'bg-red-50 border border-red-200' : 'bg-gray-50'} rounded-lg">
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs font-mono font-medium text-gray-700 truncate mb-1">${d.ref || 'N/A'}</div>
+                                <div class="text-xs text-gray-600 truncate">${d.owner}</div>
+                            </div>
+                            <div class="text-right ml-4">
+                                <div class="text-2xl font-light ${(d.reminders || 0) >= 3 ? 'text-red-600' : 'text-gray-700'}">${d.reminders || 0}</div>
+                                <div class="text-xs text-gray-500">reminders</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : '<p class="text-gray-500 text-sm text-center py-6">No reminders sent yet</p>';
+            
+            renderRemindersList(getFilteredReminders());
+        }
+
+        function getFilteredReminders() {
+            let filtered = [...allDirectives];
+            
+            if (remFilters.level !== 'all') {
+                const level = parseInt(remFilters.level);
+                filtered = filtered.filter(d => {
+                    const rem = d.reminders || 0;
+                    if (level === 3) return rem >= 3;
+                    return rem === level;
+                });
+            }
+            
+            if (remFilters.search) {
+                filtered = filtered.filter(d => 
+                    (d.owner || '').toLowerCase().includes(remFilters.search) ||
+                    (d.ref || '').toLowerCase().includes(remFilters.search) ||
+                    (d.subject || '').toLowerCase().includes(remFilters.search)
+                );
+            }
+            
+            filtered.sort((a, b) => {
+                switch(remFilters.sort) {
+                    case 'reminders-desc': return (b.reminders || 0) - (a.reminders || 0);
+                    case 'reminders-asc': return (a.reminders || 0) - (b.reminders || 0);
+                    case 'age-desc': 
+                        const ageA = new Date(a.createdAt || 0);
+                        const ageB = new Date(b.createdAt || 0);
+                        return ageA - ageB;
+                    default: return (b.reminders || 0) - (a.reminders || 0);
+                }
+            });
+            
+            return filtered;
+        }
+
+        function renderRemindersList(data) {
+            if (data.length === 0) {
+                document.getElementById('reminders-list').innerHTML = '<p class="text-gray-500 text-sm text-center py-12">No directives found</p>';
+                return;
+            }
+            
+            const totalPages = Math.ceil(data.length / remPageSize);
+            const startIdx = (remCurrentPage - 1) * remPageSize;
+            const endIdx = Math.min(startIdx + remPageSize, data.length);
+            const pageData = data.slice(startIdx, endIdx);
+            
+            const html = `
+                <div class="text-xs text-gray-500 mb-4">Showing ${startIdx + 1}-${endIdx} of ${data.length} directives</div>
+                <div class="space-y-3">
+                    ${pageData.map(d => {
+                        const reminders = d.reminders || 0;
+                        const bgColor = reminders >= 3 ? 'bg-red-50 border-2 border-red-500' : 
+                                       reminders === 2 ? 'bg-yellow-50 border border-yellow-200' :
+                                       reminders === 1 ? 'bg-blue-50 border border-blue-200' : 'bg-white';
+                        const daysSince = Math.ceil((new Date() - new Date(d.createdAt || Date.now())) / (1000 * 60 * 60 * 24));
+                        
+                        return `
+                            <div class="item-card ${bgColor}">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="text-xs font-mono font-medium" style="color: var(--cbn-primary);">${d.ref || 'N/A'}</span>
+                                            ${reminders >= 3 ? '<span class="badge badge-red">NON-RESPONSIVE</span>' : ''}
+                                        </div>
+                                        <div class="font-medium text-sm text-gray-900 mb-2">${d.subject}</div>
+                                        <div class="text-xs text-gray-600">
+                                            <strong>Owner:</strong> ${d.owner} • 
+                                            <strong>Age:</strong> ${daysSince} days • 
+                                            <strong>Status:</strong> ${d.monitoringStatus || 'Unknown'}
+                                        </div>
+                                    </div>
+                                    <div class="text-right ml-6">
+                                        <div class="text-4xl font-light ${reminders >= 3 ? 'text-red-600' : reminders === 2 ? 'text-yellow-600' : reminders === 1 ? 'text-blue-600' : 'text-green-600'}">${reminders}</div>
+                                        <div class="text-xs text-gray-500">reminders</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                
+                ${totalPages > 1 ? renderPagination(remCurrentPage, totalPages, 'rem') : ''}
+            `;
+            
+            document.getElementById('reminders-list').innerHTML = html;
+        }
+
       
 
 
@@ -1146,7 +1591,6 @@
         
         ownerStats[owner].total++;
         
-        // ✅ FIXED: Use monitoringStatus instead of implementationStatus
         switch (d.monitoringStatus) {
             case 'Completed':
                 ownerStats[owner].completed++;
@@ -1201,7 +1645,6 @@ function getFilteredOwners() {
         
         ownerStats[owner].total++;
         
-        // ✅ FIXED: Use monitoringStatus instead of implementationStatus
         switch (d.monitoringStatus) {
             case 'Completed':
                 ownerStats[owner].completed++;
@@ -1318,9 +1761,9 @@ function getFilteredOwners() {
                                         <div class="text-lg font-light text-gray-700">${owner.onTrack}</div>
                                         <div class="text-xs text-gray-700 font-medium">On Track</div>
                                     </div>
-                                    <div class="bg-gray-100 rounded-lg p-2 text-center">
-                                        <div class="text-lg font-light text-gray-700">${owner.atRisk}</div>
-                                        <div class="text-xs text-gray-700 font-medium">At Risk</div>
+                                    <div class="bg-yellow-50 rounded-lg p-2 text-center">
+                                        <div class="text-lg font-light text-yellow-700">${owner.atRisk}</div>
+                                        <div class="text-xs text-yellow-700 font-medium">At Risk</div>
                                     </div>
                                     <div class="bg-red-50 rounded-lg p-2 text-center">
                                         <div class="text-lg font-light text-red-600">${owner.highRisk}</div>
@@ -1398,13 +1841,16 @@ function getFilteredOwners() {
             if (type === 'dir') {
                 dirCurrentPage = page;
                 renderDirectivesList(getFilteredDirectives());
-            } else {
+                document.getElementById('view-directives').scrollIntoView({ behavior: 'smooth' });
+            } else if (type === 'owner') {
                 ownerCurrentPage = page;
                 renderOwnersList(getFilteredOwners());
+                document.getElementById('view-owners').scrollIntoView({ behavior: 'smooth' });
+            } else if (type === 'rem') {
+                remCurrentPage = page;
+                renderRemindersList(getFilteredReminders());
+                document.getElementById('view-reminders').scrollIntoView({ behavior: 'smooth' });
             }
-            
-            const view = type === 'dir' ? 'directives' : 'owners';
-            document.getElementById(`view-${view}`).scrollIntoView({ behavior: 'smooth' });
         }
 
         function exportReport() {
@@ -1429,7 +1875,8 @@ function getFilteredOwners() {
                 'Ref': d.ref || 'N/A',
                 'Subject': d.subject,
                 'Owner': d.owner,
-                'Status': d.implementationStatus,
+                'Status': d.monitoringStatus,
+                'Reminders': d.reminders || 0,
                 'Outcomes': d.outcomes?.length || 0,
                 'Completed': d.outcomes?.filter(o => o.status === 'Completed').length || 0
             }));
@@ -1439,6 +1886,34 @@ function getFilteredOwners() {
             
             XLSX.writeFile(wb, `Report_${currentSource}_${new Date().toISOString().split('T')[0]}.xlsx`);
         }
+
+        // Print All Sections Function
+        function printAllSections() {
+            // Store current active section
+            const currentSection = document.querySelector('.view-section.active');
+            
+            // Make all sections visible for printing
+            document.querySelectorAll('.view-section').forEach(section => {
+                section.classList.add('active');
+            });
+            
+            // Print
+            window.print();
+            
+            // Restore original state after print
+            setTimeout(() => {
+                document.querySelectorAll('.view-section').forEach(section => {
+                    section.classList.remove('active');
+                });
+                if (currentSection) {
+                    currentSection.classList.add('active');
+                }
+            }, 1000);
+        }
+
+        // Override window.print to use printAllSections
+        const originalPrint = window.print;
+        window.print = printAllSections;
     </script>
 </body>
 </html>

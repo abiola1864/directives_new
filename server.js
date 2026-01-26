@@ -179,6 +179,17 @@ const directiveSchema = new mongoose.Schema({
   
   primaryEmail: { type: String,  default:'' },
   secondaryEmail: { type: String, default: '' },
+
+
+   // Add this new field:
+    updateHistory: [{
+        timestamp: { type: Date, default: Date.now },
+        source: { type: String, enum: ['reminder-link', 'self-initiated', 'admin'], default: 'reminder-link' },
+        updatedBy: String,
+        outcomeChanges: Number, // Number of outcomes updated
+        comment: String
+    }],
+
   
   amount: String,
   vendor: String,
@@ -384,16 +395,6 @@ const SubmissionToken = mongoose.model('SubmissionToken', submissionTokenSchema)
 
 
 // ADD this schema
-const ProcessOwnerSchema = new mongoose.Schema({
-    email: { type: String, unique: true, lowercase: true, required: true },
-    password: { type: String, required: true },
-    name: String,
-    department: String,
-    isActive: { type: Boolean, default: true },
-    lastLogin: Date
-});
-const ProcessOwner = mongoose.model('ProcessOwner', ProcessOwnerSchema);
-
 
 // ==========================================
 // EMAIL GENERATION FUNCTIONS
@@ -2635,11 +2636,13 @@ app.get('/api/submission-token/:token', async (req, res) => {
 // Find this endpoint and update the outcomes parsing section
 // ADD the POST handler
 // FIND THIS (around line 1150):
+
 app.post('/api/submit-update/:id', upload, async (req, res) => {
     try {
         const { token } = req.query;
+        const updateSource = req.body.updateSource || 'reminder-link'; // Track source
         
-        // Mark token as used
+        // Mark token as used if present
         if (token) {
             const tokenDoc = await SubmissionToken.findOne({ token });
             if (tokenDoc) {
@@ -2657,21 +2660,29 @@ app.post('/api/submit-update/:id', upload, async (req, res) => {
             return res.status(404).json({ success: false, error: 'Directive not found' });
         }
 
-        // Parse outcomes from JSON string
+        // Parse outcomes
         let outcomesUpdates = [];
         try {
-            if (req.body.outcomes) {
+            if (typeof req.body.outcomes === 'string') {
                 outcomesUpdates = JSON.parse(req.body.outcomes);
+            } else if (Array.isArray(req.body.outcomes)) {
+                outcomesUpdates = req.body.outcomes;
             }
         } catch (parseError) {
             console.error('❌ Error parsing outcomes:', parseError.message);
             return res.status(400).json({ success: false, error: 'Invalid outcomes data' });
         }
         
+        // Track changes for history
+        let outcomeChanges = 0;
+        
         // Update outcomes
         outcomesUpdates.forEach((update) => {
             const idx = update.originalIndex;
             if (directive.outcomes[idx]) {
+                if (directive.outcomes[idx].status !== update.status) {
+                    outcomeChanges++;
+                }
                 directive.outcomes[idx].status = update.status;
                 directive.outcomes[idx].challenges = update.challenges;
                 directive.outcomes[idx].completionDetails = update.completionDetails;
@@ -2688,12 +2699,14 @@ app.post('/api/submit-update/:id', upload, async (req, res) => {
         }
         
         // Update comments
+        let commentText = '';
         if (req.body.completionNote) {
             const timestamp = new Date().toLocaleString('en-GB', { 
                 day: '2-digit', month: 'short', year: 'numeric',
                 hour: '2-digit', minute: '2-digit'
             });
-            const newComment = `[${timestamp}] ${req.body.completionNote.trim()}`;
+            commentText = req.body.completionNote.trim();
+            const newComment = `[${timestamp}] ${commentText}`;
             
             if (directive.additionalComments && directive.additionalComments.trim()) {
                 directive.additionalComments += '\n\n' + newComment;
@@ -2725,19 +2738,39 @@ app.post('/api/submit-update/:id', upload, async (req, res) => {
             });
         }
 
+        // Add to update history - THIS IS NEW
+        if (!directive.updateHistory) {
+            directive.updateHistory = [];
+        }
+        directive.updateHistory.push({
+            timestamp: new Date(),
+            source: updateSource, // 'reminder-link' or 'self-initiated'
+            updatedBy: directive.owner,
+            outcomeChanges: outcomeChanges,
+            comment: commentText
+        });
+
         directive.lastSbuUpdate = new Date();
         directive.lastResponseDate = new Date();
-        await directive.updateMonitoringStatus('SBU update received via submission form');
+        
+        // Mark as responsive if they submitted an update
+        if (directive.reminders >= 3) {
+            directive.isResponsive = true; // They responded after being non-responsive
+        }
+        
+        await directive.updateMonitoringStatus(`Update received (${updateSource})`);
         await directive.save();
 
-        console.log(`✅ Directive ${directive.ref} updated successfully`);
-        console.log(`   Updated ${outcomesUpdates.length} outcomes`);
+        console.log(`✅ Directive ${directive.ref} updated successfully by ${directive.owner}`);
+        console.log(`   Source: ${updateSource}`);
+        console.log(`   Updated ${outcomesUpdates.length} outcomes (${outcomeChanges} changed)`);
         console.log(`   Uploaded ${req.files ? req.files.length : 0} files`);
 
         res.json({ 
             success: true, 
             message: 'Update submitted successfully',
-            filesUploaded: req.files ? req.files.length : 0
+            filesUploaded: req.files ? req.files.length : 0,
+            updateSource: updateSource
         });
         
     } catch (error) {
@@ -2745,6 +2778,52 @@ app.post('/api/submit-update/:id', upload, async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
+
+
+
+
+
+app.get('/api/directives/eligible-for-reminder', async (req, res) => {
+    try {
+        const { source } = req.query;
+        
+        const query = {};
+        if (source) query.source = source;
+        
+        const directives = await Directive.find(query);
+        
+        // Filter to only include directives that need reminders
+        const eligible = directives.filter(d => {
+            // Exclude if already completed
+            if (d.monitoringStatus === 'Completed') return false;
+            
+            // Exclude if already at 3 reminders (non-responsive)
+            if (d.reminders >= 3) return false;
+            
+            // Exclude if updated in last 7 days (they're actively working on it)
+            if (d.lastSbuUpdate) {
+                const daysSinceUpdate = Math.ceil((new Date() - new Date(d.lastSbuUpdate)) / (1000 * 60 * 60 * 24));
+                if (daysSinceUpdate < 7) return false;
+            }
+            
+            // Include if no outcomes or has incomplete outcomes
+            if (!d.outcomes || d.outcomes.length === 0) return true;
+            const hasIncomplete = d.outcomes.some(o => o.status !== 'Completed');
+            return hasIncomplete;
+        });
+        
+        res.json({ 
+            success: true, 
+            data: eligible,
+            total: eligible.length,
+            message: `${eligible.length} directive(s) eligible for reminders`
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+
 
 
 
@@ -2829,6 +2908,990 @@ app.post('/api/submit-update/:id', async (req, res) => {
 
     res.json({ success: true, message: 'Update submitted successfully' });
   } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+
+
+
+
+// ========================================
+// PROCESS OWNER ACCOUNT MANAGEMENT - COMPLETE SYSTEM
+// Add these to your server.js
+// ========================================
+
+// First, install bcrypt for password hashing
+// Run: npm install bcrypt
+
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+
+// ========================================
+// 1. PROCESS OWNER SCHEMA
+// ========================================
+
+const ProcessOwnerSchema = new mongoose.Schema({
+  name: { 
+    type: String, 
+    required: true,
+    trim: true
+  },
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true,
+    lowercase: true,
+    trim: true
+  },
+  password: { 
+    type: String // Will be null until owner sets it
+  },
+  department: String,
+  position: String,
+  phone: String,
+  
+  // Account status
+  isActive: { type: Boolean, default: true },
+  passwordSetupToken: String, // For first-time password setup
+  passwordSetupExpires: Date,
+  passwordResetToken: String, // For password reset
+  passwordResetExpires: Date,
+  
+  // Tracking
+  createdBy: String, // Admin who created the account
+  createdAt: { type: Date, default: Date.now },
+  passwordSetAt: Date, // When they first set their password
+  lastLogin: Date,
+  
+  // Security
+  failedLoginAttempts: { type: Number, default: 0 },
+  accountLockedUntil: Date
+});
+
+// Hash password before saving
+ProcessOwnerSchema.pre('save', async function(next) {
+  if (!this.isModified('password') || !this.password) return next();
+  
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Method to compare passwords
+ProcessOwnerSchema.methods.comparePassword = async function(candidatePassword) {
+  if (!this.password) return false;
+  return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Method to check if account is locked
+ProcessOwnerSchema.methods.isLocked = function() {
+  return !!(this.accountLockedUntil && this.accountLockedUntil > Date.now());
+};
+
+const ProcessOwner = mongoose.model('ProcessOwner', ProcessOwnerSchema);
+
+
+// ========================================
+// 2. ADMIN CREATES PROCESS OWNER ACCOUNT
+// ========================================
+
+app.post('/api/process-owners/create', async (req, res) => {
+  try {
+    const { name, email, department, position, phone } = req.body;
+    
+    // Validate
+    if (!name || !email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Name and email are required' 
+      });
+    }
+
+    // Check if email already exists
+    const existing = await ProcessOwner.findOne({ email: email.toLowerCase() });
+    if (existing) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'An account with this email already exists' 
+      });
+    }
+
+    // Generate password setup token (valid for 7 days)
+    const setupToken = crypto.randomBytes(32).toString('hex');
+    const setupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // Create process owner account (NO PASSWORD YET)
+    const processOwner = new ProcessOwner({
+      name,
+      email: email.toLowerCase(),
+      department,
+      position,
+      phone,
+      passwordSetupToken: setupToken,
+      passwordSetupExpires: setupExpires,
+      createdBy: req.body.adminUsername || 'admin', // Track who created it
+      isActive: true
+    });
+
+    await processOwner.save();
+
+    // Send setup email
+    const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
+    const setupUrl = `${baseUrl}/setup-password.html?token=${setupToken}`;
+
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    
+    <!-- Header -->
+    <div style="padding: 32px 24px; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); color: white; text-align: center;">
+      <h1 style="margin: 0; font-size: 24px;">Welcome to CBN Directives Platform</h1>
+      <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">Process Owner Portal Access</p>
+    </div>
+    
+    <!-- Content -->
+    <div style="padding: 32px 24px;">
+      <p style="margin: 0 0 16px 0; font-size: 15px; color: #374151;">Dear <strong>${name}</strong>,</p>
+      
+      <p style="margin: 0 0 16px 0; font-size: 14px; color: #374151; line-height: 1.6;">
+        An account has been created for you on the <strong>CBN Directives Management Platform</strong>. 
+        You can now track and submit updates for all directives assigned to you.
+      </p>
+      
+      <div style="background: #f9fafb; padding: 16px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #1B5E20;">
+        <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">YOUR LOGIN EMAIL</div>
+        <div style="font-size: 16px; font-weight: 600; color: #1B5E20;">${email}</div>
+      </div>
+      
+      <p style="margin: 0 0 24px 0; font-size: 14px; color: #374151;">
+        To activate your account, please set up your password by clicking the button below:
+      </p>
+      
+      <!-- CTA Button -->
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${setupUrl}" style="display: inline-block; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 12px rgba(27, 94, 32, 0.3);">
+          🔐 Set Up Your Password
+        </a>
+      </div>
+      
+      <p style="margin: 24px 0 8px 0; font-size: 12px; color: #6b7280;">
+        Or copy and paste this link into your browser:
+      </p>
+      <p style="margin: 0; font-size: 11px; color: #9ca3af; word-break: break-all;">
+        ${setupUrl}
+      </p>
+      
+      <div style="background: #FEF3C7; padding: 12px; border-radius: 8px; margin: 24px 0;">
+        <div style="font-size: 12px; color: #92400E;">
+          ⏰ <strong>Important:</strong> This setup link expires in 7 days. Please set up your password as soon as possible.
+        </div>
+      </div>
+      
+      <p style="margin: 24px 0 0 0; font-size: 14px; color: #374151; line-height: 1.6;">
+        Once your password is set, you can log in at any time to:
+      </p>
+      <ul style="margin: 12px 0; padding-left: 20px; font-size: 14px; color: #374151;">
+        <li style="margin-bottom: 8px;">View all directives assigned to you</li>
+        <li style="margin-bottom: 8px;">Submit implementation updates</li>
+        <li style="margin-bottom: 8px;">Track progress and timelines</li>
+        <li style="margin-bottom: 8px;">Upload supporting documents</li>
+      </ul>
+    </div>
+    
+    <!-- Footer -->
+    <div style="padding: 20px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+      <p style="margin: 0 0 4px 0; font-size: 11px; color: #6b7280;">
+        If you did not expect this email or need assistance, please contact the Corporate Secretariat.
+      </p>
+      <p style="margin: 0; font-size: 10px; color: #9ca3af;">
+        Central Bank of Nigeria - Directives Management System
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    if (emailTransporter) {
+      try {
+        await emailTransporter.sendMail({
+          from: process.env.SMTP_USER || 'directives@cbn.gov.ng',
+          to: email,
+          subject: '🔐 Set Up Your CBN Directives Platform Password',
+          html: emailHtml
+        });
+        
+        console.log(`✅ Password setup email sent to: ${email}`);
+      } catch (emailError) {
+        console.error('❌ Email send failed:', emailError.message);
+        // Don't fail account creation if email fails
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Process owner account created successfully',
+      processOwner: {
+        id: processOwner._id,
+        name: processOwner.name,
+        email: processOwner.email,
+        setupEmailSent: !!emailTransporter
+      },
+      setupUrl: setupUrl // Return URL for admin to copy manually if needed
+    });
+
+  } catch (error) {
+    console.error('❌ Create process owner error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// ========================================
+// 3. VALIDATE PASSWORD SETUP TOKEN
+// ========================================
+
+app.get('/api/process-owners/validate-setup-token/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    const processOwner = await ProcessOwner.findOne({
+      passwordSetupToken: token,
+      passwordSetupExpires: { $gt: Date.now() }
+    });
+
+    if (!processOwner) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or expired setup link. Please contact the Corporate Secretariat to request a new one.'
+      });
+    }
+
+    res.json({
+      success: true,
+      processOwner: {
+        name: processOwner.name,
+        email: processOwner.email
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// ========================================
+// 4. PROCESS OWNER SETS PASSWORD
+// ========================================
+
+app.post('/api/process-owners/setup-password', async (req, res) => {
+  try {
+    const { token, password, confirmPassword } = req.body;
+
+    // Validate
+    if (!token || !password || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'All fields are required'
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Passwords do not match'
+      });
+    }
+
+    // Password strength check
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 8 characters long'
+      });
+    }
+
+    // Find process owner
+    const processOwner = await ProcessOwner.findOne({
+      passwordSetupToken: token,
+      passwordSetupExpires: { $gt: Date.now() }
+    });
+
+    if (!processOwner) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or expired setup link'
+      });
+    }
+
+    // Set password (will be hashed by pre-save hook)
+    processOwner.password = password;
+    processOwner.passwordSetAt = new Date();
+    processOwner.passwordSetupToken = undefined;
+    processOwner.passwordSetupExpires = undefined;
+    
+    await processOwner.save();
+
+    console.log(`✅ Password set for process owner: ${processOwner.email}`);
+
+    res.json({
+      success: true,
+      message: 'Password set successfully! You can now log in.',
+      email: processOwner.email
+    });
+
+  } catch (error) {
+    console.error('❌ Setup password error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// ========================================
+// 5. PROCESS OWNER LOGIN (UPDATED)
+// ========================================
+
+app.post('/api/process-owners/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email and password are required'
+      });
+    }
+
+    // Find process owner
+    const processOwner = await ProcessOwner.findOne({ 
+      email: email.toLowerCase() 
+    });
+
+    if (!processOwner) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid email or password'
+      });
+    }
+
+    // Check if account is active
+    if (!processOwner.isActive) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account has been deactivated. Please contact the Corporate Secretariat.'
+      });
+    }
+
+    // Check if password is set
+    if (!processOwner.password) {
+      return res.status(403).json({
+        success: false,
+        error: 'Please set up your password first. Check your email for the setup link.',
+        needsPasswordSetup: true
+      });
+    }
+
+    // Check if account is locked
+    if (processOwner.isLocked()) {
+      const minutesRemaining = Math.ceil((processOwner.accountLockedUntil - Date.now()) / (1000 * 60));
+      return res.status(423).json({
+        success: false,
+        error: `Account locked due to too many failed login attempts. Try again in ${minutesRemaining} minutes.`
+      });
+    }
+
+    // Verify password
+    const isMatch = await processOwner.comparePassword(password);
+
+    if (!isMatch) {
+      // Increment failed attempts
+      processOwner.failedLoginAttempts += 1;
+      
+      // Lock account after 5 failed attempts
+      if (processOwner.failedLoginAttempts >= 5) {
+        processOwner.accountLockedUntil = new Date(Date.now() + 30 * 60 * 1000); // Lock for 30 minutes
+        await processOwner.save();
+        
+        return res.status(423).json({
+          success: false,
+          error: 'Account locked due to too many failed login attempts. Try again in 30 minutes.'
+        });
+      }
+      
+      await processOwner.save();
+      
+      return res.status(401).json({
+        success: false,
+        error: `Invalid email or password. ${5 - processOwner.failedLoginAttempts} attempts remaining.`
+      });
+    }
+
+    // Successful login - reset failed attempts
+    processOwner.failedLoginAttempts = 0;
+    processOwner.accountLockedUntil = undefined;
+    processOwner.lastLogin = new Date();
+    await processOwner.save();
+
+    console.log(`✅ Process owner logged in: ${processOwner.email}`);
+
+    // Generate session token (you could use JWT here)
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      owner: {
+        id: processOwner._id,
+        name: processOwner.name,
+        email: processOwner.email,
+        department: processOwner.department,
+        position: processOwner.position
+      },
+      token: sessionToken
+    });
+
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// ========================================
+// 6. REQUEST PASSWORD RESET
+// ========================================
+
+app.post('/api/process-owners/request-password-reset', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    const processOwner = await ProcessOwner.findOne({ 
+      email: email.toLowerCase() 
+    });
+
+    // Always return success to prevent email enumeration
+    if (!processOwner) {
+      return res.json({
+        success: true,
+        message: 'If an account exists with this email, you will receive password reset instructions.'
+      });
+    }
+
+    // Generate reset token (valid for 1 hour)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    processOwner.passwordResetToken = resetToken;
+    processOwner.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+    await processOwner.save();
+
+    // Send reset email
+    const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
+    const resetUrl = `${baseUrl}/reset-password.html?token=${resetToken}`;
+
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="padding: 32px 24px; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); color: white; text-align: center;">
+      <h1 style="margin: 0; font-size: 24px;">Password Reset Request</h1>
+    </div>
+    
+    <div style="padding: 32px 24px;">
+      <p style="margin: 0 0 16px 0; font-size: 15px; color: #374151;">Dear <strong>${processOwner.name}</strong>,</p>
+      
+      <p style="margin: 0 0 24px 0; font-size: 14px; color: #374151; line-height: 1.6;">
+        We received a request to reset your password for the CBN Directives Platform. Click the button below to set a new password:
+      </p>
+      
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 14px;">
+          🔐 Reset Password
+        </a>
+      </div>
+      
+      <div style="background: #FEF3C7; padding: 12px; border-radius: 8px; margin: 24px 0;">
+        <div style="font-size: 12px; color: #92400E;">
+          ⏰ This reset link expires in 1 hour.
+        </div>
+      </div>
+      
+      <p style="margin: 24px 0 0 0; font-size: 13px; color: #6b7280;">
+        If you didn't request this reset, you can safely ignore this email. Your password will remain unchanged.
+      </p>
+    </div>
+    
+    <div style="padding: 20px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+      <p style="margin: 0; font-size: 11px; color: #6b7280;">Central Bank of Nigeria - Directives Management System</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    if (emailTransporter) {
+      await emailTransporter.sendMail({
+        from: process.env.SMTP_USER || 'directives@cbn.gov.ng',
+        to: email,
+        subject: '🔐 Password Reset Request - CBN Directives Platform',
+        html: emailHtml
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'If an account exists with this email, you will receive password reset instructions.'
+    });
+
+  } catch (error) {
+    console.error('❌ Password reset request error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// ========================================
+// 7. RESET PASSWORD
+// ========================================
+
+app.post('/api/process-owners/reset-password', async (req, res) => {
+  try {
+    const { token, password, confirmPassword } = req.body;
+
+    if (!token || !password || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'All fields are required'
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Passwords do not match'
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 8 characters long'
+      });
+    }
+
+    const processOwner = await ProcessOwner.findOne({
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: Date.now() }
+    });
+
+    if (!processOwner) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or expired reset link'
+      });
+    }
+
+    // Set new password
+    processOwner.password = password;
+    processOwner.passwordResetToken = undefined;
+    processOwner.passwordResetExpires = undefined;
+    processOwner.failedLoginAttempts = 0;
+    processOwner.accountLockedUntil = undefined;
+    
+    await processOwner.save();
+
+    console.log(`✅ Password reset for: ${processOwner.email}`);
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully! You can now log in with your new password.'
+    });
+
+  } catch (error) {
+    console.error('❌ Reset password error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// ========================================
+// 8. LIST ALL PROCESS OWNERS (ADMIN ONLY)
+// ========================================
+
+app.get('/api/process-owners', async (req, res) => {
+  try {
+    const processOwners = await ProcessOwner.find()
+      .select('-password -passwordSetupToken -passwordResetToken')
+      .sort({ name: 1 });
+
+    res.json({
+      success: true,
+      data: processOwners,
+      total: processOwners.length
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+
+
+// ========================================
+// RESEND SETUP EMAIL (ADMIN ONLY)
+// Complete implementation
+// ========================================
+
+app.post('/api/process-owners/:id/resend-setup', async (req, res) => {
+  try {
+    const processOwner = await ProcessOwner.findById(req.params.id);
+    
+    if (!processOwner) {
+      return res.status(404).json({
+        success: false,
+        error: 'Process owner not found'
+      });
+    }
+
+    // Check if password already set
+    if (processOwner.password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password already set. This account is active. Use password reset instead.'
+      });
+    }
+
+    // Check if account is active
+    if (!processOwner.isActive) {
+      return res.status(400).json({
+        success: false,
+        error: 'Account is deactivated. Please activate it first.'
+      });
+    }
+
+    // Generate new setup token (valid for 7 days)
+    const setupToken = crypto.randomBytes(32).toString('hex');
+    processOwner.passwordSetupToken = setupToken;
+    processOwner.passwordSetupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await processOwner.save();
+
+    const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
+    const setupUrl = `${baseUrl}/setup-password.html?token=${setupToken}`;
+
+    // Build setup email HTML
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    
+    <!-- Header -->
+    <div style="padding: 32px 24px; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); color: white; text-align: center;">
+      <h1 style="margin: 0; font-size: 24px;">Welcome to CBN Directives Platform</h1>
+      <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">Process Owner Portal Access</p>
+    </div>
+    
+    <!-- Content -->
+    <div style="padding: 32px 24px;">
+      <p style="margin: 0 0 16px 0; font-size: 15px; color: #374151;">Dear <strong>${processOwner.name}</strong>,</p>
+      
+      <p style="margin: 0 0 16px 0; font-size: 14px; color: #374151; line-height: 1.6;">
+        This is a reminder to complete your account setup for the <strong>CBN Directives Management Platform</strong>. 
+        You can track and submit updates for all directives assigned to you.
+      </p>
+      
+      <div style="background: #f9fafb; padding: 16px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #1B5E20;">
+        <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">YOUR LOGIN EMAIL</div>
+        <div style="font-size: 16px; font-weight: 600; color: #1B5E20;">${processOwner.email}</div>
+      </div>
+      
+      <p style="margin: 0 0 24px 0; font-size: 14px; color: #374151;">
+        To activate your account, please set up your password by clicking the button below:
+      </p>
+      
+      <!-- CTA Button -->
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${setupUrl}" style="display: inline-block; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 12px rgba(27, 94, 32, 0.3);">
+          🔐 Set Up Your Password
+        </a>
+      </div>
+      
+      <p style="margin: 24px 0 8px 0; font-size: 12px; color: #6b7280;">
+        Or copy and paste this link into your browser:
+      </p>
+      <p style="margin: 0; font-size: 11px; color: #9ca3af; word-break: break-all; background: #f9fafb; padding: 12px; border-radius: 6px;">
+        ${setupUrl}
+      </p>
+      
+      <div style="background: #FEF3C7; padding: 12px; border-radius: 8px; margin: 24px 0;">
+        <div style="font-size: 12px; color: #92400E;">
+          ⏰ <strong>Important:</strong> This setup link expires in 7 days. Please set up your password as soon as possible.
+        </div>
+      </div>
+      
+      <p style="margin: 24px 0 0 0; font-size: 14px; color: #374151; line-height: 1.6;">
+        Once your password is set, you can log in at any time to:
+      </p>
+      <ul style="margin: 12px 0; padding-left: 20px; font-size: 14px; color: #374151;">
+        <li style="margin-bottom: 8px;">View all directives assigned to you</li>
+        <li style="margin-bottom: 8px;">Submit implementation updates</li>
+        <li style="margin-bottom: 8px;">Track progress and timelines</li>
+        <li style="margin-bottom: 8px;">Upload supporting documents</li>
+      </ul>
+    </div>
+    
+    <!-- Footer -->
+    <div style="padding: 20px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+      <p style="margin: 0 0 4px 0; font-size: 11px; color: #6b7280;">
+        If you did not expect this email or need assistance, please contact the Corporate Secretariat.
+      </p>
+      <p style="margin: 0; font-size: 10px; color: #9ca3af;">
+        Central Bank of Nigeria - Directives Management System
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    // Send email
+    if (emailTransporter) {
+      try {
+        await emailTransporter.sendMail({
+          from: process.env.SMTP_USER || 'directives@cbn.gov.ng',
+          to: processOwner.email,
+          subject: '🔐 Reminder: Set Up Your CBN Directives Platform Password',
+          html: emailHtml
+        });
+        
+        console.log(`✅ Setup email resent to: ${processOwner.email}`);
+      } catch (emailError) {
+        console.error('❌ Email send failed:', emailError.message);
+        return res.status(500).json({ 
+          success: false, 
+          error: `Failed to send email: ${emailError.message}`,
+          setupUrl: setupUrl // Still return URL so admin can send manually
+        });
+      }
+    } else {
+      return res.status(500).json({
+        success: false,
+        error: 'Email service not configured',
+        setupUrl: setupUrl // Return URL for manual sharing
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Setup email resent successfully',
+      processOwner: {
+        id: processOwner._id,
+        name: processOwner.name,
+        email: processOwner.email
+      },
+      setupUrl: setupUrl, // Return URL for admin reference
+      expiresIn: '7 days'
+    });
+
+  } catch (error) {
+    console.error('❌ Resend setup error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+
+// ========================================
+// BONUS: GET PROCESS OWNER DETAILS (ADMIN ONLY)
+// Useful to check account status before resending
+// ========================================
+
+app.get('/api/process-owners/:id', async (req, res) => {
+  try {
+    const processOwner = await ProcessOwner.findById(req.params.id)
+      .select('-password -passwordSetupToken -passwordResetToken'); // Don't expose sensitive data
+
+    if (!processOwner) {
+      return res.status(404).json({
+        success: false,
+        error: 'Process owner not found'
+      });
+    }
+
+    // Calculate status
+    const status = {
+      hasPassword: !!processOwner.password,
+      isActive: processOwner.isActive,
+      setupTokenExpired: processOwner.passwordSetupExpires && new Date() > processOwner.passwordSetupExpires,
+      accountLocked: processOwner.isLocked(),
+      needsPasswordSetup: !processOwner.password && processOwner.isActive
+    };
+
+    res.json({
+      success: true,
+      data: processOwner,
+      status: status
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// ========================================
+// BONUS: DEACTIVATE/REACTIVATE PROCESS OWNER (ADMIN ONLY)
+// ========================================
+
+app.patch('/api/process-owners/:id/toggle-active', async (req, res) => {
+  try {
+    const processOwner = await ProcessOwner.findById(req.params.id);
+    
+    if (!processOwner) {
+      return res.status(404).json({
+        success: false,
+        error: 'Process owner not found'
+      });
+    }
+
+    // Toggle active status
+    processOwner.isActive = !processOwner.isActive;
+    await processOwner.save();
+
+    console.log(`✅ Process owner ${processOwner.email} ${processOwner.isActive ? 'activated' : 'deactivated'}`);
+
+    res.json({
+      success: true,
+      message: `Account ${processOwner.isActive ? 'activated' : 'deactivated'} successfully`,
+      processOwner: {
+        id: processOwner._id,
+        name: processOwner.name,
+        email: processOwner.email,
+        isActive: processOwner.isActive
+      }
+    });
+  } catch (error) {
+    console.error('❌ Toggle active error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// ========================================
+// BONUS: DELETE PROCESS OWNER (ADMIN ONLY)
+// Use with caution - this is permanent
+// ========================================
+
+app.delete('/api/process-owners/:id', async (req, res) => {
+  try {
+    const processOwner = await ProcessOwner.findById(req.params.id);
+    
+    if (!processOwner) {
+      return res.status(404).json({
+        success: false,
+        error: 'Process owner not found'
+      });
+    }
+
+    // Store details before deletion for logging
+    const deletedDetails = {
+      name: processOwner.name,
+      email: processOwner.email,
+      deletedAt: new Date(),
+      deletedBy: req.body.adminUsername || 'admin'
+    };
+
+    await ProcessOwner.findByIdAndDelete(req.params.id);
+
+    console.log(`⚠️  Process owner deleted: ${deletedDetails.email} by ${deletedDetails.deletedBy}`);
+
+    res.json({
+      success: true,
+      message: 'Process owner account deleted successfully',
+      deleted: deletedDetails
+    });
+  } catch (error) {
+    console.error('❌ Delete error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// ========================================
+// BONUS: UPDATE PROCESS OWNER DETAILS (ADMIN ONLY)
+// ========================================
+
+app.patch('/api/process-owners/:id', async (req, res) => {
+  try {
+    const { name, email, department, position, phone } = req.body;
+    
+    const processOwner = await ProcessOwner.findById(req.params.id);
+    
+    if (!processOwner) {
+      return res.status(404).json({
+        success: false,
+        error: 'Process owner not found'
+      });
+    }
+
+    // Check if new email is already taken by another process owner
+    if (email && email !== processOwner.email) {
+      const existing = await ProcessOwner.findOne({ 
+        email: email.toLowerCase(),
+        _id: { $ne: req.params.id }
+      });
+      
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email already in use by another process owner'
+        });
+      }
+    }
+
+    // Update fields if provided
+    if (name) processOwner.name = name;
+    if (email) processOwner.email = email.toLowerCase();
+    if (department !== undefined) processOwner.department = department;
+    if (position !== undefined) processOwner.position = position;
+    if (phone !== undefined) processOwner.phone = phone;
+
+    await processOwner.save();
+
+    console.log(`✅ Process owner updated: ${processOwner.email}`);
+
+    res.json({
+      success: true,
+      message: 'Process owner updated successfully',
+      processOwner: {
+        id: processOwner._id,
+        name: processOwner.name,
+        email: processOwner.email,
+        department: processOwner.department,
+        position: processOwner.position,
+        phone: processOwner.phone
+      }
+    });
+  } catch (error) {
+    console.error('❌ Update error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
