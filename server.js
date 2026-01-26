@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 3001;
 const multer = require('multer');
 const crypto = require('crypto');
 const fs = require('fs');
-
+const bcrypt = require('bcrypt');
 
 
 
@@ -2925,8 +2925,8 @@ app.post('/api/submit-update/:id', async (req, res) => {
 // First, install bcrypt for password hashing
 // Run: npm install bcrypt
 
-const bcrypt = require('bcrypt');
-const crypto = require('crypto');
+
+
 
 // ========================================
 // 1. PROCESS OWNER SCHEMA
