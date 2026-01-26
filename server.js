@@ -2258,12 +2258,10 @@ app.get('/submit-update/:id', async (req, res) => {
           return res.send('<h1>This submission link has already been used</h1>');
         }
 
-        // Check expiry
         if (submissionToken.expiresAt && new Date() > submissionToken.expiresAt) {
           return res.send('<h1>This submission link has expired</h1>');
         }
 
-        // Filter to selected outcomes only
         if (submissionToken.selectedOutcomes && submissionToken.selectedOutcomes.length > 0) {
           outcomesToShow = submissionToken.selectedOutcomes.map(idx => ({
             outcome: directive.outcomes[idx],
@@ -2273,7 +2271,7 @@ app.get('/submit-update/:id', async (req, res) => {
       }
     }
 
-    // Build outcomes HTML - only selected ones with original numbering
+    // Build outcomes HTML
     const outcomesHtml = outcomesToShow.map(({ outcome, originalIndex }) => `
       <div class="bg-gray-50 rounded-lg border border-gray-200 p-4 mb-4">
         <div class="flex items-center justify-between mb-3">
@@ -2293,7 +2291,7 @@ app.get('/submit-update/:id', async (req, res) => {
         <div class="space-y-3">
           <div>
             <label class="block text-xs font-semibold text-gray-600 mb-1">Update Status *</label>
-            <select name="outcome_status_${originalIndex}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
+            <select name="outcome_status_${originalIndex}" required class="outcome-status w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
               <option value="Not Started" ${outcome.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
               <option value="Being Implemented" ${outcome.status === 'Being Implemented' ? 'selected' : ''}>Being Implemented</option>
               <option value="Delayed" ${outcome.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
@@ -2304,6 +2302,16 @@ app.get('/submit-update/:id', async (req, res) => {
           <div>
             <label class="block text-xs font-semibold text-gray-600 mb-1">Challenges / Notes</label>
             <textarea name="outcome_challenges_${originalIndex}" rows="2" placeholder="Any challenges or updates..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">${outcome.challenges || ''}</textarea>
+          </div>
+          
+          <div class="completion-details-${originalIndex}" style="display: ${outcome.status === 'Completed' ? 'block' : 'none'};">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Completion Details</label>
+            <textarea name="outcome_completionDetails_${originalIndex}" rows="2" placeholder="Describe what was completed..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">${outcome.completionDetails || ''}</textarea>
+          </div>
+          
+          <div class="delay-reason-${originalIndex}" style="display: ${outcome.status === 'Delayed' ? 'block' : 'none'};">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Reason for Delay</label>
+            <textarea name="outcome_delayReason_${originalIndex}" rows="2" placeholder="Explain why this is delayed..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">${outcome.delayReason || ''}</textarea>
           </div>
         </div>
       </div>
@@ -2339,6 +2347,11 @@ app.get('/submit-update/:id', async (req, res) => {
                 <div class="text-xs text-gray-500 font-semibold mb-1">SUBJECT</div>
                 <div class="text-sm font-semibold text-gray-900">${directive.subject}</div>
             </div>
+            ${outcomesToShow.length < directive.outcomes.length ? `
+            <div class="mt-3 p-2 bg-green-50 rounded-lg border border-green-200">
+                <p class="text-xs font-semibold text-green-700">📋 Showing ${outcomesToShow.length} of ${directive.outcomes.length} outcomes as requested</p>
+            </div>
+            ` : ''}
         </div>
 
         <!-- Form -->
@@ -2346,7 +2359,7 @@ app.get('/submit-update/:id', async (req, res) => {
             
             <!-- Outcomes -->
             <div class="p-6 border-b">
-                <h2 class="text-lg font-bold text-gray-900 mb-1">🎯 Update Outcomes (${outcomesToShow.length} of ${directive.outcomes.length})</h2>
+                <h2 class="text-lg font-bold text-gray-900 mb-1">🎯 Update Outcomes</h2>
                 <p class="text-sm text-gray-500 mb-4">Please update the status for each outcome below</p>
                 ${outcomesHtml}
             </div>
@@ -2357,11 +2370,11 @@ app.get('/submit-update/:id', async (req, res) => {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Start Date</label>
-                        <input type="date" name="implementationStartDate" value="${directive.implementationStartDate ? new Date(directive.implementationStartDate).toISOString().split('T')[0] : ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <input type="date" name="implementationStartDate" value="${directive.implementationStartDate ? new Date(directive.implementationStartDate).toISOString().split('T')[0] : ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">End Date</label>
-                        <input type="date" name="implementationEndDate" value="${directive.implementationEndDate ? new Date(directive.implementationEndDate).toISOString().split('T')[0] : ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <input type="date" name="implementationEndDate" value="${directive.implementationEndDate ? new Date(directive.implementationEndDate).toISOString().split('T')[0] : ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
                     </div>
                 </div>
             </div>
@@ -2369,55 +2382,123 @@ app.get('/submit-update/:id', async (req, res) => {
             <!-- Comments -->
             <div class="p-6 border-b">
                 <h2 class="text-lg font-bold text-gray-900 mb-4">💬 Additional Comments</h2>
-                <textarea name="completionNote" rows="3" placeholder="Any additional details..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                <textarea name="completionNote" rows="3" placeholder="Any additional details..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"></textarea>
+            </div>
+            
+            <!-- ⭐ FILE UPLOAD SECTION -->
+            <div class="p-6 border-b">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">📎 Supporting Documents</h2>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-green-500 transition-colors" onclick="document.getElementById('fileInput').click()">
+                    <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" class="hidden">
+                    <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <p class="text-sm text-gray-600 mb-1">
+                        <span class="font-semibold text-green-700">Click to upload</span> or drag and drop
+                    </p>
+                    <p class="text-xs text-gray-500">PDF, DOC, XLS, PNG, JPG up to 10MB each (max 5 files)</p>
+                </div>
+                <div id="fileList" class="mt-3 space-y-2"></div>
             </div>
             
             <!-- Submit -->
             <div class="p-6">
-                <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-green-700 to-green-600 text-white font-bold py-3 rounded-lg hover:from-green-800 hover:to-green-700 transition-all">
-                    ✅ Submit Update
+                <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-green-700 to-green-600 text-white font-bold py-3 rounded-lg hover:from-green-800 hover:to-green-700 transition-all shadow-lg">
+                    ✅ Submit Update to Secretariat
                 </button>
             </div>
         </form>
         
         <div id="successMessage" class="hidden bg-white rounded-xl shadow-lg p-8 text-center">
             <div class="text-5xl mb-4">✅</div>
-            <h2 class="text-xl font-bold text-gray-900 mb-2">Update Submitted!</h2>
+            <h2 class="text-xl font-bold text-gray-900 mb-2">Update Submitted Successfully!</h2>
             <p class="text-gray-600">Thank you. The Corporate Secretariat has been notified.</p>
+            <p class="text-sm text-gray-500 mt-2">You can close this window now.</p>
+        </div>
+        
+        <div id="errorMessage" class="hidden bg-white rounded-xl shadow-lg p-8 text-center border-4 border-red-500">
+            <div class="text-5xl mb-4">❌</div>
+            <h2 class="text-xl font-bold text-gray-900 mb-2">Submission Failed</h2>
+            <p id="errorText" class="text-gray-600 mb-4">An error occurred.</p>
+            <button onclick="location.reload()" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">Try Again</button>
         </div>
     </div>
 
     <script>
+        // Show/hide conditional fields
+        document.querySelectorAll('.outcome-status').forEach((select) => {
+            select.addEventListener('change', function() {
+                const match = this.name.match(/outcome_status_(\\d+)/);
+                if (!match) return;
+                const idx = match[1];
+                
+                const completionDiv = document.querySelector('.completion-details-' + idx);
+                const delayDiv = document.querySelector('.delay-reason-' + idx);
+                
+                if (this.value === 'Completed') {
+                    if (completionDiv) completionDiv.style.display = 'block';
+                    if (delayDiv) delayDiv.style.display = 'none';
+                } else if (this.value === 'Delayed') {
+                    if (delayDiv) delayDiv.style.display = 'block';
+                    if (completionDiv) completionDiv.style.display = 'none';
+                } else {
+                    if (completionDiv) completionDiv.style.display = 'none';
+                    if (delayDiv) delayDiv.style.display = 'none';
+                }
+            });
+        });
+        
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        
+        fileInput.addEventListener('change', function() {
+            fileList.innerHTML = '';
+            if (this.files.length === 0) return;
+            
+            Array.from(this.files).forEach((file) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200';
+                fileItem.innerHTML = '<div class="flex items-center"><svg class="w-4 h-4 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z"/></svg><span class="text-xs font-medium text-gray-700">' + file.name + '</span><span class="text-xs text-gray-500 ml-2">(' + (file.size / 1024).toFixed(1) + ' KB)</span></div>';
+                fileList.appendChild(fileItem);
+            });
+        });
+        
+        // Form submission
         document.getElementById('updateForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
-            btn.textContent = 'Submitting...';
+            btn.textContent = '⏳ Submitting...';
             
             try {
                 const formData = new FormData(this);
-                const outcomes = [];
                 
-                // Collect outcomes by index
+                // Add files
+                const files = document.getElementById('fileInput').files;
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('files', files[i]);
+                }
+                
+                // Collect outcomes
+                const outcomes = [];
                 document.querySelectorAll('[name^="outcome_index_"]').forEach(input => {
                     const idx = parseInt(input.value);
                     outcomes.push({
                         originalIndex: idx,
                         status: formData.get('outcome_status_' + idx),
-                        challenges: formData.get('outcome_challenges_' + idx) || ''
+                        challenges: formData.get('outcome_challenges_' + idx) || '',
+                        completionDetails: formData.get('outcome_completionDetails_' + idx) || '',
+                        delayReason: formData.get('outcome_delayReason_' + idx) || ''
                     });
                 });
                 
+                formData.append('outcomes', JSON.stringify(outcomes));
+                
                 const response = await fetch('/api/submit-update/${directive._id}?token=${token || ''}', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        outcomes: outcomes,
-                        implementationStartDate: formData.get('implementationStartDate'),
-                        implementationEndDate: formData.get('implementationEndDate'),
-                        completionNote: formData.get('completionNote')
-                    })
+                    body: formData
                 });
                 
                 const result = await response.json();
@@ -2425,15 +2506,16 @@ app.get('/submit-update/:id', async (req, res) => {
                 if (result.success) {
                     document.getElementById('updateForm').classList.add('hidden');
                     document.getElementById('successMessage').classList.remove('hidden');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 } else {
-                    alert('Error: ' + result.error);
-                    btn.disabled = false;
-                    btn.textContent = '✅ Submit Update';
+                    throw new Error(result.error || 'Submission failed');
                 }
             } catch (error) {
-                alert('Error: ' + error.message);
-                btn.disabled = false;
-                btn.textContent = '✅ Submit Update';
+                console.error('Submission error:', error);
+                document.getElementById('updateForm').classList.add('hidden');
+                document.getElementById('errorText').textContent = error.message;
+                document.getElementById('errorMessage').classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         });
     </script>
@@ -2444,6 +2526,7 @@ app.get('/submit-update/:id', async (req, res) => {
     res.status(500).send('<h1>Error: ' + error.message + '</h1>');
   }
 });
+
 
 
 
@@ -2551,51 +2634,120 @@ app.get('/api/submission-token/:token', async (req, res) => {
 // MODIFY the submit-update endpoint
 // Find this endpoint and update the outcomes parsing section
 // ADD the POST handler
+// FIND THIS (around line 1150):
 app.post('/api/submit-update/:id', upload, async (req, res) => {
     try {
         const { token } = req.query;
         
+        // Mark token as used
         if (token) {
             const tokenDoc = await SubmissionToken.findOne({ token });
             if (tokenDoc) {
-                if (tokenDoc.isUsed) {
+                if (tokenDoc.used) {
                     return res.status(400).json({ success: false, error: 'This submission link has already been used' });
                 }
-                tokenDoc.isUsed = true;
+                tokenDoc.used = true;
                 tokenDoc.usedAt = new Date();
                 await tokenDoc.save();
             }
         }
 
         const directive = await Directive.findById(req.params.id);
-        if (!directive) return res.status(404).json({ success: false, error: 'Directive not found' });
+        if (!directive) {
+            return res.status(404).json({ success: false, error: 'Directive not found' });
+        }
 
-        const outcomesUpdates = JSON.parse(req.body.outcomes || '[]');
+        // Parse outcomes from JSON string
+        let outcomesUpdates = [];
+        try {
+            if (req.body.outcomes) {
+                outcomesUpdates = JSON.parse(req.body.outcomes);
+            }
+        } catch (parseError) {
+            console.error('❌ Error parsing outcomes:', parseError.message);
+            return res.status(400).json({ success: false, error: 'Invalid outcomes data' });
+        }
         
+        // Update outcomes
         outcomesUpdates.forEach((update) => {
-            const originalIdx = update.originalIndex;
-            if (directive.outcomes[originalIdx]) {
-                directive.outcomes[originalIdx].status = update.status;
-                directive.outcomes[originalIdx].challenges = update.challenges;
-                directive.outcomes[originalIdx].completionDetails = update.completionDetails;
-                directive.outcomes[originalIdx].delayReason = update.delayReason;
+            const idx = update.originalIndex;
+            if (directive.outcomes[idx]) {
+                directive.outcomes[idx].status = update.status;
+                directive.outcomes[idx].challenges = update.challenges;
+                directive.outcomes[idx].completionDetails = update.completionDetails;
+                directive.outcomes[idx].delayReason = update.delayReason;
             }
         });
 
-        if (req.body.implementationStartDate) directive.implementationStartDate = req.body.implementationStartDate;
-        if (req.body.implementationEndDate) directive.implementationEndDate = req.body.implementationEndDate;
-        if (req.body.completionNote) directive.additionalComments = req.body.completionNote;
+        // Update timeline
+        if (req.body.implementationStartDate) {
+            directive.implementationStartDate = new Date(req.body.implementationStartDate);
+        }
+        if (req.body.implementationEndDate) {
+            directive.implementationEndDate = new Date(req.body.implementationEndDate);
+        }
+        
+        // Update comments
+        if (req.body.completionNote) {
+            const timestamp = new Date().toLocaleString('en-GB', { 
+                day: '2-digit', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+            const newComment = `[${timestamp}] ${req.body.completionNote.trim()}`;
+            
+            if (directive.additionalComments && directive.additionalComments.trim()) {
+                directive.additionalComments += '\n\n' + newComment;
+            } else {
+                directive.additionalComments = newComment;
+            }
+        }
+
+        // Handle file uploads
+        if (req.files && req.files.length > 0) {
+            console.log(`📎 Processing ${req.files.length} uploaded files`);
+            
+            if (!directive.attachments) {
+                directive.attachments = [];
+            }
+            
+            req.files.forEach(file => {
+                directive.attachments.push({
+                    filename: file.filename,
+                    originalName: file.originalname,
+                    mimetype: file.mimetype,
+                    size: file.size,
+                    path: file.path,
+                    uploadedAt: new Date(),
+                    uploadedBy: directive.owner
+                });
+                
+                console.log(`   ✅ Saved: ${file.originalname} (${(file.size / 1024).toFixed(2)} KB)`);
+            });
+        }
 
         directive.lastSbuUpdate = new Date();
         directive.lastResponseDate = new Date();
         await directive.updateMonitoringStatus('SBU update received via submission form');
         await directive.save();
 
-        res.json({ success: true, message: 'Update submitted successfully' });
+        console.log(`✅ Directive ${directive.ref} updated successfully`);
+        console.log(`   Updated ${outcomesUpdates.length} outcomes`);
+        console.log(`   Uploaded ${req.files ? req.files.length : 0} files`);
+
+        res.json({ 
+            success: true, 
+            message: 'Update submitted successfully',
+            filesUploaded: req.files ? req.files.length : 0
+        });
+        
     } catch (error) {
+        console.error('❌ Submission error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
+
+
+
 
 
 // DEBUG ENDPOINT - Add this temporarily
