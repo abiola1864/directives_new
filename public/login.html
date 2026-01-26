@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - CBN Directives Management Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        
+        :root {
+            --cbn-forest: #1B5E20;
+            --cbn-dark-green: #2E7D32;
+            --cbn-green: #388E3C;
+            --cbn-medium-green: #4CAF50;
+            --cbn-light-green: #66BB6A;
+            --cbn-pale-green: #E8F5E9;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 50%, #A5D6A7 100%);
+            min-height: 100vh;
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(27, 94, 32, 0.15);
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #E0E0E0;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--cbn-medium-green);
+            box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--cbn-forest) 0%, var(--cbn-dark-green) 100%);
+            color: white;
+            padding: 14px 32px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 15px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(27, 94, 32, 0.25);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        .btn-secondary {
+            background: var(--cbn-pale-green);
+            color: var(--cbn-forest);
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: #C8E6C9;
+        }
+        
+        .tab-btn {
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            background: transparent;
+            color: #666;
+        }
+        
+        .tab-btn.active {
+            background: var(--cbn-pale-green);
+            color: var(--cbn-forest);
+            font-weight: 600;
+        }
+        
+        .tab-btn:hover:not(.active) {
+            background: #f5f5f5;
+        }
+        
+        .logo-circle {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--cbn-forest) 0%, var(--cbn-dark-green) 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(27, 94, 32, 0.2);
+        }
+        
+        .error-message {
+            background: #FEE2E2;
+            color: #DC2626;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+            animation: shake 0.5s ease;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    
+    <div class="login-card w-full max-w-md p-8 fade-in">
+        <!-- Logo & Title -->
+        <div class="text-center mb-8">
+            <div class="logo-circle mx-auto mb-4">
+                <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                    <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900">Board Directives Tracker</h1>
+            <p class="text-gray-500 text-sm mt-1">Central Bank of Nigeria - Corporate Secretariat</p>
+        </div>
+        
+        <!-- Tab Toggle -->
+        <div class="flex bg-gray-100 rounded-xl p-1 mb-6">
+            <button id="tab-admin" class="tab-btn active flex-1" onclick="switchTab('admin')">
+                Admin Login
+            </button>
+            <button id="tab-owner" class="tab-btn flex-1" onclick="switchTab('owner')">
+                Process Owner
+            </button>
+        </div>
+        
+        <!-- Error Message -->
+        <div id="error-message" class="error-message"></div>
+        
+        <!-- Admin Login Form -->
+        <form id="admin-form" class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>
+                <input type="text" id="admin-username" class="form-input" placeholder="Enter username" required>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                <input type="password" id="admin-password" class="form-input" placeholder="Enter password" required>
+            </div>
+            <button type="submit" class="btn-primary mt-6">
+                Sign In to Dashboard
+            </button>
+        </form>
+        
+        <!-- Process Owner Login Form -->
+        <form id="owner-form" class="space-y-4 hidden">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                <input type="email" id="owner-email" class="form-input" placeholder="Enter your email" required>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                <input type="password" id="owner-password" class="form-input" placeholder="Enter password" required>
+            </div>
+            <button type="submit" class="btn-primary mt-6">
+                Sign In to Submit Updates
+            </button>
+            <p class="text-center text-sm text-gray-500 mt-4">
+                Don't have an account? Contact the Corporate Secretariat to register.
+            </p>
+        </form>
+        
+        <!-- Footer -->
+        <div class="mt-8 pt-6 border-t border-gray-200 text-center">
+            <p class="text-xs text-gray-400">
+                © 2025 Central Bank of Nigeria. All rights reserved.
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3001/api'
+            : '/api';
+        
+        function switchTab(tab) {
+            document.getElementById('tab-admin').classList.toggle('active', tab === 'admin');
+            document.getElementById('tab-owner').classList.toggle('active', tab === 'owner');
+            document.getElementById('admin-form').classList.toggle('hidden', tab !== 'admin');
+            document.getElementById('owner-form').classList.toggle('hidden', tab !== 'owner');
+            hideError();
+        }
+        
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+        }
+        
+        function hideError() {
+            document.getElementById('error-message').classList.remove('show');
+        }
+        
+        // Admin Login
+        document.getElementById('admin-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            hideError();
+            
+            const username = document.getElementById('admin-username').value;
+            const password = document.getElementById('admin-password').value;
+            
+            // Simple admin authentication (in production, this should be server-side)
+            // Default credentials: admin / cbn2025
+            if (username === 'admin' && password === 'cbn2025') {
+                sessionStorage.setItem('isLoggedIn', 'true');
+                sessionStorage.setItem('userType', 'admin');
+                sessionStorage.setItem('username', username);
+                window.location.href = '/index.html';
+            } else {
+                showError('Invalid username or password');
+            }
+        });
+        
+        // Process Owner Login
+        document.getElementById('owner-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            hideError();
+            
+            const email = document.getElementById('owner-email').value;
+            const password = document.getElementById('owner-password').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/process-owners/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    sessionStorage.setItem('isLoggedIn', 'true');
+                    sessionStorage.setItem('userType', 'processOwner');
+                    sessionStorage.setItem('userEmail', email);
+                    sessionStorage.setItem('userName', result.owner.name);
+                    sessionStorage.setItem('authToken', result.token);
+                    window.location.href = '/process-owner-dashboard.html';
+                } else {
+                    showError(result.error || 'Invalid credentials');
+                }
+            } catch (error) {
+                showError('Login failed. Please try again.');
+            }
+        });
+        
+        // Check if already logged in
+        if (sessionStorage.getItem('isLoggedIn') === 'true') {
+            const userType = sessionStorage.getItem('userType');
+            if (userType === 'admin') {
+                window.location.href = '/index.html';
+            } else if (userType === 'processOwner') {
+                window.location.href = '/process-owner-dashboard.html';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -14,6 +14,15 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+
+// ADD these imports at the top
+const multer = require('multer');
+const crypto = require('crypto');
+const fs = require('fs');
+
+
+
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -76,9 +85,9 @@ function setupEmailTransporter() {
   try {
     console.log('\n🔍 EMAIL SETUP DEBUG:');
     
-    // Try SendGrid first
+    // Try SendGrid SMTP first (works better through firewalls)
     if (process.env.SENDGRID_API_KEY) {
-      console.log('   📧 Using SendGrid for email delivery');
+      console.log('   📧 Using SendGrid SMTP for email delivery');
       console.log('   SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? 'SET ✓' : '❌ MISSING');
       console.log('   EMAIL_USER (sender):', process.env.EMAIL_USER ? `SET (${process.env.EMAIL_USER})` : '❌ MISSING');
       
@@ -87,36 +96,30 @@ function setupEmailTransporter() {
         return null;
       }
       
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      
-      // Create wrapper that matches nodemailer interface
-      emailTransporter = {
-        sendMail: async (mailOptions) => {
-          try {
-            const msg = {
-              to: mailOptions.to,
-              from: process.env.EMAIL_USER, // Verified sender in SendGrid
-              subject: mailOptions.subject,
-              html: mailOptions.html
-            };
-            
-            const response = await sgMail.send(msg);
-            console.log('✅ SendGrid email sent successfully');
-            return response;
-          } catch (error) {
-            console.error('❌ SendGrid send error:', error.message);
-            if (error.response) {
-              console.error('   Response body:', error.response.body);
-            }
-            throw error;
-          }
+      // Use SMTP instead of API (bypasses firewall blocks)
+      emailTransporter = nodemailer.createTransport({
+        host: 'smtp.sendgrid.net',
+        port: 587,
+        secure: false,
+        auth: {
+          user: 'apikey',  // Literally the string 'apikey'
+          pass: process.env.SENDGRID_API_KEY
         },
-        verify: (callback) => {
-          // SendGrid doesn't need connection verification
-          console.log('✅ SendGrid is ready to send emails\n');
-          callback(null, true);
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 30000
+      });
+      
+      emailTransporter.verify((error, success) => {
+        if (error) {
+          console.log('\n❌ SendGrid SMTP CONNECTION FAILED:');
+          console.log('   Error:', error.message);
+          console.log('\n');
+          emailTransporter = null;
+        } else {
+          console.log('✅ SendGrid SMTP ready\n');
         }
-      };
+      });
       
       return emailTransporter;
     }
@@ -168,6 +171,7 @@ function setupEmailTransporter() {
 
 
 
+
 // Initialize email transporter
 setupEmailTransporter();
 
@@ -211,6 +215,18 @@ const directiveSchema = new mongoose.Schema({
   additionalComments: { type: String, default: '' },
   
   ref: { type: String, unique: true, sparse: true },
+
+
+  attachments: [{
+    filename: String,
+    originalName: String,
+    mimetype: String,
+    size: Number,
+    path: String,
+    uploadedAt: { type: Date, default: Date.now },
+    uploadedBy: String
+}],
+
   
    // TIMELINE-BASED MONITORING
 monitoringStatus: {
@@ -371,6 +387,32 @@ directiveSchema.methods.isReminderDue = function() {
 
 const Directive = mongoose.model('Directive', directiveSchema);
 
+
+// ADD this schema
+const SubmissionTokenSchema = new mongoose.Schema({
+    token: { type: String, unique: true, required: true },
+    directiveId: { type: mongoose.Schema.Types.ObjectId, ref: 'Directive', required: true },
+    selectedOutcomes: [Number],  // Array of outcome INDICES
+    isUsed: { type: Boolean, default: false },
+    usedAt: Date,
+    createdAt: { type: Date, default: Date.now },
+    expiresAt: { type: Date, default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }
+});
+
+const SubmissionToken = mongoose.model('SubmissionToken', SubmissionTokenSchema);
+
+
+
+// ADD this schema
+const ProcessOwnerSchema = new mongoose.Schema({
+    email: { type: String, unique: true, lowercase: true, required: true },
+    password: { type: String, required: true },
+    name: String,
+    department: String,
+    isActive: { type: Boolean, default: true },
+    lastLogin: Date
+});
+const ProcessOwner = mongoose.model('ProcessOwner', ProcessOwnerSchema);
 
 
 // ==========================================
@@ -2018,247 +2060,266 @@ app.listen(PORT, () => {
 // ADD this endpoint to your server.js file (after the /api/directives/:id/remind endpoint)
 
 
+// Request Update - COUNTS AS A REMINDER
+// REPLACE the entire /api/directives/:id/request-update endpoint with this:
+
 app.post('/api/directives/:id/request-update', async (req, res) => {
-  try {
-    const directive = await Directive.findById(req.params.id);
-    if (!directive) {
-      return res.status(404).json({ success: false, error: 'Directive not found' });
-    }
+    try {
+        const directive = await Directive.findById(req.params.id);
+        if (!directive) {
+            return res.status(404).json({ success: false, error: 'Directive not found' });
+        }
 
-    const { selectedOutcomes } = req.body;
-    
-    const today = new Date();
-    const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
-    
-    // ⭐ GENERATE SUBMISSION LINK
-    const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
-    const submissionUrl = `${baseUrl}/submit-update/${directive._id}`;
-    
-    // Filter outcomes if specific ones were selected
-    const outcomesToShow = selectedOutcomes && selectedOutcomes.length > 0
-      ? directive.outcomes.filter(o => selectedOutcomes.includes(o.text))
-      : directive.outcomes;
-    
-    // ⭐ BUILD OUTCOMES DISPLAY (READ-ONLY IN EMAIL)
-    const outcomesHtml = outcomesToShow.map((outcome, idx) => {
-      const statusColor = {
-        'Not Started': '#6b7280',
-        'Being Implemented': '#3b82f6',
-        'Delayed': '#f59e0b',
-        'Completed': '#10b981'
-      }[outcome.status] || '#6b7280';
-      
-      return `
-        <div style="margin-bottom: 16px; padding: 16px; background: white; border-radius: 8px; border-left: 4px solid ${statusColor};">
-          <div style="font-weight: 700; color: #4f46e5; margin-bottom: 8px; font-size: 14px;">Outcome ${idx + 1}</div>
-          <div style="color: #374151; font-size: 13px; line-height: 1.6; margin-bottom: 8px;">${outcome.text}</div>
-          <div style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background: ${statusColor}; color: white;">
-            Current Status: ${outcome.status}
-          </div>
-          ${outcome.challenges ? `<div style="margin-top: 8px; font-size: 12px; color: #6b7280;"><strong>Challenges:</strong> ${outcome.challenges}</div>` : ''}
-        </div>
-      `;
-    }).join('');
+        const { selectedOutcomes } = req.body;
 
-    const implementationTimeline = directive.implementationStartDate || directive.implementationEndDate
-      ? `
-      <div style="padding: 20px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-        <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Current Implementation Timeline</div>
-        <div style="color: #111827; font-size: 14px; font-weight: 600;">
-          ${directive.implementationStartDate ? formatDate(directive.implementationStartDate) : 'Not set'} 
-          <span style="color: #6b7280; font-weight: 400;">→</span> 
-          ${directive.implementationEndDate ? formatDate(directive.implementationEndDate) : 'Not set'}
-        </div>
-      </div>
-      `
-      : '';
+        // Check if email is configured
+        if (!directive.primaryEmail || directive.primaryEmail.trim() === '') {
+            return res.json({
+                success: false,
+                error: 'No email address configured for this process owner. Please add an email in the Email Management section first.'
+            });
+        }
 
-    const emailHtml = `
+        // Check reminder limit
+        if (directive.reminders >= 3) {
+            return res.json({
+                success: false,
+                error: 'Maximum reminders (3/3) already sent for this directive.'
+            });
+        }
+
+        // ⭐ CONVERT SELECTED OUTCOMES TO INDICES
+        let selectedIndices = [];
+        if (selectedOutcomes && selectedOutcomes.length > 0) {
+            // selectedOutcomes contains indices as numbers
+            selectedIndices = selectedOutcomes.map(idx => parseInt(idx));
+        } else {
+            // If no selection, include all outcomes
+            selectedIndices = directive.outcomes.map((_, idx) => idx);
+        }
+
+        // Generate unique submission token
+        const token = crypto.randomBytes(32).toString('hex');
+        await SubmissionToken.create({
+            token,
+            directiveId: directive._id,
+            selectedOutcomes: selectedIndices
+        });
+
+        const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
+        const submissionUrl = `${baseUrl}/submit-update/${directive._id}?token=${token}`;
+
+        const today = new Date();
+        const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
+
+        // Build outcomes HTML - ONLY SELECTED ONES
+        const outcomesHtml = selectedIndices.map(idx => {
+            const outcome = directive.outcomes[idx];
+            const statusColor = {
+                'Not Started': '#6b7280',
+                'Being Implemented': '#3b82f6',
+                'Delayed': '#f59e0b',
+                'Completed': '#10b981'
+            }[outcome.status] || '#6b7280';
+
+            return `
+                <table width="100%" cellpadding="12" cellspacing="0" style="margin-bottom: 16px; background-color: white; border-radius: 6px; border-left: 4px solid ${statusColor}; border: 1px solid #e5e7eb;">
+                    <tr>
+                        <td>
+                            <div style="font-weight: 700; color: #1B5E20; margin-bottom: 8px; font-size: 12px;">Outcome ${idx + 1}</div>
+                            <div style="color: #374151; font-size: 13px; line-height: 1.5; margin-bottom: 12px;">${outcome.text}</div>
+                            <div>
+                                <span style="font-size: 11px; color: #6b7280; margin-right: 8px;">Current Status:</span>
+                                <span style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 700; background-color: ${statusColor}; color: white;">
+                                    ${outcome.status}
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            `;
+        }).join('');
+
+        // ⭐ SIMPLIFIED TABLE-BASED EMAIL (BETTER COMPATIBILITY)
+        const emailHtml = `
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: Arial, sans-serif; background: #f9fafb; padding: 20px; margin: 0;">
-  <div style="max-width: 700px; margin: 0 auto; background: white; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-    
-    <!-- MEMO HEADER -->
-    <div style="border-bottom: 3px solid #1e40af; padding: 24px; background: white;">
-      <h2 style="color: #1e40af; font-size: 18px; font-weight: 700; margin: 0 0 12px 0; text-transform: uppercase;">
-        REQUEST FOR STATUS OF COMPLIANCE WITH BOARD DECISIONS
-      </h2>
-      <p style="color: #6b7280; font-size: 13px; margin: 0;">Central Bank of Nigeria - Corporate Secretariat</p>
-    </div>
-    
-    <!-- MEMO DETAILS -->
-    <div style="padding: 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-      <table style="width: 100%; font-size: 13px; color: #374151;">
+<head><meta charset="UTF-8"></head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 20px 0;">
         <tr>
-          <td style="padding: 8px 0; width: 50%;"><strong>To:</strong> ${directive.owner}</td>
-          <td style="padding: 8px 0;"><strong>From:</strong> Secretary to the Board/Director</td>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); padding: 24px; border-bottom: 3px solid #1B5E20;">
+                            <h2 style="color: #1B5E20; font-size: 18px; font-weight: 700; margin: 0 0 8px 0; text-transform: uppercase;">
+                                REQUEST FOR STATUS UPDATE
+                            </h2>
+                            <p style="color: #2E7D32; font-size: 12px; margin: 0; font-weight: 500;">Central Bank of Nigeria - Corporate Secretariat</p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Memo Details -->
+                    <tr>
+                        <td style="padding: 20px 24px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                            <table width="100%" cellpadding="4" cellspacing="0" style="font-size: 13px; color: #374151;">
+                                <tr>
+                                    <td width="50%"><strong>To:</strong> ${directive.owner}</td>
+                                    <td><strong>From:</strong> Secretary to the Board</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Ref:</strong> ${directive.ref || 'N/A'}</td>
+                                    <td><strong>Date:</strong> ${dateStr}</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Subject -->
+                    <tr>
+                        <td style="padding: 20px 24px; background-color: white; border-bottom: 1px solid #e5e7eb;">
+                            <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Subject</div>
+                            <div style="font-weight: 700; color: #111827; font-size: 14px;">${directive.subject}</div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Particulars (if exists) -->
+                    ${directive.particulars && directive.particulars.trim() !== '' ? `
+                    <tr>
+                        <td style="padding: 20px 24px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                            <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Directive Details</div>
+                            <div style="color: #374151; font-size: 13px; line-height: 1.6;">${directive.particulars.substring(0, 300)}${directive.particulars.length > 300 ? '...' : ''}</div>
+                        </td>
+                    </tr>
+                    ` : ''}
+                    
+                    <!-- Outcomes Header -->
+                    <tr>
+                        <td style="padding: 16px 24px; background-color: #E8F5E9; border-bottom: 1px solid #C8E6C9;">
+                            <div style="font-size: 12px; font-weight: 700; color: #1B5E20;">
+                                📋 Outcomes Requiring Update (${selectedIndices.length} of ${directive.outcomes.length} selected)
+                            </div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Outcomes -->
+                    <tr>
+                        <td style="padding: 24px; background-color: white;">
+                            ${outcomesHtml}
+                        </td>
+                    </tr>
+                    
+                    <!-- CTA Button -->
+                    <tr>
+                        <td align="center" style="padding: 40px 24px; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%);">
+                            <h3 style="color: white; font-size: 18px; font-weight: 700; margin: 0 0 12px 0;">
+                                Submit Your Implementation Update
+                            </h3>
+                            <p style="color: #C8E6C9; font-size: 13px; margin: 0 0 20px 0;">
+                                Click the button below to access the secure submission portal.
+                            </p>
+                            <table cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center" style="border-radius: 8px; background-color: white;">
+                                        <a href="${submissionUrl}" style="display: inline-block; padding: 14px 36px; color: #1B5E20; text-decoration: none; font-weight: 700; font-size: 14px;">
+                                            📝 Submit Update Now →
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="color: #C8E6C9; font-size: 10px; margin: 24px 0 0 0; line-height: 1.5;">
+                                Or copy this link:<br>
+                                <span style="background-color: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 4px; display: inline-block; margin-top: 8px; font-family: monospace; word-break: break-all; font-size: 9px;">
+                                    ${submissionUrl}
+                                </span>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td align="center" style="padding: 16px 24px; background-color: #f9fafb; border-top: 1px solid #e5e7eb;">
+                            <p style="color: #6b7280; font-size: 11px; margin: 0;">
+                                This is an automated request from the CBN Directives Management System
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
         </tr>
-        <tr>
-          <td style="padding: 8px 0;"><strong>Ref:</strong> ${directive.ref || 'N/A'}</td>
-          <td style="padding: 8px 0;"><strong>Date:</strong> ${dateStr}</td>
-        </tr>
-      </table>
-    </div>
-    
-    <!-- INTRO -->
-    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
-      <p style="color: #374151; font-size: 13px; line-height: 1.6; margin: 0;">
-        The Corporate Secretariat is compiling the status of SBU's compliance with ${directive.source === 'CG' ? 'Council of Governors' : 'Board of Directors'} decisions from January to September 2025. Please send your submission by <strong>24th October 2025</strong>.
-      </p>
-    </div>
-    
-    <!-- DIRECTIVE DETAILS -->
-    <div style="padding: 20px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-      <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Subject</div>
-      <div style="font-weight: 700; color: #111827; font-size: 14px; line-height: 1.5; margin-bottom: 16px;">${directive.subject}</div>
-      
-      <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Process Owner</div>
-      <div style="color: #111827; font-size: 14px; font-weight: 600;">${directive.owner}</div>
-    </div>
-    
-    ${implementationTimeline}
-    
-    <!-- OUTCOMES (READ-ONLY) -->
-    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
-      <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px;">Required Outcomes & Current Status</div>
-      <div style="background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
-        ${outcomesHtml}
-      </div>
-    </div>
-    
-    <!-- ⭐ BIG CALL-TO-ACTION BUTTON (LINKS TO WEB FORM) -->
-    <div style="padding: 40px 24px; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); text-align: center;">
-      <div style="margin-bottom: 20px;">
-        <svg style="width: 56px; height: 56px; color: white; margin: 0 auto;" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
-        </svg>
-      </div>
-      
-      <h3 style="color: white; font-size: 20px; font-weight: 700; margin: 0 0 12px 0;">
-        Submit Your Implementation Update
-      </h3>
-      
-      <p style="color: #e0e7ff; font-size: 14px; line-height: 1.6; margin: 0 0 28px 0; max-width: 500px; margin-left: auto; margin-right: auto;">
-        Click the button below to access the secure submission portal where you can update implementation status, add timeline details, and upload supporting documents.
-      </p>
-      
-      <a href="${submissionUrl}" style="display: inline-block; background: white; color: #4f46e5; font-weight: 700; padding: 18px 48px; border-radius: 10px; text-decoration: none; font-size: 16px; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);">
-        📝 Submit Update Now →
-      </a>
-      
-      <p style="color: #c7d2fe; font-size: 11px; margin: 24px 0 0 0; line-height: 1.5;">
-        Or copy this link to your browser:<br>
-        <span style="background: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 4px; display: inline-block; margin-top: 8px; font-family: monospace; font-size: 10px; word-break: break-all;">
-          ${submissionUrl}
-        </span>
-      </p>
-    </div>
-    
-    <!-- WHAT TO EXPECT -->
-    <div style="padding: 24px; background: #eff6ff; border-top: 1px solid #dbeafe;">
-      <div style="display: flex; align-items-start;">
-        <svg style="width: 20px; height: 20px; color: #1e40af; margin-right: 12px; flex-shrink: 0; margin-top: 2px;" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"/>
-        </svg>
-        <div>
-          <p style="color: #1e40af; font-size: 13px; font-weight: 600; line-height: 1.6; margin: 0 0 8px 0;">
-            <strong>On the submission portal, you can:</strong>
-          </p>
-          <ul style="color: #1e40af; font-size: 12px; line-height: 1.8; margin: 0; padding-left: 20px;">
-            <li>Update outcome statuses (Not Started, Being Implemented, Delayed, Completed)</li>
-            <li>Add or modify implementation timelines with start and end dates</li>
-            <li>Document challenges and obstacles encountered</li>
-            <li>Upload supporting documents (PDF, Excel, Word, images up to 10MB)</li>
-            <li>Provide additional comments and details</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-    
-    <!-- FOOTER -->
-    <div style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
-      <p style="color: #6b7280; font-size: 11px; margin: 0 0 4px 0;">
-        This is an automated request from the CBN Directives Management System
-      </p>
-      <p style="color: #9ca3af; font-size: 10px; margin: 0;">
-        For technical support, contact the Corporate Secretariat
-      </p>
-    </div>
-    
-  </div>
+    </table>
 </body>
 </html>
-    `;
+        `;
 
-    // Send email if transporter is configured
-    let emailSent = false;
-    if (emailTransporter) {
-      try {
-        // CHECK IF EMAIL EXISTS AND IS VALID
-        if (!directive.primaryEmail || directive.primaryEmail.trim() === '') {
-          console.log(`   ⚠️  No email address for directive ${directive.ref} (${directive.owner})`);
-          return res.json({ 
-            success: false, 
-            error: 'No email address configured for this process owner. Please add an email in the Email Management section first.' 
-          });
+        // Send email
+        let emailSent = false;
+        if (emailTransporter) {
+            try {
+                const recipients = [directive.primaryEmail];
+                if (directive.secondaryEmail && directive.secondaryEmail.trim() !== '') {
+                    recipients.push(directive.secondaryEmail);
+                }
+
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                const validRecipients = recipients.filter(email => emailRegex.test(email));
+
+                if (validRecipients.length === 0) {
+                    return res.json({ success: false, error: 'Invalid email address format' });
+                }
+
+                const mailOptions = {
+                    from: `"CBN Directives System" <${process.env.EMAIL_USER}>`,
+                    to: validRecipients.join(', '),
+                    subject: `Status Update Request (Reminder ${directive.reminders + 1}/3) - ${directive.ref}`,
+                    html: emailHtml
+                };
+
+                await emailTransporter.sendMail(mailOptions);
+                emailSent = true;
+
+                // INCREMENT REMINDER COUNT
+                directive.reminders = (directive.reminders || 0) + 1;
+                directive.lastReminderDate = new Date();
+                directive.reminderHistory.push({
+                    sentAt: new Date(),
+                    recipient: directive.owner,
+                    method: 'Email',
+                    acknowledged: false
+                });
+
+                await directive.updateMonitoringStatus('Manual update request sent via email');
+
+                console.log(`✅ Update request sent to ${validRecipients.join(', ')} for directive ${directive.ref}`);
+                console.log(`   Reminder count: ${directive.reminders}/3`);
+
+            } catch (emailError) {
+                console.error('❌ Email send error:', emailError.message);
+                return res.json({ success: false, error: `Failed to send email: ${emailError.message}` });
+            }
+        } else {
+            return res.json({ success: false, error: 'Email system not configured' });
         }
 
-        const recipients = [directive.primaryEmail];
-        if (directive.secondaryEmail && directive.secondaryEmail.trim() !== '') {
-          recipients.push(directive.secondaryEmail);
-        }
-
-        // VALIDATE EMAIL FORMAT
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const validRecipients = recipients.filter(email => emailRegex.test(email));
-        
-        if (validRecipients.length === 0) {
-          console.log(`   ⚠️  No valid email addresses for directive ${directive.ref}`);
-          return res.json({ 
-            success: false, 
-            error: 'Invalid email address format. Please update the email in Email Management.' 
-          });
-        }
-
-        const mailOptions = {
-          from: `"CBN Directives System" <${process.env.EMAIL_USER}>`,
-          to: validRecipients.join(', '),
-          subject: `Status Update Request - ${directive.ref}`,
-          html: emailHtml
-        };
-
-        await emailTransporter.sendMail(mailOptions);
-        emailSent = true;
-        console.log(`✅ Request update email sent to: ${validRecipients.join(', ')}`);
-      } catch (emailError) {
-        console.error('❌ Email send failed:', emailError.message);
-        return res.json({ 
-          success: false, 
-          error: `Failed to send email: ${emailError.message}` 
+        res.json({
+            success: true,
+            emailSent,
+            submissionUrl,
+            reminderCount: directive.reminders,
+            message: `Request update email sent to ${directive.owner} (Reminder ${directive.reminders}/3)`
         });
-      }
-    } else {
-      return res.json({ 
-        success: false, 
-        error: 'Email system not configured. Please check server settings.' 
-      });
-    }
 
-    res.json({ 
-      success: true, 
-      emailSent,
-      submissionUrl,
-      message: `Request update email sent successfully to ${directive.owner}`
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+    } catch (error) {
+        console.error('Request update error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
+
+
+
 
 
 
@@ -2282,6 +2343,10 @@ app.get('/api/admin/clear-directives', async (req, res) => {
 // SUBMISSION PORTAL - GET PAGE
 // ==========================================
 
+// ==========================================
+// SUBMISSION PORTAL - GET PAGE
+// ==========================================
+// REPLACE the entire /submit-update/:id GET endpoint with this:
 app.get('/submit-update/:id', async (req, res) => {
   try {
     const directive = await Directive.findById(req.params.id);
@@ -2295,12 +2360,55 @@ app.get('/submit-update/:id', async (req, res) => {
         </body></html>
       `);
     }
+
+    const token = req.query.token || '';
+    
+    // ⭐ CHECK TOKEN AND GET SELECTED OUTCOMES
+    let outcomesToDisplay = directive.outcomes;
+    let selectedIndices = directive.outcomes.map((_, idx) => idx);
+    
+    if (token) {
+      try {
+        const tokenDoc = await SubmissionToken.findOne({ token });
+        console.log('🔍 Token lookup:', token.substring(0, 20) + '...');
+        console.log('🔍 Token found:', tokenDoc ? 'YES' : 'NO');
+        
+        if (tokenDoc && tokenDoc.selectedOutcomes && tokenDoc.selectedOutcomes.length > 0) {
+          selectedIndices = tokenDoc.selectedOutcomes;
+          outcomesToDisplay = selectedIndices.map(idx => directive.outcomes[idx]).filter(o => o);
+          console.log(`✅ Filtered to ${outcomesToDisplay.length} outcomes from indices: ${selectedIndices.join(', ')}`);
+        } else {
+          console.log('⚠️  No selected outcomes in token, showing all');
+        }
+      } catch (tokenError) {
+        console.error('❌ Token error:', tokenError.message);
+      }
+    } else {
+      console.log('⚠️  No token provided, showing all outcomes');
+    }
+
+    // ⭐ SAFE JSON ENCODING - escape all special characters
+    const outcomesJson = JSON.stringify(outcomesToDisplay.map((o, displayIdx) => ({
+      originalIndex: selectedIndices[displayIdx],
+      text: (o.text || '').replace(/[\u0000-\u001F\u007F-\u009F]/g, ''),
+      status: o.status || 'Not Started',
+      challenges: (o.challenges || '').replace(/[\u0000-\u001F\u007F-\u009F]/g, ''),
+      completionDetails: (o.completionDetails || '').replace(/[\u0000-\u001F\u007F-\u009F]/g, ''),
+      delayReason: (o.delayReason || '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+    }))).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
     
     // Build outcomes HTML
-    const outcomesHtml = directive.outcomes.map((outcome, idx) => `
+    const outcomesHtml = outcomesToDisplay.map((outcome, displayIdx) => {
+      const originalIdx = selectedIndices[displayIdx];
+      const safeText = (outcome.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      const safeChallenges = (outcome.challenges || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      const safeCompletionDetails = (outcome.completionDetails || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      const safeDelayReason = (outcome.delayReason || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      
+      return `
       <div class="bg-gray-50 rounded-lg border border-gray-200 p-4 mb-4">
         <div class="flex items-center justify-between mb-3">
-          <span class="text-sm font-bold text-indigo-600">Outcome ${idx + 1}</span>
+          <span class="text-sm font-bold text-green-700">Outcome ${originalIdx + 1}</span>
           <span class="text-xs px-2 py-1 rounded-full font-semibold ${
             outcome.status === 'Completed' ? 'bg-green-100 text-green-700' :
             outcome.status === 'Being Implemented' ? 'bg-blue-100 text-blue-700' :
@@ -2309,12 +2417,14 @@ app.get('/submit-update/:id', async (req, res) => {
           }">Current: ${outcome.status}</span>
         </div>
         
-        <p class="text-sm text-gray-700 mb-3 leading-relaxed">${outcome.text}</p>
+        <p class="text-sm text-gray-700 mb-3 leading-relaxed">${safeText}</p>
+        
+        <input type="hidden" name="outcome-original-index-${displayIdx}" value="${originalIdx}">
         
         <div class="space-y-3">
           <div>
             <label class="block text-xs font-semibold text-gray-600 mb-1">Update Status *</label>
-            <select name="outcomes[${idx}].status" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+            <select data-outcome-index="${displayIdx}" data-original-index="${originalIdx}" name="status-${displayIdx}" required class="outcome-status w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
               <option value="Not Started" ${outcome.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
               <option value="Being Implemented" ${outcome.status === 'Being Implemented' ? 'selected' : ''}>Being Implemented</option>
               <option value="Delayed" ${outcome.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
@@ -2324,42 +2434,44 @@ app.get('/submit-update/:id', async (req, res) => {
           
           <div>
             <label class="block text-xs font-semibold text-gray-600 mb-1">Challenges / Obstacles</label>
-            <textarea name="outcomes[${idx}].challenges" rows="2" placeholder="Document any issues or roadblocks..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">${outcome.challenges || ''}</textarea>
+            <textarea data-outcome-index="${displayIdx}" data-original-index="${originalIdx}" name="challenges-${displayIdx}" rows="2" placeholder="Document any issues or roadblocks..." class="outcome-challenges w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">${safeChallenges}</textarea>
           </div>
           
-          <div class="completion-details" style="display: none;">
+          <div class="completion-details-${displayIdx}" style="display: ${outcome.status === 'Completed' ? 'block' : 'none'};">
             <label class="block text-xs font-semibold text-gray-600 mb-1">Completion Details</label>
-            <textarea name="outcomes[${idx}].completionDetails" rows="2" placeholder="Describe what was completed..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">${outcome.completionDetails || ''}</textarea>
+            <textarea data-outcome-index="${displayIdx}" data-original-index="${originalIdx}" name="completionDetails-${displayIdx}" rows="2" placeholder="Describe what was completed..." class="outcome-completionDetails w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">${safeCompletionDetails}</textarea>
           </div>
           
-          <div class="delay-reason" style="display: none;">
+          <div class="delay-reason-${displayIdx}" style="display: ${outcome.status === 'Delayed' ? 'block' : 'none'};">
             <label class="block text-xs font-semibold text-gray-600 mb-1">Reason for Delay</label>
-            <textarea name="outcomes[${idx}].delayReason" rows="2" placeholder="Explain why this is delayed..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">${outcome.delayReason || ''}</textarea>
+            <textarea data-outcome-index="${displayIdx}" data-original-index="${originalIdx}" name="delayReason-${displayIdx}" rows="2" placeholder="Explain why this is delayed..." class="outcome-delayReason w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">${safeDelayReason}</textarea>
           </div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
     
-    // Serve the submission form HTML
+    const safeSubject = (directive.subject || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const safeCompletionNote = (directive.completionNote || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    
     res.send(`
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Submit Update - ${directive.ref}</title>
+    <title>Submit Update - ${directive.ref || 'CBN Directive'}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen py-8 px-4">
+<body class="min-h-screen py-8 px-4" style="background: linear-gradient(to bottom right, #f0fdf4, #dcfce7);">
     <div class="max-w-4xl mx-auto">
         
-        <!-- Header -->
         <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 mb-6">
-            <div class="border-b-4 border-blue-600 pb-6 mb-6">
+            <div class="pb-6 mb-6" style="border-bottom: 4px solid #16a34a;">
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">📝 Submit Implementation Update</h1>
                 <p class="text-gray-600">Central Bank of Nigeria - Corporate Secretariat</p>
             </div>
@@ -2375,16 +2487,22 @@ app.get('/submit-update/:id', async (req, res) => {
                 </div>
             </div>
             
-            <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div class="mt-4 p-4 rounded-lg border" style="background-color: #f0fdf4; border-color: #86efac;">
                 <div class="text-xs text-gray-500 font-semibold mb-1">SUBJECT</div>
-                <div class="text-sm text-gray-900 font-semibold">${directive.subject}</div>
+                <div class="text-sm text-gray-900 font-semibold">${safeSubject}</div>
             </div>
+            
+            ${outcomesToDisplay.length < directive.outcomes.length ? `
+            <div class="mt-4 p-3 rounded-lg border" style="background-color: #f0fdf4; border-color: #86efac;">
+                <p class="text-xs font-semibold" style="color: #166534;">
+                    📋 Showing <strong>${outcomesToDisplay.length} of ${directive.outcomes.length}</strong> outcomes as requested by the Secretariat
+                </p>
+            </div>
+            ` : ''}
         </div>
 
-        <!-- Form -->
         <form id="updateForm" class="space-y-6">
             
-            <!-- Timeline -->
             <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
                 <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
                     <span class="text-2xl mr-2">📅</span>
@@ -2393,122 +2511,118 @@ app.get('/submit-update/:id', async (req, res) => {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Start Date</label>
-                        <input type="date" name="implementationStartDate" value="${directive.implementationStartDate ? new Date(directive.implementationStartDate).toISOString().split('T')[0] : ''}" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <input type="date" id="implementationStartDate" value="${directive.implementationStartDate ? new Date(directive.implementationStartDate).toISOString().split('T')[0] : ''}" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-sm" style="outline: none;" onfocus="this.style.borderColor='#16a34a'; this.style.boxShadow='0 0 0 3px rgba(22, 163, 74, 0.1)';" onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">End Date</label>
-                        <input type="date" name="implementationEndDate" value="${directive.implementationEndDate ? new Date(directive.implementationEndDate).toISOString().split('T')[0] : ''}" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <input type="date" id="implementationEndDate" value="${directive.implementationEndDate ? new Date(directive.implementationEndDate).toISOString().split('T')[0] : ''}" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-sm" style="outline: none;" onfocus="this.style.borderColor='#16a34a'; this.style.boxShadow='0 0 0 3px rgba(22, 163, 74, 0.1)';" onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';">
                     </div>
                 </div>
             </div>
             
-            <!-- Outcomes -->
             <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
                 <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
                     <span class="text-2xl mr-2">🎯</span>
                     Update Status for Outcomes
                 </h2>
-                ${outcomesHtml}
+                <div id="outcomes-container">
+                    ${outcomesHtml}
+                </div>
             </div>
             
-            <!-- Additional Comments -->
             <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
                 <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
                     <span class="text-2xl mr-2">💬</span>
                     Additional Comments
                 </h2>
-                <textarea name="completionNote" rows="4" placeholder="Provide any additional details or context..." class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">${directive.completionNote || ''}</textarea>
+                <textarea id="completionNote" rows="4" placeholder="Provide any additional details or context..." class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-sm" style="outline: none;" onfocus="this.style.borderColor='#16a34a'; this.style.boxShadow='0 0 0 3px rgba(22, 163, 74, 0.1)';" onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';">${safeCompletionNote}</textarea>
             </div>
             
-            <!-- File Upload -->
             <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
                 <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
                     <span class="text-2xl mr-2">📎</span>
                     Supporting Documents
                 </h2>
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
-                    <input type="file" id="fileInput" name="files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" class="hidden">
-                    <label for="fileInput" class="cursor-pointer">
-                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 48 48">
-                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        <p class="text-sm text-gray-600 mb-1">
-                            <span class="font-semibold text-blue-600">Click to upload</span> or drag and drop
-                        </p>
-                        <p class="text-xs text-gray-500">PDF, DOC, XLS, PNG, JPG up to 10MB</p>
-                    </label>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer transition-colors" onclick="document.getElementById('fileInput').click()" onmouseover="this.style.borderColor='#16a34a'" onmouseout="this.style.borderColor='#d1d5db'">
+                    <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" class="hidden">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <p class="text-sm text-gray-600 mb-1">
+                        <span class="font-semibold" style="color: #16a34a;">Click to upload</span> or drag and drop
+                    </p>
+                    <p class="text-xs text-gray-500">PDF, DOC, XLS, PNG, JPG up to 10MB each (max 5 files)</p>
                 </div>
                 <div id="fileList" class="mt-4 space-y-2"></div>
             </div>
             
-            <!-- Submit Button -->
             <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all shadow-lg text-lg">
+                <button type="submit" id="submitBtn" class="w-full text-white font-bold py-4 rounded-xl transform transition-all shadow-lg text-lg" style="background: linear-gradient(to right, #16a34a, #22c55e);" onmouseover="this.style.background='linear-gradient(to right, #15803d, #16a34a)'; this.style.transform='scale(1.02)';" onmouseout="this.style.background='linear-gradient(to right, #16a34a, #22c55e)'; this.style.transform='scale(1)';">
                     ✅ Submit Update to Secretariat
                 </button>
             </div>
         </form>
         
-        <!-- Success Message -->
-        <div id="successMessage" class="hidden bg-white rounded-2xl shadow-lg border-4 border-green-500 p-8 text-center">
+        <div id="successMessage" class="hidden bg-white rounded-2xl shadow-lg p-8 text-center" style="border: 4px solid #22c55e;">
             <div class="text-6xl mb-4">✅</div>
             <h2 class="text-2xl font-bold text-gray-900 mb-2">Update Submitted Successfully!</h2>
             <p class="text-gray-600 mb-6">Your implementation update has been received by the Corporate Secretariat.</p>
-            <button onclick="location.reload()" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
-                Submit Another Update
+            <p class="text-sm text-gray-500">You can close this window now.</p>
+        </div>
+        
+        <div id="errorMessage" class="hidden bg-white rounded-2xl shadow-lg p-8 text-center" style="border: 4px solid #ef4444;">
+            <div class="text-6xl mb-4">❌</div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">Submission Failed</h2>
+            <p id="errorText" class="text-gray-600 mb-6">An error occurred while submitting your update.</p>
+            <button onclick="location.reload()" class="px-6 py-3 text-white font-semibold rounded-lg" style="background-color: #16a34a;" onmouseover="this.style.backgroundColor='#15803d'" onmouseout="this.style.backgroundColor='#16a34a'">
+                Try Again
             </button>
         </div>
     </div>
 
     <script>
         const directiveId = '${directive._id}';
+        const token = '${token}';
+        const outcomesData = ${outcomesJson};
         
-        // Show/hide conditional fields based on status
-        document.querySelectorAll('select[name^="outcomes"]').forEach((select, idx) => {
+        console.log('📊 Page loaded - displaying', outcomesData.length, 'outcomes');
+        console.log('🔑 Token present:', token ? 'YES' : 'NO');
+        console.log('📋 Outcomes to display:', outcomesData);
+        
+        document.querySelectorAll('.outcome-status').forEach((select) => {
             select.addEventListener('change', function() {
-                const parent = this.closest('.bg-gray-50');
-                const completionDiv = parent.querySelector('.completion-details');
-                const delayDiv = parent.querySelector('.delay-reason');
+                const idx = this.dataset.outcomeIndex;
+                const completionDiv = document.querySelector('.completion-details-' + idx);
+                const delayDiv = document.querySelector('.delay-reason-' + idx);
                 
                 if (this.value === 'Completed') {
-                    completionDiv.style.display = 'block';
-                    delayDiv.style.display = 'none';
+                    if (completionDiv) completionDiv.style.display = 'block';
+                    if (delayDiv) delayDiv.style.display = 'none';
                 } else if (this.value === 'Delayed') {
-                    delayDiv.style.display = 'block';
-                    completionDiv.style.display = 'none';
+                    if (delayDiv) delayDiv.style.display = 'block';
+                    if (completionDiv) completionDiv.style.display = 'none';
                 } else {
-                    completionDiv.style.display = 'none';
-                    delayDiv.style.display = 'none';
+                    if (completionDiv) completionDiv.style.display = 'none';
+                    if (delayDiv) delayDiv.style.display = 'none';
                 }
             });
-            
-            // Trigger on load
-            select.dispatchEvent(new Event('change'));
         });
         
-        // File upload handling
         const fileInput = document.getElementById('fileInput');
         const fileList = document.getElementById('fileList');
         
         fileInput.addEventListener('change', function() {
             fileList.innerHTML = '';
-            Array.from(this.files).forEach(file => {
+            if (this.files.length === 0) return;
+            
+            Array.from(this.files).forEach((file) => {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200';
-                fileItem.innerHTML = \`
-                    <div class="flex items-center">
-                        <svg class="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z"/>
-                        </svg>
-                        <span class="text-sm font-medium text-gray-700">\${file.name}</span>
-                        <span class="text-xs text-gray-500 ml-2">(\${(file.size / 1024).toFixed(1)} KB)</span>
-                    </div>
-                \`;
+                fileItem.innerHTML = '<div class="flex items-center"><svg class="w-5 h-5 mr-2" style="color: #16a34a;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z"/></svg><span class="text-sm font-medium text-gray-700">' + file.name + '</span><span class="text-xs text-gray-500 ml-2">(' + (file.size / 1024).toFixed(1) + ' KB)</span></div>';
                 fileList.appendChild(fileItem);
             });
         });
         
-        // Form submission
         document.getElementById('updateForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -2517,49 +2631,68 @@ app.get('/submit-update/:id', async (req, res) => {
             submitBtn.innerHTML = '⏳ Submitting...';
             
             try {
-                const formData = new FormData(this);
-                
-                // Build outcomes array
                 const outcomes = [];
-                let outcomeIndex = 0;
-                while (formData.get(\`outcomes[\${outcomeIndex}].status\`)) {
+                for (let i = 0; i < outcomesData.length; i++) {
+                    const originalIndex = outcomesData[i].originalIndex;
+                    const statusEl = document.querySelector('[name="status-' + i + '"]');
+                    const challengesEl = document.querySelector('[name="challenges-' + i + '"]');
+                    const completionDetailsEl = document.querySelector('[name="completionDetails-' + i + '"]');
+                    const delayReasonEl = document.querySelector('[name="delayReason-' + i + '"]');
+                    
                     outcomes.push({
-                        text: '${directive.outcomes.map(o => o.text.replace(/'/g, "\\'")).join("', '")}' .split("', '")[outcomeIndex],
-                        status: formData.get(\`outcomes[\${outcomeIndex}].status\`),
-                        challenges: formData.get(\`outcomes[\${outcomeIndex}].challenges\`) || '',
-                        completionDetails: formData.get(\`outcomes[\${outcomeIndex}].completionDetails\`) || '',
-                        delayReason: formData.get(\`outcomes[\${outcomeIndex}].delayReason\`) || ''
+                        originalIndex: originalIndex,
+                        text: outcomesData[i].text,
+                        status: statusEl ? statusEl.value : 'Not Started',
+                        challenges: challengesEl ? challengesEl.value : '',
+                        completionDetails: completionDetailsEl ? completionDetailsEl.value : '',
+                        delayReason: delayReasonEl ? delayReasonEl.value : ''
                     });
-                    outcomeIndex++;
                 }
                 
-                const updateData = {
-                    outcomes: outcomes,
-                    implementationStartDate: formData.get('implementationStartDate') || null,
-                    implementationEndDate: formData.get('implementationEndDate') || null,
-                    completionNote: formData.get('completionNote') || '',
-                    updatedBy: '${directive.owner}'
-                };
+                console.log('📤 Submitting', outcomes.length, 'outcomes:', outcomes);
                 
-                const response = await fetch(\`/api/directives/\${directiveId}\`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updateData)
+                const formData = new FormData();
+                formData.append('outcomes', JSON.stringify(outcomes));
+                formData.append('implementationStartDate', document.getElementById('implementationStartDate').value || '');
+                formData.append('implementationEndDate', document.getElementById('implementationEndDate').value || '');
+                formData.append('completionNote', document.getElementById('completionNote').value || '');
+                
+                const files = document.getElementById('fileInput').files;
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('files', files[i]);
+                    console.log('📎 Adding file:', files[i].name);
+                }
+                
+                let url = '/api/submit-update/' + directiveId;
+                if (token) {
+                    url += '?token=' + token;
+                }
+                
+                console.log('🚀 Submitting to:', url);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData
                 });
                 
                 const data = await response.json();
+                console.log('📥 Server response:', data);
                 
-                if (!data.success) throw new Error(data.error);
+                if (!data.success) {
+                    throw new Error(data.error || 'Submission failed');
+                }
                 
-                // Show success message
                 document.getElementById('updateForm').classList.add('hidden');
                 document.getElementById('successMessage').classList.remove('hidden');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 
             } catch (error) {
-                alert('❌ Error: ' + error.message);
+                console.error('❌ Submission error:', error);
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '✅ Submit Update to Secretariat';
+                document.getElementById('errorText').textContent = error.message;
+                document.getElementById('errorMessage').classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         });
     </script>
@@ -2567,6 +2700,7 @@ app.get('/submit-update/:id', async (req, res) => {
 </html>
     `);
   } catch (error) {
+    console.error('Submit update page error:', error);
     res.status(500).send(`
       <!DOCTYPE html>
       <html><head><meta charset="UTF-8"><title>Error</title></head>
@@ -2579,8 +2713,187 @@ app.get('/submit-update/:id', async (req, res) => {
 });
 
 
+
+
+
+
+
+
+
+
+
 // Serve assets folder at root level
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 // Serve public folder
 app.use(express.static(path.join(__dirname, 'public')));
+
+
+
+
+// ADD multer storage configuration
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const dir = `./uploads/${req.params.id || 'temp'}`;
+        require('fs').mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + '-' + file.originalname);
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: (req, file, cb) => {
+        const allowed = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'image/png', 'image/jpeg'];
+        cb(null, allowed.includes(file.mimetype));
+    }
+}).array('files', 5);
+
+// ADD static route for uploads
+app.use('/uploads', express.static('uploads'));
+
+
+
+
+
+
+
+
+// ADD these endpoints
+app.post('/api/process-owners/register', async (req, res) => {
+    try {
+        const { email, password, name, department } = req.body;
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const owner = await ProcessOwner.create({ email, password: hashedPassword, name, department });
+        res.json({ success: true, owner: { email: owner.email, name: owner.name } });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/process-owners/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const owner = await ProcessOwner.findOne({ email: email.toLowerCase() });
+        if (!owner || !await bcrypt.compare(password, owner.password)) {
+            return res.status(401).json({ success: false, error: 'Invalid credentials' });
+        }
+        owner.lastLogin = new Date();
+        await owner.save();
+        const token = crypto.randomBytes(32).toString('hex');
+        res.json({ success: true, owner: { email: owner.email, name: owner.name }, token });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/process-owners/:email/pending-directives', async (req, res) => {
+    try {
+        const directives = await Directive.find({ primaryEmail: req.params.email.toLowerCase() });
+        res.json({ success: true, data: directives });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+
+// ADD this endpoint
+app.get('/api/submission-token/:token', async (req, res) => {
+    try {
+        const tokenDoc = await SubmissionToken.findOne({ token: req.params.token }).populate('directiveId');
+        if (!tokenDoc) return res.status(404).json({ success: false, error: 'Invalid token' });
+        if (tokenDoc.isUsed) return res.json({ success: false, error: 'Token already used', usedAt: tokenDoc.usedAt });
+        if (tokenDoc.expiresAt < new Date()) return res.status(410).json({ success: false, error: 'Token expired' });
+        res.json({ success: true, directive: tokenDoc.directiveId, selectedOutcomes: tokenDoc.selectedOutcomes });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+
+
+// MODIFY the submit-update endpoint
+// Find this endpoint and update the outcomes parsing section
+// ADD the POST handler
+app.post('/api/submit-update/:id', upload, async (req, res) => {
+    try {
+        const { token } = req.query;
+        
+        if (token) {
+            const tokenDoc = await SubmissionToken.findOne({ token });
+            if (tokenDoc) {
+                if (tokenDoc.isUsed) {
+                    return res.status(400).json({ success: false, error: 'This submission link has already been used' });
+                }
+                tokenDoc.isUsed = true;
+                tokenDoc.usedAt = new Date();
+                await tokenDoc.save();
+            }
+        }
+
+        const directive = await Directive.findById(req.params.id);
+        if (!directive) return res.status(404).json({ success: false, error: 'Directive not found' });
+
+        const outcomesUpdates = JSON.parse(req.body.outcomes || '[]');
+        
+        outcomesUpdates.forEach((update) => {
+            const originalIdx = update.originalIndex;
+            if (directive.outcomes[originalIdx]) {
+                directive.outcomes[originalIdx].status = update.status;
+                directive.outcomes[originalIdx].challenges = update.challenges;
+                directive.outcomes[originalIdx].completionDetails = update.completionDetails;
+                directive.outcomes[originalIdx].delayReason = update.delayReason;
+            }
+        });
+
+        if (req.body.implementationStartDate) directive.implementationStartDate = req.body.implementationStartDate;
+        if (req.body.implementationEndDate) directive.implementationEndDate = req.body.implementationEndDate;
+        if (req.body.completionNote) directive.additionalComments = req.body.completionNote;
+
+        directive.lastSbuUpdate = new Date();
+        directive.lastResponseDate = new Date();
+        await directive.updateMonitoringStatus('SBU update received via submission form');
+        await directive.save();
+
+        res.json({ success: true, message: 'Update submitted successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+
+// DEBUG ENDPOINT - Add this temporarily
+app.get('/api/debug-token/:token', async (req, res) => {
+    try {
+        const tokenDoc = await SubmissionToken.findOne({ token: req.params.token });
+        
+        if (!tokenDoc) {
+            return res.json({
+                success: false,
+                message: 'Token not found in database',
+                token: req.params.token
+            });
+        }
+        
+        const directive = await Directive.findById(tokenDoc.directiveId);
+        
+        res.json({
+            success: true,
+            token: req.params.token,
+            directiveRef: directive?.ref,
+            selectedOutcomes: tokenDoc.selectedOutcomes,
+            totalOutcomes: directive?.outcomes.length,
+            isUsed: tokenDoc.isUsed,
+            createdAt: tokenDoc.createdAt
+        });
+    } catch (error) {
+        res.json({ success: false, error: error.message });
+    }
+});
+
+
+

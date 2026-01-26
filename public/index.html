@@ -552,7 +552,18 @@
                         </svg>
                         Sync
                     </button>
+
+                    <!-- ADD this after the Sync button -->
+<div class="w-px h-5 bg-gray-300 mx-1"></div>
+
+<button onclick="logout()" class="btn-flat text-red-600" title="Logout">
+    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+    </svg>
+    Logout
+</button>
                 </div>
+
             </div>
         </div>
     </nav>
@@ -914,53 +925,92 @@
     </div>
 
     <!-- Request Update Modal -->
-    <div id="request-modal" class="modal">
-        <div class="modal-backdrop" onclick="closeModal('request-modal')"></div>
-        <div class="modal-content">
-            <div class="sticky top-0 bg-white border-b border-gray-200 p-6 z-10 rounded-t-2xl">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div>
-                            <h2>Request Status Update</h2>
-                            <p class="text-secondary mt-1" id="request-ref"></p>
-                        </div>
-                        <button onclick="showRequestEmailPreview()" class="btn-flat text-xs" title="Preview email">
-                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                            </svg>
-                            Preview
-                        </button>
-                    </div>
-                    <button onclick="closeModal('request-modal')" class="text-gray-400 hover:text-gray-600">
+<!-- Request Update Modal -->
+<div id="request-update-modal" class="modal">
+    <div class="modal-backdrop" onclick="closeModal('request-update-modal')"></div>
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="sticky top-0 bg-white border-b border-gray-200 p-6 z-10 rounded-t-2xl">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2>Request Status Update</h2>
+                    <p class="text-secondary mt-1" id="modal-directive-ref"></p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="showEmailPreview()" class="btn-flat text-xs" title="Preview email">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        Preview
+                    </button>
+                    <button onclick="closeModal('request-update-modal')" class="text-gray-400 hover:text-gray-600">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
                 </div>
             </div>
-            <div class="p-6">
-                <div class="mb-6 bg-gray-50 rounded-lg p-4">
-                    <div class="stat-label mb-2">To</div>
-                    <div id="request-to" class="font-medium mb-3"></div>
-                    <div class="stat-label mb-2">Subject</div>
-                    <div id="request-subject" class="font-medium"></div>
-                </div>
-
-                <div class="mb-6">
-                    <h3 class="mb-3">Select Outcomes to Request Update For:</h3>
-                    <div id="request-outcomes-list" class="space-y-2">
-                        <!-- Populated by JS -->
+        </div>
+        <div class="p-6">
+            <!-- Info Summary -->
+            <div class="mb-6 bg-gray-50 rounded-lg p-4">
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <span class="text-gray-500">To:</span>
+                        <span id="modal-owner" class="font-semibold text-gray-800 ml-1"></span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Reminders:</span>
+                        <span id="modal-reminder-count" class="font-semibold ml-1"></span>
+                    </div>
+                    <div class="col-span-2">
+                        <span class="text-gray-500">Email:</span>
+                        <span id="modal-email" class="font-semibold text-gray-800 ml-1"></span>
                     </div>
                 </div>
+            </div>
 
-                <div class="flex gap-3 justify-end pt-4 border-t">
-                    <button onclick="closeModal('request-modal')" class="btn-flat px-6">Cancel</button>
-                    <button onclick="confirmRequestUpdate()" class="btn-primary-flat px-8">Send Request</button>
+            <!-- Warnings -->
+            <div id="no-email-warning" class="hidden mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+                <p class="text-sm text-red-700">⚠️ No email configured. Add email in Email Management first.</p>
+            </div>
+            
+            <div id="max-reminders-warning" class="hidden mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+                <p class="text-sm text-red-700">⚠️ Maximum reminders (3/3) already sent.</p>
+            </div>
+
+            <!-- Outcome Selection -->
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h3>Select Outcomes to Include:</h3>
+                    <button type="button" onclick="toggleAllOutcomes()" class="text-xs text-green-700 hover:text-green-800 font-medium underline">
+                        Toggle All
+                    </button>
                 </div>
+                <div id="outcome-checkboxes" class="space-y-2 max-h-60 overflow-y-auto">
+                    <!-- Populated dynamically -->
+                </div>
+                <p id="selection-count" class="text-xs text-gray-500 mt-2"></p>
+            </div>
+
+            <!-- Footer Info -->
+            <div id="reminder-info" class="text-sm text-gray-600 mb-4 p-3 bg-green-50 rounded-lg border border-green-200"></div>
+
+            <div class="flex gap-3 justify-end pt-4 border-t">
+                <button onclick="closeModal('request-update-modal')" class="btn-flat px-6">Cancel</button>
+                <button id="send-request-btn" onclick="sendRequestUpdate()" class="btn-primary-flat px-8">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                    Send Request
+                </button>
             </div>
         </div>
     </div>
+</div>
+
+
+
 
     <!-- Email Preview Modal -->
     <div id="email-preview-modal" class="modal">
@@ -1003,6 +1053,10 @@
                 </div>
             </div>
             <form onsubmit="event.preventDefault(); submitEdit();" class="p-6">
+                <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p class="text-xs text-blue-700"><strong>Note:</strong> Implementation timeline can only be set by the Process Owner through the submission form.</p>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="stat-label block mb-2">Meeting Date</label>
@@ -1785,280 +1839,243 @@
             }
         }
 
-        async function openRequestUpdateModal(id) {
-            showLoading();
-            try {
-                const response = await fetch(`${API_BASE}/directives/${id}`);
-                const result = await response.json();
-                if (result.success) {
-                    const d = result.data;
-                    currentDirectiveId = id;
-                    
-                    document.getElementById('request-ref').textContent = `Reference: ${d.ref || 'N/A'}`;
-                    document.getElementById('request-to').textContent = d.owner || 'Unassigned';
-                    document.getElementById('request-subject').textContent = d.subject;
-                    
-                    const outcomesList = document.getElementById('request-outcomes-list');
-                    outcomesList.innerHTML = '';
-                    
-                    d.outcomes.forEach((outcome, idx) => {
-                        const div = document.createElement('div');
-                        div.className = 'flex items-start p-3 bg-gray-50 rounded-lg';
-                        div.innerHTML = `
-                            <input type="checkbox" id="outcome-checkbox-${idx}" checked class="mt-1 w-4 h-4">
-                            <label for="outcome-checkbox-${idx}" class="ml-3 flex-1 cursor-pointer">
-                                <div class="text-sm font-medium">${idx + 1}. ${outcome.text}</div>
-                                <div class="text-xs text-gray-500 mt-1">Status: ${outcome.status}</div>
-                            </label>
-                        `;
-                        outcomesList.appendChild(div);
-                    });
-                    
-                    document.getElementById('request-modal').classList.add('active');
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        async function confirmRequestUpdate() {
-            const directive = allData.find(d => d._id === currentDirectiveId);
-            const selectedOutcomes = [];
+       async function openRequestUpdateModal(id) {
+    showLoading();
+    try {
+        const response = await fetch(`${API_BASE}/directives/${id}`);
+        const result = await response.json();
+        if (result.success) {
+            const d = result.data;
+            currentDirectiveId = id;
             
-            directive.outcomes.forEach((outcome, idx) => {
-                const checkbox = document.getElementById(`outcome-checkbox-${idx}`);
-                if (checkbox && checkbox.checked) {
-                    selectedOutcomes.push(outcome);
-                }
-            });
+            const reminders = d.reminders || 0;
             
-            if (selectedOutcomes.length === 0) {
-                alert('Please select at least one outcome');
-                return;
-            }
-            
-            if (!confirm(`Send request update email to ${directive.owner}?`)) return;
-            
-            showLoading();
-            try {
-                const response = await fetch(`${API_BASE}/directives/${currentDirectiveId}/request-update`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        selectedOutcomes: selectedOutcomes.map(o => o.text)
-                    })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    alert('✅ Request update email sent!');
-                    closeModal('request-modal');
-                    loadDirectives();
-                }
-            } catch (error) {
-                alert('❌ Error: ' + error.message);
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        function showRequestEmailPreview() {
-            const directive = allData.find(d => d._id === currentDirectiveId);
-            if (!directive) return;
-            
-            const today = new Date();
-            const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
-            
-            // Get selected outcomes
-            const selectedOutcomes = [];
-            directive.outcomes.forEach((outcome, idx) => {
-                const checkbox = document.getElementById(`outcome-checkbox-${idx}`);
-                if (checkbox && checkbox.checked) {
-                    selectedOutcomes.push(outcome);
-                }
-            });
-            
-            if (selectedOutcomes.length === 0) {
-                alert('Please select at least one outcome to preview');
-                return;
-            }
-            
-            // Build outcomes HTML with full interactive fields
-            const outcomesHtml = selectedOutcomes.map((outcome, idx) => {
-                const statusColor = {
-                    'Not Started': '#6b7280',
-                    'Being Implemented': '#3b82f6',
-                    'Delayed': '#f59e0b',
-                    'Completed': '#10b981'
-                }[outcome.status] || '#6b7280';
-                
-                return `
-                    <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-                        <div style="font-weight: 700; color: #1B5E20; margin-bottom: 8px; font-size: 14px;">Outcome ${idx + 1}</div>
-                        <div style="color: #374151; font-size: 13px; line-height: 1.6; margin-bottom: 12px;">${outcome.text}</div>
-                        
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; font-size: 11px; font-weight: 600; color: #6b7280; margin-bottom: 6px; text-transform: uppercase;">Current Implementation Status</label>
-                            <select style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white;">
-                                <option ${outcome.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
-                                <option ${outcome.status === 'Being Implemented' ? 'selected' : ''}>Being Implemented</option>
-                                <option ${outcome.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
-                                <option ${outcome.status === 'Completed' ? 'selected' : ''}>Completed</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label style="display: block; font-size: 11px; font-weight: 600; color: #6b7280; margin-bottom: 6px; text-transform: uppercase;">Challenges / Obstacles Encountered</label>
-                            <textarea rows="3" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: Arial, sans-serif; background: white;" placeholder="Document any issues or roadblocks..."></textarea>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            const emailHtml = `
-                <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; background: white; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-                    
-                    <!-- MEMO HEADER -->
-                    <div style="padding: 24px; background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); border-bottom: 3px solid #1B5E20;">
-                        <h2 style="color: #1B5E20; font-size: 18px; font-weight: 700; margin: 0 0 8px 0; text-transform: uppercase;">
-                            REQUEST FOR STATUS OF COMPLIANCE WITH ${directive.source === 'CG' ? 'COUNCIL OF GOVERNORS' : 'BOARD OF DIRECTORS'} DECISIONS
-                        </h2>
-                        <p style="color: #2E7D32; font-size: 12px; margin: 0; font-weight: 500;">Central Bank of Nigeria - Corporate Secretariat</p>
-                    </div>
-                    
-                    <!-- MEMO DETAILS -->
-                    <div style="padding: 20px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-                        <table style="width: 100%; font-size: 13px; color: #374151;">
-                            <tr>
-                                <td style="padding: 6px 0; width: 50%;"><strong>To:</strong> ${directive.owner}</td>
-                                <td style="padding: 6px 0;"><strong>From:</strong> Secretary to the Board</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 6px 0;"><strong>Ref:</strong> ${directive.ref || 'N/A'}</td>
-                                <td style="padding: 6px 0;"><strong>Date:</strong> ${dateStr}</td>
-                            </tr>
-                        </table>
-                    </div>
-                    
-                    <!-- SUBJECT -->
-                    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
-                        <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Subject</div>
-                        <div style="font-weight: 700; color: #111827; font-size: 14px;">${directive.subject}</div>
-                    </div>
-                    
-                    <!-- INTRODUCTION -->
-                    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
-                        <p style="color: #374151; font-size: 13px; line-height: 1.6; margin: 0;">
-                            The Corporate Secretariat is compiling the status of SBU's compliance with ${directive.source === 'CG' ? 'Council of Governors' : 'Board of Directors'} decisions 
-                            from January to September 2025. Please send your submission by <strong>24th October 2025</strong>.
-                        </p>
-                    </div>
-                    
-                    <!-- DIRECTIVE DETAILS -->
-                    <div style="padding: 20px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-                        <div style="font-size: 11px; font-weight: 700; color: #1B5E20; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">Directive Particulars</div>
-                        <div style="color: #374151; line-height: 1.6; font-size: 13px;">${directive.particulars}</div>
-                    </div>
-                    
-                    <!-- DIRECTIVE METADATA -->
-                    <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                            <div>
-                                <span style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 4px;">Meeting Date</span>
-                                <span style="font-size: 13px; color: #111827; font-weight: 600;">${formatDate(directive.meetingDate)}</span>
-                            </div>
-                            <div>
-                                <span style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 4px;">Process Owner</span>
-                                <span style="font-size: 13px; color: #111827; font-weight: 600;">${directive.owner}</span>
-                            </div>
-                            ${directive.amount ? `
-                            <div>
-                                <span style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 4px;">Amount</span>
-                                <span style="font-size: 13px; color: #111827; font-weight: 600; font-family: monospace;">${directive.amount}</span>
-                            </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                    
-                    <!-- SUBMIT YOUR UPDATE SECTION -->
-                    <div style="padding: 24px; background: #E8F5E9;">
-                        <div style="display: flex; align-items: center; margin-bottom: 20px;">
-                            <div style="background: #1B5E20; border-radius: 50%; padding: 8px; margin-right: 12px;">
-                                <svg style="width: 16px; height: 16px; color: white;" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
-                                </svg>
-                            </div>
-                            <h3 style="font-size: 16px; font-weight: 700; color: #111827; margin: 0;">Submit Your Update</h3>
-                        </div>
-                        
-                        <!-- Timeline Inputs -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-                            <div>
-                                <label style="display: block; font-size: 11px; font-weight: 600; color: #374151; margin-bottom: 6px; text-transform: uppercase;">Implementation Timeline (New Project)</label>
-                                <input type="text" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white;" placeholder="e.g. Jan 2025 - Dec 2025">
-                            </div>
-                            <div>
-                                <label style="display: block; font-size: 11px; font-weight: 600; color: #374151; margin-bottom: 6px; text-transform: uppercase;">Months Left for Implementation (All Projects)</label>
-                                <input type="number" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: white;" placeholder="e.g. 6">
-                            </div>
-                        </div>
-                        
-                        <!-- OUTCOMES BOX -->
-                        <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                            <h4 style="font-size: 13px; font-weight: 700; color: #111827; text-transform: uppercase; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; margin: 0 0 20px 0;">Update Status for Action Points / Outcomes</h4>
-                            ${outcomesHtml}
-                        </div>
-                        
-                        <!-- Comments -->
-                        <div style="margin-bottom: 20px;">
-                            <label style="display: block; font-size: 11px; font-weight: 600; color: #374151; margin-bottom: 6px; text-transform: uppercase;">Comments / Additional Details</label>
-                            <textarea rows="3" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: Arial, sans-serif; background: white;"></textarea>
-                        </div>
-                        
-                        <!-- File Upload -->
-                        <div style="margin-bottom: 24px;">
-                            <label style="display: block; font-size: 11px; font-weight: 600; color: #374151; margin-bottom: 6px; text-transform: uppercase;">Upload Supporting Documents</label>
-                            <div style="border: 2px dashed #d1d5db; border-radius: 8px; padding: 32px; text-align: center; background: white;">
-                                <svg style="width: 40px; height: 40px; color: #9ca3af; margin: 0 auto 8px;" fill="none" stroke="currentColor" viewBox="0 0 48 48">
-                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                                <div style="font-size: 13px; color: #6b7280;">
-                                    <span style="font-weight: 600; color: #1B5E20;">Upload a file</span> or drag and drop
-                                </div>
-                                <p style="font-size: 11px; color: #9ca3af; margin-top: 4px;">PNG, JPG, PDF up to 10MB</p>
-                            </div>
-                        </div>
-                        
-                        <!-- SUBMIT BUTTON -->
-                        <div style="text-align: right;">
-                            <button style="background: #1B5E20; color: white; font-weight: 700; padding: 12px 24px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                                Submit Update to Secretariat
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- CALL TO ACTION -->
-                    <div style="padding: 20px 24px; background: #C8E6C9; border-top: 1px solid #A5D6A7;">
-                        <p style="color: #1B5E20; font-size: 13px; line-height: 1.6; margin: 0; font-weight: 500;">
-                            <strong>⚠️ Action Required:</strong> Please complete the form above and submit your update. 
-                            Your timely response is appreciated for the compilation of the compliance status report.
-                        </p>
-                    </div>
-                    
-                    <!-- FOOTER -->
-                    <div style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
-                        <p style="color: #6b7280; font-size: 11px; margin: 0;">
-                            This is an automated request from the CBN Directives Management System
-                        </p>
-                    </div>
-                </div>
+            document.getElementById('request-ref').textContent = `Reference: ${d.ref || 'N/A'} • Reminders: ${reminders}/3`;
+            document.getElementById('request-to').innerHTML = `
+                <div>${d.owner || 'Unassigned'}</div>
+                <div class="text-xs text-gray-500 mt-1">${d.primaryEmail || '<span class="text-red-600">No email configured</span>'}</div>
             `;
+            document.getElementById('request-subject').textContent = d.subject;
             
-            document.getElementById('email-preview-content').innerHTML = emailHtml;
-            document.getElementById('email-preview-modal').classList.add('active');
+            const outcomesList = document.getElementById('request-outcomes-list');
+            outcomesList.innerHTML = '';
+            
+            // Add info banner
+            const infoBanner = document.createElement('div');
+            infoBanner.className = 'mb-4 p-3 rounded-lg text-sm ' + (
+                reminders >= 3 ? 'bg-red-50 border border-red-200 text-red-700' :
+                reminders === 2 ? 'bg-amber-50 border border-amber-200 text-amber-700' :
+                !d.primaryEmail ? 'bg-red-50 border border-red-200 text-red-700' :
+                'bg-green-50 border border-green-200 text-green-700'
+            );
+            
+            if (reminders >= 3) {
+                infoBanner.innerHTML = '⚠️ <strong>Maximum reminders (3/3) already sent.</strong> Cannot send more reminders.';
+            } else if (!d.primaryEmail || d.primaryEmail.trim() === '') {
+                infoBanner.innerHTML = '⚠️ <strong>No email configured.</strong> Please add an email in Email Management first.';
+            } else if (reminders === 2) {
+                infoBanner.innerHTML = '⚠️ This will be the <strong>FINAL reminder (3/3)</strong>';
+            } else {
+                infoBanner.innerHTML = `✅ This will be reminder <strong>${reminders + 1}/3</strong>`;
+            }
+            outcomesList.appendChild(infoBanner);
+            
+            // Add outcome checkboxes with indices
+            d.outcomes.forEach((outcome, idx) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-start p-3 bg-gray-50 rounded-lg hover:bg-green-50 transition-colors';
+                div.innerHTML = `
+                    <input type="checkbox" id="outcome-checkbox-${idx}" data-index="${idx}" checked class="mt-1 w-4 h-4 text-green-600 rounded">
+                    <label for="outcome-checkbox-${idx}" class="ml-3 flex-1 cursor-pointer">
+                        <div class="text-sm">${idx + 1}. ${outcome.text}</div>
+                        <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded font-medium ${getBadgeClass(outcome.status)}">${outcome.status}</span>
+                    </label>
+                `;
+                outcomesList.appendChild(div);
+            });
+            
+            // Disable send button if no email or max reminders
+            const sendBtn = document.querySelector('#request-modal .btn-primary-flat');
+            if (reminders >= 3 || !d.primaryEmail || d.primaryEmail.trim() === '') {
+                sendBtn.disabled = true;
+                sendBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                sendBtn.disabled = false;
+                sendBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+            
+            document.getElementById('request-modal').classList.add('active');
         }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function confirmRequestUpdate() {
+    const directive = allData.find(d => d._id === currentDirectiveId);
+    
+    // Collect selected outcome INDICES (not text)
+    const selectedIndices = [];
+    directive.outcomes.forEach((outcome, idx) => {
+        const checkbox = document.getElementById(`outcome-checkbox-${idx}`);
+        if (checkbox && checkbox.checked) {
+            selectedIndices.push(idx);
+        }
+    });
+    
+    if (selectedIndices.length === 0) {
+        alert('Please select at least one outcome');
+        return;
+    }
+    
+    if (!confirm(`Send request update email to ${directive.owner}?\n\nThis will be reminder ${(directive.reminders || 0) + 1}/3`)) return;
+    
+    showLoading();
+    try {
+        const response = await fetch(`${API_BASE}/directives/${currentDirectiveId}/request-update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                selectedOutcomes: selectedIndices  // Send indices [0, 2, 5] not text
+            })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            alert(`✅ ${result.message || 'Request update email sent!'}`);
+            closeModal('request-modal');
+            loadDirectives();
+        } else {
+            alert(`❌ ${result.error || 'Failed to send request'}`);
+        }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+function showRequestEmailPreview() {
+    const directive = allData.find(d => d._id === currentDirectiveId);
+    if (!directive) return;
+    
+    // Get selected indices
+    const selectedIndices = [];
+    directive.outcomes.forEach((outcome, idx) => {
+        const checkbox = document.getElementById(`outcome-checkbox-${idx}`);
+        if (checkbox && checkbox.checked) {
+            selectedIndices.push(idx);
+        }
+    });
+    
+    if (selectedIndices.length === 0) {
+        alert('Please select at least one outcome to preview');
+        return;
+    }
+    
+    // Get selected outcomes by index
+    const selectedOutcomes = selectedIndices.map(idx => ({
+        outcome: directive.outcomes[idx],
+        originalIndex: idx
+    }));
+    
+    const today = new Date();
+    const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
+    
+    // Build outcomes HTML - showing original index numbers
+    const outcomesHtml = selectedOutcomes.map(({ outcome, originalIndex }) => {
+        const statusColor = {
+            'Not Started': '#6b7280',
+            'Being Implemented': '#3b82f6',
+            'Delayed': '#f59e0b',
+            'Completed': '#10b981'
+        }[outcome.status] || '#6b7280';
+        
+        return `
+            <div style="margin-bottom: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div style="font-weight: 700; color: #1B5E20; margin-bottom: 8px; font-size: 14px;">Outcome ${originalIndex + 1}</div>
+                <div style="color: #374151; font-size: 13px; line-height: 1.6; margin-bottom: 12px;">${outcome.text}</div>
+                
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #6b7280; margin-bottom: 6px; text-transform: uppercase;">Current Status</label>
+                    <span style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background: ${statusColor}; color: white;">${outcome.status}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; background: white; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            
+            <!-- MEMO HEADER -->
+            <div style="padding: 24px; background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); border-bottom: 3px solid #1B5E20;">
+                <h2 style="color: #1B5E20; font-size: 18px; font-weight: 700; margin: 0 0 8px 0; text-transform: uppercase;">
+                    REQUEST FOR STATUS UPDATE
+                </h2>
+                <p style="color: #2E7D32; font-size: 12px; margin: 0; font-weight: 500;">Central Bank of Nigeria - Corporate Secretariat</p>
+            </div>
+            
+            <!-- MEMO DETAILS -->
+            <div style="padding: 20px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                <table style="width: 100%; font-size: 13px; color: #374151;">
+                    <tr>
+                        <td style="padding: 6px 0; width: 50%;"><strong>To:</strong> ${directive.owner}</td>
+                        <td style="padding: 6px 0;"><strong>From:</strong> Secretary to the Board</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0;"><strong>Ref:</strong> ${directive.ref || 'N/A'}</td>
+                        <td style="padding: 6px 0;"><strong>Date:</strong> ${dateStr}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- SUBJECT -->
+            <div style="padding: 20px 24px; background: white; border-bottom: 1px solid #e5e7eb;">
+                <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Subject</div>
+                <div style="font-weight: 700; color: #111827; font-size: 14px;">${directive.subject}</div>
+            </div>
+            
+            <!-- OUTCOMES HEADER -->
+            <div style="padding: 16px 24px; background: #E8F5E9; border-bottom: 1px solid #C8E6C9;">
+                <div style="font-size: 12px; font-weight: 700; color: #1B5E20;">
+                    📋 Outcomes Requiring Update (${selectedOutcomes.length} of ${directive.outcomes.length} selected)
+                </div>
+            </div>
+            
+            <!-- OUTCOMES -->
+            <div style="padding: 24px; background: white;">
+                ${outcomesHtml}
+            </div>
+            
+            <!-- CTA BUTTON -->
+            <div style="padding: 30px 24px; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); text-align: center;">
+                <h3 style="color: white; font-size: 18px; font-weight: 700; margin: 0 0 12px 0;">
+                    Submit Your Implementation Update
+                </h3>
+                <p style="color: #C8E6C9; font-size: 13px; margin: 0 0 20px 0;">
+                    Click the button below to access the secure submission portal.
+                </p>
+                <div style="display: inline-block; background: white; color: #1B5E20; font-weight: 700; padding: 14px 36px; border-radius: 8px; font-size: 14px;">
+                    📝 Submit Update Now →
+                </div>
+            </div>
+            
+            <!-- FOOTER -->
+            <div style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+                <p style="color: #6b7280; font-size: 11px; margin: 0;">
+                    This is an automated request from the CBN Directives Management System
+                </p>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('email-preview-content').innerHTML = emailHtml;
+    document.getElementById('email-preview-modal').classList.add('active');
+}
+
+
 
         function getOrdinal(n) {
             const s = ["th", "st", "nd", "rd"];
@@ -2352,6 +2369,364 @@
     
     return actualImplStatus;
 }
+
+
+
+// ADD this function at the beginning of the script
+function checkAuth() {
+    if (sessionStorage.getItem('isLoggedIn') !== 'true' || sessionStorage.getItem('userType') !== 'admin') {
+        window.location.href = '/login.html';
+        return false;
+    }
+    return true;
+}
+
+function logout() {
+    sessionStorage.clear();
+    window.location.href = '/login.html';
+}
+
+// MODIFY the DOMContentLoaded to include auth check
+document.addEventListener('DOMContentLoaded', () => {
+    if (!checkAuth()) return;  // ADD this line
+    loadDirectives();
+    loadProcessOwners();
+    loadDepartments();
+    loadReminderSettings();
+});
+
+
+
+// ==========================================
+// REQUEST UPDATE MODAL FUNCTIONS
+// ==========================================
+
+// ==========================================
+// REQUEST UPDATE MODAL FUNCTIONS
+// ==========================================
+
+// ==========================================
+// REQUEST UPDATE MODAL FUNCTIONS
+// ==========================================
+// ==========================================
+// REQUEST UPDATE MODAL FUNCTIONS
+// ==========================================
+
+let currentRequestDirective = null;
+
+async function openRequestUpdateModal(directiveId) {
+    showLoading();
+    try {
+        const response = await fetch(`${API_BASE}/directives/${directiveId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('Failed to load directive');
+            return;
+        }
+        
+        currentRequestDirective = result.data;
+        const d = currentRequestDirective;
+        const reminders = d.reminders || 0;
+        
+        // Header info
+        document.getElementById('modal-directive-ref').textContent = `Ref: ${d.ref || 'N/A'}`;
+        document.getElementById('modal-owner').textContent = d.owner || 'Unassigned';
+        
+        // Reminder count
+        const reminderEl = document.getElementById('modal-reminder-count');
+        reminderEl.textContent = `${reminders}/3`;
+        reminderEl.className = `font-semibold ml-1 ${
+            reminders >= 3 ? 'text-red-600' :
+            reminders === 2 ? 'text-amber-600' :
+            'text-green-600'
+        }`;
+        
+        // Email
+        const emailEl = document.getElementById('modal-email');
+        emailEl.textContent = d.primaryEmail || 'Not configured';
+        emailEl.className = d.primaryEmail ? 'font-semibold text-gray-800 ml-1' : 'font-semibold text-red-600 ml-1';
+        
+        // Warnings
+        document.getElementById('no-email-warning').classList.toggle('hidden', !!(d.primaryEmail && d.primaryEmail.trim()));
+        document.getElementById('max-reminders-warning').classList.toggle('hidden', reminders < 3);
+        
+        // Send button state
+        const sendBtn = document.getElementById('send-request-btn');
+        const canSend = d.primaryEmail && d.primaryEmail.trim() && reminders < 3;
+        sendBtn.disabled = !canSend;
+        sendBtn.classList.toggle('opacity-50', !canSend);
+        sendBtn.classList.toggle('cursor-not-allowed', !canSend);
+        
+        // Reminder info
+        const reminderInfo = document.getElementById('reminder-info');
+        if (reminders >= 3) {
+            reminderInfo.innerHTML = '';
+            reminderInfo.classList.add('hidden');
+        } else if (reminders === 2) {
+            reminderInfo.innerHTML = '⚠️ This will be the <strong>FINAL</strong> reminder (3/3)';
+            reminderInfo.className = 'text-sm mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-700';
+        } else {
+            reminderInfo.innerHTML = `✅ This will be reminder <strong>${reminders + 1}/3</strong>`;
+            reminderInfo.className = 'text-sm mb-4 p-3 bg-green-50 rounded-lg border border-green-200 text-green-700';
+        }
+        
+        // Populate outcomes
+        const container = document.getElementById('outcome-checkboxes');
+        container.innerHTML = d.outcomes.map((outcome, idx) => `
+            <label class="flex items-start p-3 bg-gray-50 rounded-lg hover:bg-green-50 cursor-pointer transition-colors">
+                <input type="checkbox" id="outcome-cb-${idx}" value="${idx}" checked class="outcome-checkbox mt-1 w-4 h-4 text-green-600 rounded">
+                <div class="ml-3 flex-1">
+                    <div class="text-sm">${idx + 1}. ${outcome.text}</div>
+                    <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded font-medium ${getBadgeClass(outcome.status)}">${outcome.status}</span>
+                </div>
+            </label>
+        `).join('');
+        
+        updateSelectionCount();
+        
+        document.getElementById('request-update-modal').classList.add('active');
+        
+    } catch (error) {
+        alert('Error: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+function toggleAllOutcomes() {
+    const checkboxes = document.querySelectorAll('.outcome-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateSelectionCount();
+}
+
+function updateSelectionCount() {
+    const total = document.querySelectorAll('.outcome-checkbox').length;
+    const selected = document.querySelectorAll('.outcome-checkbox:checked').length;
+    document.getElementById('selection-count').textContent = `${selected} of ${total} outcomes selected`;
+}
+
+function getSelectedOutcomeIndices() {
+    return Array.from(document.querySelectorAll('.outcome-checkbox:checked')).map(cb => parseInt(cb.value));
+}
+
+// Preview opens SEPARATE modal
+function showEmailPreview() {
+    if (!currentRequestDirective) return;
+    
+    const selectedIndices = getSelectedOutcomeIndices();
+    
+    if (selectedIndices.length === 0) {
+        alert('Please select at least one outcome to preview');
+        return;
+    }
+    
+    const d = currentRequestDirective;
+    const today = new Date();
+    const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
+    
+    // Build outcomes HTML with status update fields (like the actual form)
+    const outcomesHtml = selectedIndices.map(idx => {
+        const outcome = d.outcomes[idx];
+        const statusColor = {
+            'Not Started': '#6b7280',
+            'Being Implemented': '#3b82f6',
+            'Delayed': '#f59e0b',
+            'Completed': '#10b981'
+        }[outcome.status] || '#6b7280';
+        
+        return `
+            <div style="margin-bottom: 20px; padding: 16px; background: white; border-radius: 8px; border: 1px solid #e5e7eb; border-left: 4px solid ${statusColor};">
+                <div style="font-weight: 700; color: #1B5E20; margin-bottom: 8px; font-size: 13px;">Outcome ${idx + 1}</div>
+                <div style="color: #374151; font-size: 13px; line-height: 1.5; margin-bottom: 12px;">${outcome.text}</div>
+                
+                <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 11px; color: #6b7280;">Current Status:</span>
+                    <span style="padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background: ${statusColor}; color: white;">${outcome.status}</span>
+                </div>
+                
+                <div style="background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px dashed #d1d5db;">
+                    <div style="font-size: 11px; font-weight: 600; color: #6b7280; margin-bottom: 8px; text-transform: uppercase;">Update Status</div>
+                    <select disabled style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; background: white; margin-bottom: 8px;">
+                        <option>Not Started</option>
+                        <option>Being Implemented</option>
+                        <option>Delayed</option>
+                        <option>Completed</option>
+                    </select>
+                    <div style="font-size: 11px; font-weight: 600; color: #6b7280; margin-bottom: 4px; text-transform: uppercase;">Challenges/Notes</div>
+                    <textarea disabled style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; height: 50px;" placeholder="Any challenges or updates..."></textarea>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; background: white; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <!-- Header -->
+            <div style="padding: 24px; background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); border-bottom: 3px solid #1B5E20;">
+                <h2 style="color: #1B5E20; font-size: 18px; font-weight: 700; margin: 0; text-transform: uppercase;">
+                    REQUEST FOR STATUS OF COMPLIANCE WITH ${d.source === 'CG' ? 'COUNCIL OF GOVERNORS' : 'BOARD OF DIRECTORS'} DECISIONS
+                </h2>
+                <p style="color: #2E7D32; font-size: 12px; margin: 6px 0 0 0;">Central Bank of Nigeria - Corporate Secretariat</p>
+            </div>
+            
+            <!-- Memo Details -->
+            <div style="padding: 16px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                <table style="width: 100%; font-size: 13px; color: #374151;">
+                    <tr>
+                        <td style="padding: 4px 0;"><strong>To:</strong> ${d.owner}</td>
+                        <td style="padding: 4px 0;"><strong>From:</strong> Secretary to the Board</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px 0;"><strong>Ref:</strong> ${d.ref || 'N/A'}</td>
+                        <td style="padding: 4px 0;"><strong>Date:</strong> ${dateStr}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- Subject -->
+            <div style="padding: 16px 24px; border-bottom: 1px solid #e5e7eb;">
+                <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 6px;">Subject</div>
+                <div style="font-weight: 600; color: #111827; font-size: 14px;">${d.subject}</div>
+            </div>
+            
+            <!-- Particulars -->
+            <div style="padding: 16px 24px; border-bottom: 1px solid #e5e7eb;">
+                <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 6px;">Directive Details</div>
+                <div style="color: #374151; font-size: 13px; line-height: 1.6;">${d.particulars || 'N/A'}</div>
+            </div>
+            
+            <!-- Meeting Info -->
+            <div style="padding: 16px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                <div style="display: flex; gap: 32px; font-size: 13px;">
+                    <div><strong>Meeting Date:</strong> ${formatDate(d.meetingDate)}</div>
+                    ${d.amount ? `<div><strong>Amount:</strong> ${d.amount}</div>` : ''}
+                </div>
+            </div>
+            
+            <!-- Outcomes Section -->
+            <div style="padding: 16px 24px; background: #E8F5E9; border-bottom: 1px solid #C8E6C9;">
+                <div style="font-size: 14px; font-weight: 700; color: #1B5E20;">
+                    📋 Outcomes Requiring Update (${selectedIndices.length} of ${d.outcomes.length})
+                </div>
+                <p style="font-size: 12px; color: #2E7D32; margin: 6px 0 0 0;">Please update the status for each outcome below:</p>
+            </div>
+            
+            <div style="padding: 20px 24px; background: #fafafa;">
+                ${outcomesHtml}
+            </div>
+            
+            <!-- Timeline Section -->
+            <div style="padding: 20px 24px; background: white; border-top: 1px solid #e5e7eb;">
+                <div style="font-size: 13px; font-weight: 700; color: #1B5E20; margin-bottom: 12px;">📅 Implementation Timeline</div>
+                <div style="display: flex; gap: 16px;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">Start Date</div>
+                        <input disabled type="text" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" placeholder="${d.implementationStartDate ? formatDate(d.implementationStartDate) : 'Select date'}">
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">End Date</div>
+                        <input disabled type="text" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" placeholder="${d.implementationEndDate ? formatDate(d.implementationEndDate) : 'Select date'}">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- File Upload -->
+            <div style="padding: 20px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb;">
+                <div style="font-size: 13px; font-weight: 700; color: #1B5E20; margin-bottom: 12px;">📎 Supporting Documents</div>
+                <div style="border: 2px dashed #d1d5db; border-radius: 8px; padding: 24px; text-align: center; background: white;">
+                    <div style="font-size: 12px; color: #6b7280;">Upload supporting documents (PDF, DOC, XLS, images)</div>
+                </div>
+            </div>
+            
+            <!-- Submit Button -->
+            <div style="padding: 24px; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); text-align: center;">
+                <div style="display: inline-block; background: white; color: #1B5E20; font-weight: 700; padding: 14px 32px; border-radius: 8px; font-size: 14px;">
+                    📝 Submit Update to Secretariat
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div style="padding: 16px 24px; background: #f9fafb; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="color: #6b7280; font-size: 11px; margin: 0;">This is an automated request from the CBN Directives Management System</p>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('email-preview-content').innerHTML = emailHtml;
+    document.getElementById('email-preview-modal').classList.add('active');
+}
+
+async function sendRequestUpdate() {
+    if (!currentRequestDirective) return;
+    
+    const selectedIndices = getSelectedOutcomeIndices();
+    
+    if (selectedIndices.length === 0) {
+        alert('Please select at least one outcome');
+        return;
+    }
+    
+    if (!confirm(`Send request to ${currentRequestDirective.owner}?\n\nReminder ${(currentRequestDirective.reminders || 0) + 1}/3`)) return;
+    
+    const sendBtn = document.getElementById('send-request-btn');
+    const originalHTML = sendBtn.innerHTML;
+    
+    showLoading();
+    try {
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = 'Sending...';
+        
+        const response = await fetch(`${API_BASE}/directives/${currentRequestDirective._id}/request-update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selectedOutcomes: selectedIndices })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            let msg = `✅ ${result.message}`;
+            
+            // Show submission link if email was skipped (for testing)
+            if (!result.emailSent && result.submissionUrl) {
+                msg += `\n\n📋 Test submission link:\n${result.submissionUrl}`;
+                
+                // Copy to clipboard
+                try {
+                    await navigator.clipboard.writeText(result.submissionUrl);
+                    msg += '\n\n(Link copied to clipboard)';
+                } catch (e) {}
+            }
+            
+            alert(msg);
+            closeModal('request-update-modal');
+            loadDirectives();
+        } else {
+            alert(`❌ ${result.error || 'Failed'}`);
+        }
+        
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = originalHTML;
+        showLoading(false);
+    }
+}
+
+
+
+// Update count when checkboxes change
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('outcome-checkbox')) {
+        updateSelectionCount();
+    }
+});
+
+
+
     </script>
 </body>
 </html>
