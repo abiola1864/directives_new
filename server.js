@@ -19,6 +19,7 @@ const PORT = process.env.PORT || 3001;
 const multer = require('multer');
 const crypto = require('crypto');
 const fs = require('fs');
+const crypto = require('crypto');
 
 
 
@@ -85,9 +86,9 @@ function setupEmailTransporter() {
   try {
     console.log('\n🔍 EMAIL SETUP DEBUG:');
     
-    // Try SendGrid SMTP first (works better through firewalls)
+    // Use SendGrid API (not SMTP)
     if (process.env.SENDGRID_API_KEY) {
-      console.log('   📧 Using SendGrid SMTP for email delivery');
+      console.log('   📧 Using SendGrid API for email delivery');
       console.log('   SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? 'SET ✓' : '❌ MISSING');
       console.log('   EMAIL_USER (sender):', process.env.EMAIL_USER ? `SET (${process.env.EMAIL_USER})` : '❌ MISSING');
       
@@ -96,70 +97,43 @@ function setupEmailTransporter() {
         return null;
       }
       
-      // Use SMTP instead of API (bypasses firewall blocks)
-      emailTransporter = nodemailer.createTransport({
-        host: 'smtp.sendgrid.net',
-        port: 587,
-        secure: false,
-        auth: {
-          user: 'apikey',  // Literally the string 'apikey'
-          pass: process.env.SENDGRID_API_KEY
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      
+      // Create wrapper that matches nodemailer interface
+      emailTransporter = {
+        sendMail: async (mailOptions) => {
+          try {
+            const msg = {
+              to: mailOptions.to,
+              from: process.env.EMAIL_USER,
+              subject: mailOptions.subject,
+              html: mailOptions.html
+            };
+            
+            const response = await sgMail.send(msg);
+            console.log('✅ SendGrid email sent successfully');
+            return response;
+          } catch (error) {
+            console.error('❌ SendGrid send error:', error.message);
+            if (error.response) {
+              console.error('   Response body:', error.response.body);
+            }
+            throw error;
+          }
         },
-        connectionTimeout: 30000,
-        greetingTimeout: 30000,
-        socketTimeout: 30000
-      });
-      
-      emailTransporter.verify((error, success) => {
-        if (error) {
-          console.log('\n❌ SendGrid SMTP CONNECTION FAILED:');
-          console.log('   Error:', error.message);
-          console.log('\n');
-          emailTransporter = null;
-        } else {
-          console.log('✅ SendGrid SMTP ready\n');
+        verify: (callback) => {
+          console.log('✅ SendGrid API is ready to send emails\n');
+          callback(null, true);
         }
-      });
+      };
       
+      console.log('✅ SendGrid API configured\n');
       return emailTransporter;
     }
     
-    // Fallback to Gmail if SendGrid not configured
-    console.log('   EMAIL_USER:', process.env.EMAIL_USER ? `SET (${process.env.EMAIL_USER})` : '❌ MISSING');
-    console.log('   EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? `SET (length: ${process.env.EMAIL_PASSWORD.length} chars)` : '❌ MISSING');
+    console.log('⚠️  No SendGrid API key found\n');
+    return null;
     
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-      console.log('⚠️  Email credentials not found\n');
-      return null;
-    }
-
-    console.log('   Attempting Gmail SMTP connection...\n');
-
-    emailTransporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
-      },
-      connectionTimeout: 30000,
-      greetingTimeout: 30000,
-      socketTimeout: 30000
-    });
-
-    emailTransporter.verify((error, success) => {
-      if (error) {
-        console.log('\n❌ EMAIL SERVER CONNECTION FAILED:');
-        console.log('   Error:', error.message);
-        console.log('\n');
-        emailTransporter = null;
-      } else {
-        console.log('✅ Gmail SMTP ready\n');
-      }
-    });
-
-    return emailTransporter;
   } catch (error) {
     console.error('\n❌ CRITICAL ERROR setting up email:');
     console.error('   Exception:', error.message);
@@ -167,6 +141,7 @@ function setupEmailTransporter() {
     return null;
   }
 }
+
 
 
 
@@ -389,17 +364,22 @@ const Directive = mongoose.model('Directive', directiveSchema);
 
 
 // ADD this schema
-const SubmissionTokenSchema = new mongoose.Schema({
-    token: { type: String, unique: true, required: true },
-    directiveId: { type: mongoose.Schema.Types.ObjectId, ref: 'Directive', required: true },
-    selectedOutcomes: [Number],  // Array of outcome INDICES
-    isUsed: { type: Boolean, default: false },
-    usedAt: Date,
-    createdAt: { type: Date, default: Date.now },
-    expiresAt: { type: Date, default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }
+// ==========================================
+// SUBMISSION TOKEN MODEL
+// ==========================================
+
+const submissionTokenSchema = new mongoose.Schema({
+  token: { type: String, required: true, unique: true },
+  directiveId: { type: mongoose.Schema.Types.ObjectId, ref: 'Directive', required: true },
+  selectedOutcomes: [{ type: Number }],
+  createdAt: { type: Date, default: Date.now },
+  expiresAt: { type: Date },
+  used: { type: Boolean, default: false },
+  usedAt: { type: Date }
 });
 
-const SubmissionToken = mongoose.model('SubmissionToken', SubmissionTokenSchema);
+const SubmissionToken = mongoose.model('SubmissionToken', submissionTokenSchema);
+
 
 
 
@@ -2064,258 +2044,167 @@ app.listen(PORT, () => {
 // REPLACE the entire /api/directives/:id/request-update endpoint with this:
 
 app.post('/api/directives/:id/request-update', async (req, res) => {
-    try {
-        const directive = await Directive.findById(req.params.id);
-        if (!directive) {
-            return res.status(404).json({ success: false, error: 'Directive not found' });
-        }
+  try {
+    const directive = await Directive.findById(req.params.id);
+    if (!directive) {
+      return res.status(404).json({ success: false, error: 'Directive not found' });
+    }
 
-        const { selectedOutcomes } = req.body;
+    const { selectedOutcomes } = req.body; // Array of indices [0, 2, 5]
+    
+    if (!selectedOutcomes || selectedOutcomes.length === 0) {
+      return res.status(400).json({ success: false, error: 'No outcomes selected' });
+    }
 
-        // Check if email is configured
-        if (!directive.primaryEmail || directive.primaryEmail.trim() === '') {
-            return res.json({
-                success: false,
-                error: 'No email address configured for this process owner. Please add an email in the Email Management section first.'
-            });
-        }
+    if (!directive.primaryEmail || directive.primaryEmail.trim() === '') {
+      return res.status(400).json({ success: false, error: 'No email configured for this process owner' });
+    }
 
-        // Check reminder limit
-        if (directive.reminders >= 3) {
-            return res.json({
-                success: false,
-                error: 'Maximum reminders (3/3) already sent for this directive.'
-            });
-        }
+    if ((directive.reminders || 0) >= 3) {
+      return res.status(400).json({ success: false, error: 'Maximum reminders (3) already sent' });
+    }
 
-        // ⭐ CONVERT SELECTED OUTCOMES TO INDICES
-        let selectedIndices = [];
-        if (selectedOutcomes && selectedOutcomes.length > 0) {
-            // selectedOutcomes contains indices as numbers
-            selectedIndices = selectedOutcomes.map(idx => parseInt(idx));
-        } else {
-            // If no selection, include all outcomes
-            selectedIndices = directive.outcomes.map((_, idx) => idx);
-        }
+    // Generate unique token
+    const token = crypto.randomBytes(32).toString('hex');
 
-        // Generate unique submission token
-        const token = crypto.randomBytes(32).toString('hex');
-        await SubmissionToken.create({
-            token,
-            directiveId: directive._id,
-            selectedOutcomes: selectedIndices
-        });
+    // Save token with selected outcome INDICES
+    const submissionToken = new SubmissionToken({
+      token: token,
+      directiveId: directive._id,
+      selectedOutcomes: selectedOutcomes,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    });
+    await submissionToken.save();
 
-        const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
-        const submissionUrl = `${baseUrl}/submit-update/${directive._id}?token=${token}`;
+    const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
+    const submissionUrl = `${baseUrl}/submit-update/${directive._id}?token=${token}`;
 
-        const today = new Date();
-        const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
+    const today = new Date();
+    const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
 
-        // Build outcomes HTML - ONLY SELECTED ONES
-        const outcomesHtml = selectedIndices.map(idx => {
-            const outcome = directive.outcomes[idx];
-            const statusColor = {
-                'Not Started': '#6b7280',
-                'Being Implemented': '#3b82f6',
-                'Delayed': '#f59e0b',
-                'Completed': '#10b981'
-            }[outcome.status] || '#6b7280';
+    // Build outcomes HTML - ONLY selected ones
+    const outcomesToShow = selectedOutcomes.map(idx => ({
+      outcome: directive.outcomes[idx],
+      originalIndex: idx
+    })).filter(o => o.outcome);
 
-            return `
-                <table width="100%" cellpadding="12" cellspacing="0" style="margin-bottom: 16px; background-color: white; border-radius: 6px; border-left: 4px solid ${statusColor}; border: 1px solid #e5e7eb;">
-                    <tr>
-                        <td>
-                            <div style="font-weight: 700; color: #1B5E20; margin-bottom: 8px; font-size: 12px;">Outcome ${idx + 1}</div>
-                            <div style="color: #374151; font-size: 13px; line-height: 1.5; margin-bottom: 12px;">${outcome.text}</div>
-                            <div>
-                                <span style="font-size: 11px; color: #6b7280; margin-right: 8px;">Current Status:</span>
-                                <span style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 700; background-color: ${statusColor}; color: white;">
-                                    ${outcome.status}
-                                </span>
-                            </div>
-                        </td>
-                    </tr>
-                </table>
-            `;
-        }).join('');
+    const outcomesHtml = outcomesToShow.map(({ outcome, originalIndex }) => {
+      const statusColor = {
+        'Not Started': '#6b7280',
+        'Being Implemented': '#3b82f6',
+        'Delayed': '#f59e0b',
+        'Completed': '#10b981'
+      }[outcome.status] || '#6b7280';
 
-        // ⭐ SIMPLIFIED TABLE-BASED EMAIL (BETTER COMPATIBILITY)
-        const emailHtml = `
+      return `
+        <div style="margin-bottom: 16px; padding: 16px; background: white; border-radius: 8px; border-left: 4px solid ${statusColor};">
+          <div style="font-weight: 700; color: #1B5E20; margin-bottom: 8px; font-size: 13px;">Outcome ${originalIndex + 1}</div>
+          <div style="color: #374151; font-size: 13px; line-height: 1.5; margin-bottom: 8px;">${outcome.text}</div>
+          <span style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background: ${statusColor}; color: white;">${outcome.status}</span>
+        </div>
+      `;
+    }).join('');
+
+    const emailHtml = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 20px 0;">
-        <tr>
-            <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    
-                    <!-- Header -->
-                    <tr>
-                        <td style="background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); padding: 24px; border-bottom: 3px solid #1B5E20;">
-                            <h2 style="color: #1B5E20; font-size: 18px; font-weight: 700; margin: 0 0 8px 0; text-transform: uppercase;">
-                                REQUEST FOR STATUS UPDATE
-                            </h2>
-                            <p style="color: #2E7D32; font-size: 12px; margin: 0; font-weight: 500;">Central Bank of Nigeria - Corporate Secretariat</p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Memo Details -->
-                    <tr>
-                        <td style="padding: 20px 24px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-                            <table width="100%" cellpadding="4" cellspacing="0" style="font-size: 13px; color: #374151;">
-                                <tr>
-                                    <td width="50%"><strong>To:</strong> ${directive.owner}</td>
-                                    <td><strong>From:</strong> Secretary to the Board</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Ref:</strong> ${directive.ref || 'N/A'}</td>
-                                    <td><strong>Date:</strong> ${dateStr}</td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- Subject -->
-                    <tr>
-                        <td style="padding: 20px 24px; background-color: white; border-bottom: 1px solid #e5e7eb;">
-                            <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Subject</div>
-                            <div style="font-weight: 700; color: #111827; font-size: 14px;">${directive.subject}</div>
-                        </td>
-                    </tr>
-                    
-                    <!-- Particulars (if exists) -->
-                    ${directive.particulars && directive.particulars.trim() !== '' ? `
-                    <tr>
-                        <td style="padding: 20px 24px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-                            <div style="font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Directive Details</div>
-                            <div style="color: #374151; font-size: 13px; line-height: 1.6;">${directive.particulars.substring(0, 300)}${directive.particulars.length > 300 ? '...' : ''}</div>
-                        </td>
-                    </tr>
-                    ` : ''}
-                    
-                    <!-- Outcomes Header -->
-                    <tr>
-                        <td style="padding: 16px 24px; background-color: #E8F5E9; border-bottom: 1px solid #C8E6C9;">
-                            <div style="font-size: 12px; font-weight: 700; color: #1B5E20;">
-                                📋 Outcomes Requiring Update (${selectedIndices.length} of ${directive.outcomes.length} selected)
-                            </div>
-                        </td>
-                    </tr>
-                    
-                    <!-- Outcomes -->
-                    <tr>
-                        <td style="padding: 24px; background-color: white;">
-                            ${outcomesHtml}
-                        </td>
-                    </tr>
-                    
-                    <!-- CTA Button -->
-                    <tr>
-                        <td align="center" style="padding: 40px 24px; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%);">
-                            <h3 style="color: white; font-size: 18px; font-weight: 700; margin: 0 0 12px 0;">
-                                Submit Your Implementation Update
-                            </h3>
-                            <p style="color: #C8E6C9; font-size: 13px; margin: 0 0 20px 0;">
-                                Click the button below to access the secure submission portal.
-                            </p>
-                            <table cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td align="center" style="border-radius: 8px; background-color: white;">
-                                        <a href="${submissionUrl}" style="display: inline-block; padding: 14px 36px; color: #1B5E20; text-decoration: none; font-weight: 700; font-size: 14px;">
-                                            📝 Submit Update Now →
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
-                            <p style="color: #C8E6C9; font-size: 10px; margin: 24px 0 0 0; line-height: 1.5;">
-                                Or copy this link:<br>
-                                <span style="background-color: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 4px; display: inline-block; margin-top: 8px; font-family: monospace; word-break: break-all; font-size: 9px;">
-                                    ${submissionUrl}
-                                </span>
-                            </p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer -->
-                    <tr>
-                        <td align="center" style="padding: 16px 24px; background-color: #f9fafb; border-top: 1px solid #e5e7eb;">
-                            <p style="color: #6b7280; font-size: 11px; margin: 0;">
-                                This is an automated request from the CBN Directives Management System
-                            </p>
-                        </td>
-                    </tr>
-                    
-                </table>
-            </td>
-        </tr>
-    </table>
+<body style="font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px;">
+  <div style="max-width: 650px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    
+    <!-- Header -->
+    <div style="padding: 24px; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); color: white;">
+      <h1 style="margin: 0; font-size: 18px; text-transform: uppercase;">Request for Status Update</h1>
+      <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 13px;">Central Bank of Nigeria - Corporate Secretariat</p>
+    </div>
+    
+    <!-- Memo Info -->
+    <div style="padding: 16px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 13px;">
+      <div><strong>To:</strong> ${directive.owner}</div>
+      <div style="margin-top: 4px;"><strong>Ref:</strong> ${directive.ref || 'N/A'} &nbsp;|&nbsp; <strong>Date:</strong> ${dateStr}</div>
+    </div>
+    
+    <!-- Subject -->
+    <div style="padding: 16px 24px; border-bottom: 1px solid #e5e7eb;">
+      <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Subject</div>
+      <div style="font-size: 14px; font-weight: 600; color: #111827;">${directive.subject}</div>
+    </div>
+    
+    <!-- Outcomes Header -->
+    <div style="padding: 12px 24px; background: #E8F5E9;">
+      <div style="font-size: 13px; font-weight: 700; color: #1B5E20;">
+        📋 Outcomes Requiring Update (${outcomesToShow.length} of ${directive.outcomes.length})
+      </div>
+    </div>
+    
+    <!-- Outcomes -->
+    <div style="padding: 20px 24px; background: #fafafa;">
+      ${outcomesHtml}
+    </div>
+    
+    <!-- CTA Button -->
+    <div style="padding: 32px 24px; text-align: center; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%);">
+      <h3 style="color: white; margin: 0 0 12px 0; font-size: 18px;">Submit Your Implementation Update</h3>
+      <p style="color: #C8E6C9; margin: 0 0 20px 0; font-size: 13px;">Click the button below to update status, add timelines, and upload documents</p>
+      <a href="${submissionUrl}" style="display: inline-block; background: white; color: #1B5E20; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 14px;">
+        📝 Submit Update Now →
+      </a>
+    </div>
+    
+    <!-- Footer -->
+    <div style="padding: 16px 24px; background: #f9fafb; text-align: center; border-top: 1px solid #e5e7eb;">
+      <p style="margin: 0; font-size: 11px; color: #6b7280;">Automated message from CBN Directives Management System</p>
+    </div>
+  </div>
 </body>
 </html>
-        `;
+    `;
 
-        // Send email
-        let emailSent = false;
-        if (emailTransporter) {
-            try {
-                const recipients = [directive.primaryEmail];
-                if (directive.secondaryEmail && directive.secondaryEmail.trim() !== '') {
-                    recipients.push(directive.secondaryEmail);
-                }
-
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                const validRecipients = recipients.filter(email => emailRegex.test(email));
-
-                if (validRecipients.length === 0) {
-                    return res.json({ success: false, error: 'Invalid email address format' });
-                }
-
-                const mailOptions = {
-                    from: `"CBN Directives System" <${process.env.EMAIL_USER}>`,
-                    to: validRecipients.join(', '),
-                    subject: `Status Update Request (Reminder ${directive.reminders + 1}/3) - ${directive.ref}`,
-                    html: emailHtml
-                };
-
-                await emailTransporter.sendMail(mailOptions);
-                emailSent = true;
-
-                // INCREMENT REMINDER COUNT
-                directive.reminders = (directive.reminders || 0) + 1;
-                directive.lastReminderDate = new Date();
-                directive.reminderHistory.push({
-                    sentAt: new Date(),
-                    recipient: directive.owner,
-                    method: 'Email',
-                    acknowledged: false
-                });
-
-                await directive.updateMonitoringStatus('Manual update request sent via email');
-
-                console.log(`✅ Update request sent to ${validRecipients.join(', ')} for directive ${directive.ref}`);
-                console.log(`   Reminder count: ${directive.reminders}/3`);
-
-            } catch (emailError) {
-                console.error('❌ Email send error:', emailError.message);
-                return res.json({ success: false, error: `Failed to send email: ${emailError.message}` });
-            }
-        } else {
-            return res.json({ success: false, error: 'Email system not configured' });
+    // Send email
+    let emailSent = false;
+    if (emailTransporter) {
+      try {
+        const recipients = [directive.primaryEmail];
+        if (directive.secondaryEmail && directive.secondaryEmail.trim() !== '') {
+          recipients.push(directive.secondaryEmail);
         }
 
-        res.json({
-            success: true,
-            emailSent,
-            submissionUrl,
-            reminderCount: directive.reminders,
-            message: `Request update email sent to ${directive.owner} (Reminder ${directive.reminders}/3)`
+        await emailTransporter.sendMail({
+          to: recipients.join(', '),
+          subject: `Status Update Request - ${directive.ref || directive.subject}`,
+          html: emailHtml
         });
-
-    } catch (error) {
-        console.error('Request update error:', error);
-        res.status(500).json({ success: false, error: error.message });
+        emailSent = true;
+        console.log(`✅ Request email sent to: ${recipients.join(', ')}`);
+      } catch (emailError) {
+        console.error('❌ Email send failed:', emailError.message);
+        return res.status(500).json({ success: false, error: `Email failed: ${emailError.message}` });
+      }
     }
+
+    // Update directive tracking
+    directive.reminders = (directive.reminders || 0) + 1;
+    directive.lastReminderDate = new Date();
+    if (!directive.reminderHistory) directive.reminderHistory = [];
+    directive.reminderHistory.push({
+      sentAt: new Date(),
+      recipient: directive.primaryEmail,
+      method: 'Email',
+      acknowledged: false
+    });
+    await directive.save();
+
+    res.json({
+      success: true,
+      message: `Request sent to ${directive.primaryEmail}`,
+      emailSent: emailSent,
+      reminder: `${directive.reminders}/3`
+    });
+
+  } catch (error) {
+    console.error('Request update error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 
@@ -2351,64 +2240,44 @@ app.get('/submit-update/:id', async (req, res) => {
   try {
     const directive = await Directive.findById(req.params.id);
     if (!directive) {
-      return res.status(404).send(`
-        <!DOCTYPE html>
-        <html><head><meta charset="UTF-8"><title>Not Found</title></head>
-        <body style="font-family: Arial; text-align: center; padding: 100px;">
-          <h1 style="color: #ef4444;">❌ Directive Not Found</h1>
-          <p style="color: #6b7280;">The directive you're looking for doesn't exist.</p>
-        </body></html>
-      `);
+      return res.status(404).send('<h1>Directive not found</h1>');
     }
 
-    const token = req.query.token || '';
-    
-    // ⭐ CHECK TOKEN AND GET SELECTED OUTCOMES
-    let outcomesToDisplay = directive.outcomes;
-    let selectedIndices = directive.outcomes.map((_, idx) => idx);
-    
+    const token = req.query.token;
+    let outcomesToShow = directive.outcomes.map((o, idx) => ({ outcome: o, originalIndex: idx }));
+
+    // If token provided, filter to selected outcomes only
     if (token) {
-      try {
-        const tokenDoc = await SubmissionToken.findOne({ token });
-        console.log('🔍 Token lookup:', token.substring(0, 20) + '...');
-        console.log('🔍 Token found:', tokenDoc ? 'YES' : 'NO');
-        
-        if (tokenDoc && tokenDoc.selectedOutcomes && tokenDoc.selectedOutcomes.length > 0) {
-          selectedIndices = tokenDoc.selectedOutcomes;
-          outcomesToDisplay = selectedIndices.map(idx => directive.outcomes[idx]).filter(o => o);
-          console.log(`✅ Filtered to ${outcomesToDisplay.length} outcomes from indices: ${selectedIndices.join(', ')}`);
-        } else {
-          console.log('⚠️  No selected outcomes in token, showing all');
+      const submissionToken = await SubmissionToken.findOne({ 
+        token: token,
+        directiveId: req.params.id
+      });
+
+      if (submissionToken) {
+        if (submissionToken.used) {
+          return res.send('<h1>This submission link has already been used</h1>');
         }
-      } catch (tokenError) {
-        console.error('❌ Token error:', tokenError.message);
+
+        // Check expiry
+        if (submissionToken.expiresAt && new Date() > submissionToken.expiresAt) {
+          return res.send('<h1>This submission link has expired</h1>');
+        }
+
+        // Filter to selected outcomes only
+        if (submissionToken.selectedOutcomes && submissionToken.selectedOutcomes.length > 0) {
+          outcomesToShow = submissionToken.selectedOutcomes.map(idx => ({
+            outcome: directive.outcomes[idx],
+            originalIndex: idx
+          })).filter(o => o.outcome);
+        }
       }
-    } else {
-      console.log('⚠️  No token provided, showing all outcomes');
     }
 
-    // ⭐ SAFE JSON ENCODING - escape all special characters
-    const outcomesJson = JSON.stringify(outcomesToDisplay.map((o, displayIdx) => ({
-      originalIndex: selectedIndices[displayIdx],
-      text: (o.text || '').replace(/[\u0000-\u001F\u007F-\u009F]/g, ''),
-      status: o.status || 'Not Started',
-      challenges: (o.challenges || '').replace(/[\u0000-\u001F\u007F-\u009F]/g, ''),
-      completionDetails: (o.completionDetails || '').replace(/[\u0000-\u001F\u007F-\u009F]/g, ''),
-      delayReason: (o.delayReason || '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
-    }))).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-    
-    // Build outcomes HTML
-    const outcomesHtml = outcomesToDisplay.map((outcome, displayIdx) => {
-      const originalIdx = selectedIndices[displayIdx];
-      const safeText = (outcome.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-      const safeChallenges = (outcome.challenges || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-      const safeCompletionDetails = (outcome.completionDetails || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-      const safeDelayReason = (outcome.delayReason || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-      
-      return `
+    // Build outcomes HTML - only selected ones with original numbering
+    const outcomesHtml = outcomesToShow.map(({ outcome, originalIndex }) => `
       <div class="bg-gray-50 rounded-lg border border-gray-200 p-4 mb-4">
         <div class="flex items-center justify-between mb-3">
-          <span class="text-sm font-bold text-green-700">Outcome ${originalIdx + 1}</span>
+          <span class="text-sm font-bold text-green-700">Outcome ${originalIndex + 1}</span>
           <span class="text-xs px-2 py-1 rounded-full font-semibold ${
             outcome.status === 'Completed' ? 'bg-green-100 text-green-700' :
             outcome.status === 'Being Implemented' ? 'bg-blue-100 text-blue-700' :
@@ -2417,14 +2286,14 @@ app.get('/submit-update/:id', async (req, res) => {
           }">Current: ${outcome.status}</span>
         </div>
         
-        <p class="text-sm text-gray-700 mb-3 leading-relaxed">${safeText}</p>
+        <p class="text-sm text-gray-700 mb-3 leading-relaxed">${outcome.text}</p>
         
-        <input type="hidden" name="outcome-original-index-${displayIdx}" value="${originalIdx}">
+        <input type="hidden" name="outcome_index_${originalIndex}" value="${originalIndex}">
         
         <div class="space-y-3">
           <div>
             <label class="block text-xs font-semibold text-gray-600 mb-1">Update Status *</label>
-            <select data-outcome-index="${displayIdx}" data-original-index="${originalIdx}" name="status-${displayIdx}" required class="outcome-status w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
+            <select name="outcome_status_${originalIndex}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
               <option value="Not Started" ${outcome.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
               <option value="Being Implemented" ${outcome.status === 'Being Implemented' ? 'selected' : ''}>Being Implemented</option>
               <option value="Delayed" ${outcome.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
@@ -2433,27 +2302,13 @@ app.get('/submit-update/:id', async (req, res) => {
           </div>
           
           <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Challenges / Obstacles</label>
-            <textarea data-outcome-index="${displayIdx}" data-original-index="${originalIdx}" name="challenges-${displayIdx}" rows="2" placeholder="Document any issues or roadblocks..." class="outcome-challenges w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">${safeChallenges}</textarea>
-          </div>
-          
-          <div class="completion-details-${displayIdx}" style="display: ${outcome.status === 'Completed' ? 'block' : 'none'};">
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Completion Details</label>
-            <textarea data-outcome-index="${displayIdx}" data-original-index="${originalIdx}" name="completionDetails-${displayIdx}" rows="2" placeholder="Describe what was completed..." class="outcome-completionDetails w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">${safeCompletionDetails}</textarea>
-          </div>
-          
-          <div class="delay-reason-${displayIdx}" style="display: ${outcome.status === 'Delayed' ? 'block' : 'none'};">
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Reason for Delay</label>
-            <textarea data-outcome-index="${displayIdx}" data-original-index="${originalIdx}" name="delayReason-${displayIdx}" rows="2" placeholder="Explain why this is delayed..." class="outcome-delayReason w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">${safeDelayReason}</textarea>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Challenges / Notes</label>
+            <textarea name="outcome_challenges_${originalIndex}" rows="2" placeholder="Any challenges or updates..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">${outcome.challenges || ''}</textarea>
           </div>
         </div>
       </div>
-    `;
-    }).join('');
-    
-    const safeSubject = (directive.subject || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    const safeCompletionNote = (directive.completionNote || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    
+    `).join('');
+
     res.send(`
 <!DOCTYPE html>
 <html lang="en">
@@ -2463,236 +2318,122 @@ app.get('/submit-update/:id', async (req, res) => {
     <title>Submit Update - ${directive.ref || 'CBN Directive'}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        * { font-family: 'Inter', sans-serif; }
-    </style>
+    <style>* { font-family: 'Inter', sans-serif; }</style>
 </head>
-<body class="min-h-screen py-8 px-4" style="background: linear-gradient(to bottom right, #f0fdf4, #dcfce7);">
-    <div class="max-w-4xl mx-auto">
+<body class="bg-gray-100 min-h-screen py-8 px-4">
+    <div class="max-w-3xl mx-auto">
         
-        <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 mb-6">
-            <div class="pb-6 mb-6" style="border-bottom: 4px solid #16a34a;">
-                <h1 class="text-3xl font-bold text-gray-900 mb-2">📝 Submit Implementation Update</h1>
-                <p class="text-gray-600">Central Bank of Nigeria - Corporate Secretariat</p>
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-green-800 to-green-600 text-white rounded-t-xl p-6">
+            <h1 class="text-2xl font-bold mb-1">📝 Submit Implementation Update</h1>
+            <p class="text-green-100 text-sm">Central Bank of Nigeria - Corporate Secretariat</p>
+        </div>
+        
+        <!-- Info -->
+        <div class="bg-white border-b p-6">
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div><span class="text-gray-500">Reference:</span> <span class="font-semibold">${directive.ref || 'N/A'}</span></div>
+                <div><span class="text-gray-500">Process Owner:</span> <span class="font-semibold">${directive.owner}</span></div>
             </div>
-            
-            <div class="grid grid-cols-2 gap-6 text-sm">
-                <div>
-                    <span class="text-gray-500 font-semibold">Reference:</span>
-                    <span class="text-gray-900 font-bold ml-2">${directive.ref || 'N/A'}</span>
-                </div>
-                <div>
-                    <span class="text-gray-500 font-semibold">Process Owner:</span>
-                    <span class="text-gray-900 font-bold ml-2">${directive.owner}</span>
-                </div>
-            </div>
-            
-            <div class="mt-4 p-4 rounded-lg border" style="background-color: #f0fdf4; border-color: #86efac;">
+            <div class="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
                 <div class="text-xs text-gray-500 font-semibold mb-1">SUBJECT</div>
-                <div class="text-sm text-gray-900 font-semibold">${safeSubject}</div>
+                <div class="text-sm font-semibold text-gray-900">${directive.subject}</div>
             </div>
-            
-            ${outcomesToDisplay.length < directive.outcomes.length ? `
-            <div class="mt-4 p-3 rounded-lg border" style="background-color: #f0fdf4; border-color: #86efac;">
-                <p class="text-xs font-semibold" style="color: #166534;">
-                    📋 Showing <strong>${outcomesToDisplay.length} of ${directive.outcomes.length}</strong> outcomes as requested by the Secretariat
-                </p>
-            </div>
-            ` : ''}
         </div>
 
-        <form id="updateForm" class="space-y-6">
+        <!-- Form -->
+        <form id="updateForm" class="bg-white rounded-b-xl shadow-lg">
             
-            <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-2xl mr-2">📅</span>
-                    Implementation Timeline
-                </h2>
+            <!-- Outcomes -->
+            <div class="p-6 border-b">
+                <h2 class="text-lg font-bold text-gray-900 mb-1">🎯 Update Outcomes (${outcomesToShow.length} of ${directive.outcomes.length})</h2>
+                <p class="text-sm text-gray-500 mb-4">Please update the status for each outcome below</p>
+                ${outcomesHtml}
+            </div>
+            
+            <!-- Timeline -->
+            <div class="p-6 border-b">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">📅 Implementation Timeline</h2>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Start Date</label>
-                        <input type="date" id="implementationStartDate" value="${directive.implementationStartDate ? new Date(directive.implementationStartDate).toISOString().split('T')[0] : ''}" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-sm" style="outline: none;" onfocus="this.style.borderColor='#16a34a'; this.style.boxShadow='0 0 0 3px rgba(22, 163, 74, 0.1)';" onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';">
+                        <input type="date" name="implementationStartDate" value="${directive.implementationStartDate ? new Date(directive.implementationStartDate).toISOString().split('T')[0] : ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">End Date</label>
-                        <input type="date" id="implementationEndDate" value="${directive.implementationEndDate ? new Date(directive.implementationEndDate).toISOString().split('T')[0] : ''}" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-sm" style="outline: none;" onfocus="this.style.borderColor='#16a34a'; this.style.boxShadow='0 0 0 3px rgba(22, 163, 74, 0.1)';" onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';">
+                        <input type="date" name="implementationEndDate" value="${directive.implementationEndDate ? new Date(directive.implementationEndDate).toISOString().split('T')[0] : ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                     </div>
                 </div>
             </div>
             
-            <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-2xl mr-2">🎯</span>
-                    Update Status for Outcomes
-                </h2>
-                <div id="outcomes-container">
-                    ${outcomesHtml}
-                </div>
+            <!-- Comments -->
+            <div class="p-6 border-b">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">💬 Additional Comments</h2>
+                <textarea name="completionNote" rows="3" placeholder="Any additional details..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
             </div>
             
-            <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-2xl mr-2">💬</span>
-                    Additional Comments
-                </h2>
-                <textarea id="completionNote" rows="4" placeholder="Provide any additional details or context..." class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-sm" style="outline: none;" onfocus="this.style.borderColor='#16a34a'; this.style.boxShadow='0 0 0 3px rgba(22, 163, 74, 0.1)';" onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';">${safeCompletionNote}</textarea>
-            </div>
-            
-            <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-2xl mr-2">📎</span>
-                    Supporting Documents
-                </h2>
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer transition-colors" onclick="document.getElementById('fileInput').click()" onmouseover="this.style.borderColor='#16a34a'" onmouseout="this.style.borderColor='#d1d5db'">
-                    <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" class="hidden">
-                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 48 48">
-                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    <p class="text-sm text-gray-600 mb-1">
-                        <span class="font-semibold" style="color: #16a34a;">Click to upload</span> or drag and drop
-                    </p>
-                    <p class="text-xs text-gray-500">PDF, DOC, XLS, PNG, JPG up to 10MB each (max 5 files)</p>
-                </div>
-                <div id="fileList" class="mt-4 space-y-2"></div>
-            </div>
-            
-            <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                <button type="submit" id="submitBtn" class="w-full text-white font-bold py-4 rounded-xl transform transition-all shadow-lg text-lg" style="background: linear-gradient(to right, #16a34a, #22c55e);" onmouseover="this.style.background='linear-gradient(to right, #15803d, #16a34a)'; this.style.transform='scale(1.02)';" onmouseout="this.style.background='linear-gradient(to right, #16a34a, #22c55e)'; this.style.transform='scale(1)';">
-                    ✅ Submit Update to Secretariat
+            <!-- Submit -->
+            <div class="p-6">
+                <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-green-700 to-green-600 text-white font-bold py-3 rounded-lg hover:from-green-800 hover:to-green-700 transition-all">
+                    ✅ Submit Update
                 </button>
             </div>
         </form>
         
-        <div id="successMessage" class="hidden bg-white rounded-2xl shadow-lg p-8 text-center" style="border: 4px solid #22c55e;">
-            <div class="text-6xl mb-4">✅</div>
-            <h2 class="text-2xl font-bold text-gray-900 mb-2">Update Submitted Successfully!</h2>
-            <p class="text-gray-600 mb-6">Your implementation update has been received by the Corporate Secretariat.</p>
-            <p class="text-sm text-gray-500">You can close this window now.</p>
-        </div>
-        
-        <div id="errorMessage" class="hidden bg-white rounded-2xl shadow-lg p-8 text-center" style="border: 4px solid #ef4444;">
-            <div class="text-6xl mb-4">❌</div>
-            <h2 class="text-2xl font-bold text-gray-900 mb-2">Submission Failed</h2>
-            <p id="errorText" class="text-gray-600 mb-6">An error occurred while submitting your update.</p>
-            <button onclick="location.reload()" class="px-6 py-3 text-white font-semibold rounded-lg" style="background-color: #16a34a;" onmouseover="this.style.backgroundColor='#15803d'" onmouseout="this.style.backgroundColor='#16a34a'">
-                Try Again
-            </button>
+        <div id="successMessage" class="hidden bg-white rounded-xl shadow-lg p-8 text-center">
+            <div class="text-5xl mb-4">✅</div>
+            <h2 class="text-xl font-bold text-gray-900 mb-2">Update Submitted!</h2>
+            <p class="text-gray-600">Thank you. The Corporate Secretariat has been notified.</p>
         </div>
     </div>
 
     <script>
-        const directiveId = '${directive._id}';
-        const token = '${token}';
-        const outcomesData = ${outcomesJson};
-        
-        console.log('📊 Page loaded - displaying', outcomesData.length, 'outcomes');
-        console.log('🔑 Token present:', token ? 'YES' : 'NO');
-        console.log('📋 Outcomes to display:', outcomesData);
-        
-        document.querySelectorAll('.outcome-status').forEach((select) => {
-            select.addEventListener('change', function() {
-                const idx = this.dataset.outcomeIndex;
-                const completionDiv = document.querySelector('.completion-details-' + idx);
-                const delayDiv = document.querySelector('.delay-reason-' + idx);
-                
-                if (this.value === 'Completed') {
-                    if (completionDiv) completionDiv.style.display = 'block';
-                    if (delayDiv) delayDiv.style.display = 'none';
-                } else if (this.value === 'Delayed') {
-                    if (delayDiv) delayDiv.style.display = 'block';
-                    if (completionDiv) completionDiv.style.display = 'none';
-                } else {
-                    if (completionDiv) completionDiv.style.display = 'none';
-                    if (delayDiv) delayDiv.style.display = 'none';
-                }
-            });
-        });
-        
-        const fileInput = document.getElementById('fileInput');
-        const fileList = document.getElementById('fileList');
-        
-        fileInput.addEventListener('change', function() {
-            fileList.innerHTML = '';
-            if (this.files.length === 0) return;
-            
-            Array.from(this.files).forEach((file) => {
-                const fileItem = document.createElement('div');
-                fileItem.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200';
-                fileItem.innerHTML = '<div class="flex items-center"><svg class="w-5 h-5 mr-2" style="color: #16a34a;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z"/></svg><span class="text-sm font-medium text-gray-700">' + file.name + '</span><span class="text-xs text-gray-500 ml-2">(' + (file.size / 1024).toFixed(1) + ' KB)</span></div>';
-                fileList.appendChild(fileItem);
-            });
-        });
-        
         document.getElementById('updateForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '⏳ Submitting...';
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
             
             try {
+                const formData = new FormData(this);
                 const outcomes = [];
-                for (let i = 0; i < outcomesData.length; i++) {
-                    const originalIndex = outcomesData[i].originalIndex;
-                    const statusEl = document.querySelector('[name="status-' + i + '"]');
-                    const challengesEl = document.querySelector('[name="challenges-' + i + '"]');
-                    const completionDetailsEl = document.querySelector('[name="completionDetails-' + i + '"]');
-                    const delayReasonEl = document.querySelector('[name="delayReason-' + i + '"]');
-                    
+                
+                // Collect outcomes by index
+                document.querySelectorAll('[name^="outcome_index_"]').forEach(input => {
+                    const idx = parseInt(input.value);
                     outcomes.push({
-                        originalIndex: originalIndex,
-                        text: outcomesData[i].text,
-                        status: statusEl ? statusEl.value : 'Not Started',
-                        challenges: challengesEl ? challengesEl.value : '',
-                        completionDetails: completionDetailsEl ? completionDetailsEl.value : '',
-                        delayReason: delayReasonEl ? delayReasonEl.value : ''
+                        originalIndex: idx,
+                        status: formData.get('outcome_status_' + idx),
+                        challenges: formData.get('outcome_challenges_' + idx) || ''
                     });
-                }
-                
-                console.log('📤 Submitting', outcomes.length, 'outcomes:', outcomes);
-                
-                const formData = new FormData();
-                formData.append('outcomes', JSON.stringify(outcomes));
-                formData.append('implementationStartDate', document.getElementById('implementationStartDate').value || '');
-                formData.append('implementationEndDate', document.getElementById('implementationEndDate').value || '');
-                formData.append('completionNote', document.getElementById('completionNote').value || '');
-                
-                const files = document.getElementById('fileInput').files;
-                for (let i = 0; i < files.length; i++) {
-                    formData.append('files', files[i]);
-                    console.log('📎 Adding file:', files[i].name);
-                }
-                
-                let url = '/api/submit-update/' + directiveId;
-                if (token) {
-                    url += '?token=' + token;
-                }
-                
-                console.log('🚀 Submitting to:', url);
-                
-                const response = await fetch(url, {
-                    method: 'POST',
-                    body: formData
                 });
                 
-                const data = await response.json();
-                console.log('📥 Server response:', data);
+                const response = await fetch('/api/submit-update/${directive._id}?token=${token || ''}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        outcomes: outcomes,
+                        implementationStartDate: formData.get('implementationStartDate'),
+                        implementationEndDate: formData.get('implementationEndDate'),
+                        completionNote: formData.get('completionNote')
+                    })
+                });
                 
-                if (!data.success) {
-                    throw new Error(data.error || 'Submission failed');
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('updateForm').classList.add('hidden');
+                    document.getElementById('successMessage').classList.remove('hidden');
+                } else {
+                    alert('Error: ' + result.error);
+                    btn.disabled = false;
+                    btn.textContent = '✅ Submit Update';
                 }
-                
-                document.getElementById('updateForm').classList.add('hidden');
-                document.getElementById('successMessage').classList.remove('hidden');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                
             } catch (error) {
-                console.error('❌ Submission error:', error);
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '✅ Submit Update to Secretariat';
-                document.getElementById('errorText').textContent = error.message;
-                document.getElementById('errorMessage').classList.remove('hidden');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                alert('Error: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = '✅ Submit Update';
             }
         });
     </script>
@@ -2700,18 +2441,9 @@ app.get('/submit-update/:id', async (req, res) => {
 </html>
     `);
   } catch (error) {
-    console.error('Submit update page error:', error);
-    res.status(500).send(`
-      <!DOCTYPE html>
-      <html><head><meta charset="UTF-8"><title>Error</title></head>
-      <body style="font-family: Arial; text-align: center; padding: 100px;">
-        <h1 style="color: #ef4444;">❌ Error</h1>
-        <p style="color: #6b7280;">${error.message}</p>
-      </body></html>
-    `);
+    res.status(500).send('<h1>Error: ' + error.message + '</h1>');
   }
 });
-
 
 
 
@@ -2897,3 +2629,54 @@ app.get('/api/debug-token/:token', async (req, res) => {
 
 
 
+app.post('/api/submit-update/:id', async (req, res) => {
+  try {
+    const token = req.query.token;
+    const directive = await Directive.findById(req.params.id);
+    
+    if (!directive) {
+      return res.status(404).json({ success: false, error: 'Directive not found' });
+    }
+
+    // Mark token as used if provided
+    if (token) {
+      await SubmissionToken.findOneAndUpdate(
+        { token: token, directiveId: req.params.id },
+        { used: true, usedAt: new Date() }
+      );
+    }
+
+    const { outcomes, implementationStartDate, implementationEndDate, completionNote } = req.body;
+
+    // Update only the submitted outcomes
+    if (outcomes && outcomes.length > 0) {
+      outcomes.forEach(submitted => {
+        const idx = submitted.originalIndex;
+        if (directive.outcomes[idx]) {
+          directive.outcomes[idx].status = submitted.status;
+          directive.outcomes[idx].challenges = submitted.challenges;
+        }
+      });
+    }
+
+    if (implementationStartDate) directive.implementationStartDate = new Date(implementationStartDate);
+    if (implementationEndDate) directive.implementationEndDate = new Date(implementationEndDate);
+    
+    if (completionNote && completionNote.trim()) {
+      const timestamp = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const newComment = `[${timestamp}] ${completionNote.trim()}`;
+      directive.additionalComments = directive.additionalComments 
+        ? `${directive.additionalComments}\n\n${newComment}` 
+        : newComment;
+    }
+
+    directive.lastSbuUpdate = new Date();
+    directive.isResponsive = true;
+
+    await directive.save();
+
+    res.json({ success: true, message: 'Update submitted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
