@@ -2580,16 +2580,231 @@ app.use('/uploads', express.static('uploads'));
 
 
 // ADD these endpointss
-app.post('/api/process-owners/register', async (req, res) => {
-    try {
-        const { email, password, name, department } = req.body;
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const owner = await ProcessOwner.create({ email, password: hashedPassword, name, department });
-        res.json({ success: true, owner: { email: owner.email, name: owner.name } });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+// ========================================
+// CHECK EMAIL AUTHORIZATION (before signup)
+// ========================================
+
+app.post('/api/process-owners/check-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
     }
+    
+    const emailLower = email.toLowerCase();
+    
+    // Check if account already exists
+    const existingAccount = await ProcessOwner.findOne({ email: emailLower });
+    if (existingAccount) {
+      return res.json({
+        success: true,
+        authorized: false,
+        accountExists: true,
+        message: 'Account already exists'
+      });
+    }
+    
+    // Check if email exists in directives
+    const directivesWithEmail = await Directive.find({
+      $or: [
+        { primaryEmail: emailLower },
+        { secondaryEmail: emailLower }
+      ]
+    });
+    
+    if (directivesWithEmail.length > 0) {
+      return res.json({
+        success: true,
+        authorized: true,
+        directivesCount: directivesWithEmail.length,
+        message: `Email authorized with ${directivesWithEmail.length} directive(s)`
+      });
+    }
+    
+    return res.json({
+      success: true,
+      authorized: false,
+      directivesCount: 0,
+      message: 'Email not found in directives database'
+    });
+    
+  } catch (error) {
+    console.error('❌ Email check error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to check email' 
+    });
+  }
 });
+
+// ========================================
+// PROCESS OWNER SELF-SIGNUP ENDPOINT
+// Add this endpoint BEFORE the existing app.post('/api/process-owners/register') endpoint
+// ========================================
+
+app.post('/api/process-owners/signup', async (req, res) => {
+  try {
+    const { name, email, password, department, position, phone } = req.body;
+    
+    // Validation
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Name, email, and password are required'
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 8 characters long'
+      });
+    }
+
+    // ⭐ SECURITY CHECK: Verify email exists in directives database
+    const emailLower = email.toLowerCase();
+    const directivesWithEmail = await Directive.find({
+      $or: [
+        { primaryEmail: emailLower },
+        { secondaryEmail: emailLower }
+      ]
+    });
+
+    if (directivesWithEmail.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: 'This email is not authorized. Only process owners with assigned directives can create accounts. Please contact the Corporate Secretariat if you believe this is an error.',
+        unauthorized: true
+      });
+    }
+
+    // Check if account already exists
+    const existing = await ProcessOwner.findOne({ email: emailLower });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        error: 'An account with this email already exists. Please use the login page.',
+        accountExists: true
+      });
+    }
+
+    // Create process owner account with password already set
+    const processOwner = new ProcessOwner({
+      name,
+      email: emailLower,
+      password: password, // Will be hashed by pre-save hook
+      department,
+      position,
+      phone,
+      isActive: true,
+      passwordSetAt: new Date(),
+      createdBy: 'self-signup'
+    });
+
+    await processOwner.save();
+
+    console.log(`✅ New process owner self-signup: ${processOwner.email} (${directivesWithEmail.length} directives)`);
+
+    // Send welcome email (optional)
+    if (emailTransporter) {
+      try {
+        const welcomeHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="padding: 32px 24px; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); color: white; text-align: center;">
+      <h1 style="margin: 0; font-size: 24px;">Welcome to CBN Directives Platform</h1>
+    </div>
+    
+    <div style="padding: 32px 24px;">
+      <p style="margin: 0 0 16px 0; font-size: 15px; color: #374151;">Dear <strong>${name}</strong>,</p>
+      
+      <p style="margin: 0 0 16px 0; font-size: 14px; color: #374151; line-height: 1.6;">
+        Your account has been successfully created! You can now log in to the CBN Directives Management Platform and track all directives assigned to you.
+      </p>
+      
+      <div style="background: #f9fafb; padding: 16px; border-radius: 8px; margin: 24px 0;">
+        <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">YOUR LOGIN EMAIL</div>
+        <div style="font-size: 16px; font-weight: 600; color: #1B5E20;">${email}</div>
+      </div>
+      
+      <div style="background: #E8F5E9; padding: 16px; border-radius: 8px; margin: 24px 0;">
+        <div style="font-size: 14px; color: #1B5E20; font-weight: 600; margin-bottom: 8px;">
+          📋 You have ${directivesWithEmail.length} directive${directivesWithEmail.length !== 1 ? 's' : ''} assigned to you
+        </div>
+        <div style="font-size: 12px; color: #2E7D32;">
+          Log in to view and update implementation status
+        </div>
+      </div>
+      
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${process.env.BASE_URL || 'https://directives-new.onrender.com'}/login.html" style="display: inline-block; background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 14px;">
+          Log In Now
+        </a>
+      </div>
+      
+      <p style="margin: 24px 0 0 0; font-size: 14px; color: #374151; line-height: 1.6;">
+        You can now:
+      </p>
+      <ul style="margin: 12px 0; padding-left: 20px; font-size: 14px; color: #374151;">
+        <li style="margin-bottom: 8px;">View all directives assigned to you</li>
+        <li style="margin-bottom: 8px;">Submit implementation updates</li>
+        <li style="margin-bottom: 8px;">Track progress and timelines</li>
+        <li style="margin-bottom: 8px;">Upload supporting documents</li>
+      </ul>
+    </div>
+    
+    <div style="padding: 20px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+      <p style="margin: 0; font-size: 11px; color: #6b7280;">Central Bank of Nigeria - Directives Management System</p>
+    </div>
+  </div>
+</body>
+</html>
+        `;
+
+        await emailTransporter.sendMail({
+          from: process.env.SMTP_USER || 'directives@cbn.gov.ng',
+          to: email,
+          subject: '🎉 Welcome to CBN Directives Platform',
+          html: welcomeHtml
+        });
+        
+        console.log(`✅ Welcome email sent to: ${email}`);
+      } catch (emailError) {
+        console.error('❌ Welcome email failed:', emailError.message);
+        // Don't fail signup if email fails
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Account created successfully! You can now log in.',
+      owner: {
+        id: processOwner._id,
+        name: processOwner.name,
+        email: processOwner.email
+      },
+      directivesCount: directivesWithEmail.length
+    });
+
+  } catch (error) {
+    console.error('❌ Signup error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Signup failed. Please try again.' 
+    });
+  }
+});
+
+
+
+
 
 app.post('/api/process-owners/login', async (req, res) => {
     try {

@@ -8,8 +8,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
-        * { font-family: 'Inter', sans-serif; }
+        * { 
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
         
+        /* CBN Professional Green Palette */
         :root {
             --cbn-forest: #1B5E20;
             --cbn-dark-green: #2E7D32;
@@ -17,23 +21,22 @@
             --cbn-medium-green: #4CAF50;
             --cbn-light-green: #66BB6A;
             --cbn-pale-green: #E8F5E9;
+            --cbn-cream: #F5F5F5;
+            --cbn-white: #FFFFFF;
+            --cbn-text: #1a1a1a;
+            --cbn-text-light: #666666;
+            --cbn-border: #E0E0E0;
         }
         
         body {
-            background: #F5F5F5;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            border: 1px solid #E0E0E0;
+            background: var(--cbn-cream);
+            color: var(--cbn-text);
         }
         
         .btn-primary {
             background: linear-gradient(135deg, var(--cbn-forest) 0%, var(--cbn-dark-green) 100%);
             color: white;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border-radius: 8px;
             font-weight: 600;
             font-size: 14px;
@@ -48,53 +51,90 @@
         }
         
         .btn-secondary {
-            background: var(--cbn-pale-green);
+            background: white;
             color: var(--cbn-forest);
-            padding: 10px 20px;
+            padding: 12px 24px;
             border-radius: 8px;
-            font-weight: 500;
+            font-weight: 600;
             font-size: 14px;
-            border: none;
+            border: 1px solid var(--cbn-border);
             cursor: pointer;
             transition: all 0.2s ease;
         }
         
         .btn-secondary:hover {
-            background: #C8E6C9;
+            background: var(--cbn-pale-green);
         }
         
-        .status-badge {
-            display: inline-flex;
-            padding: 4px 12px;
-            border-radius: 20px;
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--cbn-border);
+        }
+        
+        .stat-card {
+            background: white;
+            border: 1px solid var(--cbn-border);
+            border-radius: 10px;
+            padding: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(27, 94, 32, 0.08);
+        }
+        
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--cbn-forest);
+            line-height: 1;
+        }
+        
+        .stat-label {
             font-size: 11px;
             font-weight: 600;
+            color: var(--cbn-text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
         }
         
-        .status-completed { background: #E8F5E9; color: #2E7D32; }
-        .status-track { background: #E3F2FD; color: #1565C0; }
-        .status-risk { background: #FFF3E0; color: #E65100; }
-        .status-high-risk { background: #FFEBEE; color: #C62828; }
-        .status-needs-timeline { background: #F5F5F5; color: #757575; }
-        
-        .directive-card {
-            border: 1px solid #E0E0E0;
+        .badge {
+            display: inline-flex;
+            padding: 4px 10px;
             border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 16px;
-            transition: all 0.2s ease;
-            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
         }
         
-        .directive-card:hover {
-            border-color: var(--cbn-medium-green);
-            box-shadow: 0 4px 12px rgba(27, 94, 32, 0.1);
+        .badge-completed { background: #E8F5E9; color: #2E7D32; }
+        .badge-implementing { background: #E3F2FD; color: #1565C0; }
+        .badge-delayed { background: #FFF3E0; color: #E65100; }
+        .badge-not-started { background: #F5F5F5; color: #757575; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #E0E0E0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--cbn-medium-green) 0%, var(--cbn-forest) 100%);
+            transition: width 0.3s ease;
         }
         
         .modal {
             position: fixed;
             inset: 0;
-            z-index: 1000;
+            z-index: 2000;
             display: none;
             align-items: center;
             justify-content: center;
@@ -109,25 +149,31 @@
             position: absolute;
             inset: 0;
             background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(2px);
+            backdrop-filter: blur(3px);
         }
         
         .modal-content {
             background: white;
             border-radius: 16px;
-            max-width: 800px;
+            max-width: 900px;
             width: 100%;
             max-height: 90vh;
             overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            animation: modalPop 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
-            z-index: 1001;
+            z-index: 2001;
+        }
+        
+        @keyframes modalPop {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
         }
         
         .form-input {
             width: 100%;
-            padding: 10px 14px;
-            border: 1px solid #E0E0E0;
+            padding: 10px 12px;
+            border: 1px solid var(--cbn-border);
             border-radius: 8px;
             font-size: 14px;
             transition: all 0.2s ease;
@@ -136,121 +182,146 @@
         .form-input:focus {
             outline: none;
             border-color: var(--cbn-medium-green);
-            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+            background: var(--cbn-pale-green);
+        }
+        
+        textarea.form-input {
+            resize: vertical;
+            min-height: 60px;
         }
         
         .outcome-card {
-            background: #F9FAFB;
-            border: 1px solid #E5E7EB;
-            border-radius: 10px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
             padding: 16px;
             margin-bottom: 12px;
         }
         
-        .loading-spinner {
-            border: 3px solid #E5E7EB;
-            border-top: 3px solid var(--cbn-forest);
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
+        .outcome-card.selected {
+            background: var(--cbn-pale-green);
+            border-color: var(--cbn-medium-green);
         }
         
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .file-upload-area {
+            border: 2px dashed var(--cbn-border);
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
+        
+        .file-upload-area:hover {
+            border-color: var(--cbn-medium-green);
+            background: var(--cbn-pale-green);
+        }
+        
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
-    
+
     <!-- Header -->
     <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-6 py-4">
+        <div class="max-w-7xl mx-auto px-8 py-4">
             <div class="flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <svg class="w-6 h-6 text-green-700" fill="currentColor" viewBox="0 0 20 20">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-green-700 to-green-600 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
                             <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                         </svg>
                     </div>
                     <div>
-                        <h1 class="text-lg font-bold text-gray-900">My Directives</h1>
-                        <p class="text-sm text-gray-500" id="welcome-text">Welcome</p>
+                        <h1 class="text-lg font-bold text-gray-900">Process Owner Portal</h1>
+                        <p class="text-xs text-gray-500">Central Bank of Nigeria - Corporate Secretariat</p>
                     </div>
                 </div>
-                <button onclick="logout()" class="btn-secondary">
-                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                    </svg>
-                    Logout
-                </button>
+                
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="text-sm font-semibold text-gray-900" id="user-name">Loading...</p>
+                        <p class="text-xs text-gray-500" id="user-email">Loading...</p>
+                    </div>
+                    <button onclick="logout()" class="btn-secondary">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                        Logout
+                    </button>
+                </div>
             </div>
         </div>
     </header>
-    
+
     <!-- Main Content -->
-    <main class="max-w-6xl mx-auto px-6 py-8">
+    <main class="max-w-7xl mx-auto px-8 py-8">
         
         <!-- Stats -->
-        <div class="grid grid-cols-4 gap-4 mb-8">
-            <div class="card p-5">
-                <div class="text-3xl font-bold text-gray-900" id="stat-total">0</div>
-                <div class="text-sm text-gray-500 mt-1">Total Assigned</div>
+        <div class="grid grid-cols-5 gap-4 mb-6">
+            <div class="stat-card">
+                <div class="stat-number" id="stat-total">0</div>
+                <div class="stat-label">Total Outcomes</div>
             </div>
-            <div class="card p-5">
-                <div class="text-3xl font-bold text-green-600" id="stat-completed">0</div>
-                <div class="text-sm text-gray-500 mt-1">Completed</div>
+            <div class="stat-card">
+                <div class="stat-number text-green-600" id="stat-completed">0</div>
+                <div class="stat-label">Completed</div>
             </div>
-            <div class="card p-5">
-                <div class="text-3xl font-bold text-blue-600" id="stat-pending">0</div>
-                <div class="text-sm text-gray-500 mt-1">Pending Update</div>
+            <div class="stat-card">
+                <div class="stat-number text-blue-600" id="stat-implementing">0</div>
+                <div class="stat-label">Being Implemented</div>
             </div>
-            <div class="card p-5">
-                <div class="text-3xl font-bold text-red-600" id="stat-overdue">0</div>
-                <div class="text-sm text-gray-500 mt-1">Overdue</div>
+            <div class="stat-card">
+                <div class="stat-number text-orange-600" id="stat-delayed">0</div>
+                <div class="stat-label">Delayed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number text-gray-600" id="stat-not-started">0</div>
+                <div class="stat-label">Not Started</div>
             </div>
         </div>
-        
-        <!-- Filter Tabs -->
-        <div class="flex gap-2 mb-6">
-            <button class="btn-secondary active" onclick="filterDirectives('all')" id="filter-all">All</button>
-            <button class="btn-secondary" onclick="filterDirectives('pending')" id="filter-pending">Pending</button>
-            <button class="btn-secondary" onclick="filterDirectives('completed')" id="filter-completed">Completed</button>
+
+        <!-- Filters -->
+        <div class="card mb-6">
+            <div class="flex flex-col sm:flex-row gap-4">
+                <select id="filter-status" class="form-input" onchange="renderDirectives()">
+                    <option value="all">All Status</option>
+                    <option value="not-started">Not Started</option>
+                    <option value="implementing">Being Implemented</option>
+                    <option value="delayed">Delayed</option>
+                    <option value="partial">Partial Completion</option>
+                    <option value="completed">Full Completion</option>
+                </select>
+                <input type="text" id="search" placeholder="Search directives..." class="flex-1 form-input" oninput="renderDirectives()">
+            </div>
         </div>
-        
+
         <!-- Directives List -->
-        <div class="card p-6">
-            <h2 class="text-lg font-bold text-gray-900 mb-4">Your Assigned Directives</h2>
-            
-            <div id="loading" class="flex items-center justify-center py-12">
-                <div class="loading-spinner"></div>
-                <span class="ml-3 text-gray-500">Loading directives...</span>
-            </div>
-            
-            <div id="directives-list" class="hidden"></div>
-            
-            <div id="empty-state" class="hidden text-center py-12">
-                <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                <p class="text-gray-500">No directives found</p>
-            </div>
+        <div id="directives-list" class="space-y-4">
+            <!-- Will be populated by JavaScript -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden card text-center py-12">
+            <div class="text-6xl mb-4">📋</div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">No Directives Found</h3>
+            <p class="text-gray-500">You currently have no directives assigned to your email address.</p>
+            <p class="text-sm text-gray-400 mt-2">Contact the Corporate Secretariat if you believe this is an error.</p>
         </div>
     </main>
-    
+
     <!-- Update Modal -->
     <div id="update-modal" class="modal">
-        <div class="modal-backdrop" onclick="closeModal()"></div>
+        <div class="modal-backdrop" onclick="closeUpdateModal()"></div>
         <div class="modal-content">
             <div class="sticky top-0 bg-white border-b border-gray-200 p-6 z-10 rounded-t-2xl">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h2 class="text-xl font-bold text-gray-900">Submit Update</h2>
-                        <p class="text-sm text-gray-500 mt-1" id="modal-ref"></p>
+                        <h2 class="text-xl font-bold text-gray-900">Submit Status Update</h2>
+                        <p class="text-sm text-gray-500 mt-1" id="modal-ref">Reference: N/A</p>
                     </div>
-                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                    <button onclick="closeUpdateModal()" class="text-gray-400 hover:text-gray-600">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
@@ -258,308 +329,519 @@
                 </div>
             </div>
             
-            <form id="update-form" class="p-6" enctype="multipart/form-data">
-                <!-- Subject -->
-                <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Subject</div>
-                    <div class="text-sm font-medium text-gray-900" id="modal-subject"></div>
-                </div>
+            <form id="update-form" class="p-6">
+                <input type="hidden" id="directive-id">
                 
+                <!-- Directive Info -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Subject</div>
+                    <div class="font-medium text-gray-900" id="modal-subject"></div>
+                    <div class="text-xs text-gray-600 mt-2" id="modal-particulars"></div>
+                </div>
+
+                <!-- Outcomes Selection -->
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-gray-900">Select Outcomes to Update</h3>
+                        <button type="button" onclick="toggleAllOutcomes()" class="text-sm text-green-600 hover:text-green-700 font-medium">
+                            Toggle All
+                        </button>
+                    </div>
+                    <div id="outcomes-selection" class="space-y-2 max-h-60 overflow-y-auto mb-2">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                    <p class="text-xs text-gray-500" id="selection-count">0 of 0 outcomes selected</p>
+                </div>
+
+                <!-- Outcome Updates (hidden until outcomes selected) -->
+                <div id="outcomes-updates" class="mb-6 hidden">
+                    <h3 class="font-semibold text-gray-900 mb-4">Update Selected Outcomes</h3>
+                    <div id="outcomes-container" class="space-y-4">
+                        <!-- Will be populated based on selection -->
+                    </div>
+                </div>
+
                 <!-- Timeline -->
                 <div class="mb-6">
-                    <h3 class="text-sm font-bold text-gray-900 mb-3">Implementation Timeline</h3>
-                    <div class="grid grid-cols-2 gap-4">
+                    <h3 class="font-semibold text-gray-900 mb-4">Implementation Timeline</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">Start Date</label>
-                            <input type="date" id="modal-start-date" class="form-input">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                            <input type="date" id="start-date" class="form-input">
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">End Date</label>
-                            <input type="date" id="modal-end-date" class="form-input">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                            <input type="date" id="end-date" class="form-input">
                         </div>
                     </div>
                 </div>
-                
-                <!-- Outcomes -->
-                <div class="mb-6">
-                    <h3 class="text-sm font-bold text-gray-900 mb-3">Update Outcomes</h3>
-                    <div id="modal-outcomes"></div>
-                </div>
-                
-                <!-- Comments -->
-                <div class="mb-6">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Additional Comments</label>
-                    <textarea id="modal-comments" class="form-input" rows="3" placeholder="Any additional details..."></textarea>
-                </div>
-                
+
                 <!-- File Upload -->
                 <div class="mb-6">
-                    <label class="block text-xs font-semibold text-gray-600 mb-2">Supporting Documents</label>
-                    <input type="file" id="modal-files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" class="form-input">
-                    <p class="text-xs text-gray-500 mt-1">PDF, DOC, XLS, PNG, JPG up to 10MB each</p>
+                    <h3 class="font-semibold text-gray-900 mb-4">Supporting Documents</h3>
+                    <div class="file-upload-area" onclick="document.getElementById('file-input').click()">
+                        <svg class="w-12 h-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        <p class="text-sm text-gray-600 mb-1">Click to upload documents</p>
+                        <p class="text-xs text-gray-400">PDF, DOC, XLS, Images (Max 10MB)</p>
+                    </div>
+                    <input type="file" id="file-input" multiple class="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onchange="handleFileSelect(event)">
+                    <div id="file-list" class="mt-3 space-y-2"></div>
                 </div>
-                
+
+                <!-- Additional Comments -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Additional Comments</label>
+                    <textarea id="comments" rows="3" class="form-input" placeholder="Any additional updates or notes..."></textarea>
+                </div>
+
                 <!-- Submit -->
-                <div class="flex gap-3 justify-end pt-4 border-t">
-                    <button type="button" onclick="closeModal()" class="btn-secondary">Cancel</button>
-                    <button type="submit" class="btn-primary" id="submit-btn">Submit Update</button>
+                <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
+                    <button type="submit" class="flex-1 btn-primary">
+                        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Submit Update to Secretariat
+                    </button>
+                    <button type="button" onclick="closeUpdateModal()" class="btn-secondary px-8">
+                        Cancel
+                    </button>
                 </div>
             </form>
         </div>
     </div>
-    
+
     <script>
         const API_BASE = window.location.hostname === 'localhost' 
             ? 'http://localhost:3001/api'
             : '/api';
-        
+
         let allDirectives = [];
-        let currentFilter = 'all';
-        let currentDirectiveId = null;
-        
+        let filteredDirectives = [];
+        let currentDirective = null;
+        let selectedFiles = [];
+
         // Check authentication
         if (sessionStorage.getItem('isLoggedIn') !== 'true' || sessionStorage.getItem('userType') !== 'processOwner') {
             window.location.href = '/login.html';
         }
-        
-        const userEmail = sessionStorage.getItem('userEmail');
+
+        // Load user info
         const userName = sessionStorage.getItem('userName');
-        
-        document.getElementById('welcome-text').textContent = `Welcome, ${userName || userEmail}`;
-        
-        // Load directives
+        const userEmail = sessionStorage.getItem('userEmail');
+        document.getElementById('user-name').textContent = userName || 'Process Owner';
+        document.getElementById('user-email').textContent = userEmail || '';
+
         async function loadDirectives() {
             try {
-                const response = await fetch(`${API_BASE}/process-owners/${encodeURIComponent(userEmail)}/pending-directives`);
+                const response = await fetch(`${API_BASE}/directives`);
                 const result = await response.json();
-                
-                document.getElementById('loading').classList.add('hidden');
-                
-                if (result.success && result.data.length > 0) {
-                    allDirectives = result.data;
+
+                if (result.success) {
+                    // Filter directives assigned to this user
+                    allDirectives = result.data.filter(d => {
+                        return d.owner === userName || 
+                               (d.primaryEmail && d.primaryEmail.toLowerCase() === userEmail.toLowerCase());
+                    });
+
+                    if (allDirectives.length === 0) {
+                        document.getElementById('empty-state').classList.remove('hidden');
+                        document.getElementById('directives-list').classList.add('hidden');
+                        return;
+                    }
+
+                    document.getElementById('empty-state').classList.add('hidden');
+                    document.getElementById('directives-list').classList.remove('hidden');
+
                     updateStats();
                     renderDirectives();
                 } else {
-                    document.getElementById('empty-state').classList.remove('hidden');
+                    console.error('Failed to load directives');
                 }
             } catch (error) {
                 console.error('Error loading directives:', error);
-                document.getElementById('loading').innerHTML = '<p class="text-red-500">Error loading directives</p>';
+                alert('Error loading directives. Please refresh the page.');
             }
         }
-        
+
         function updateStats() {
-            const total = allDirectives.length;
-            const completed = allDirectives.filter(d => d.monitoringStatus === 'Completed').length;
-            const pending = allDirectives.filter(d => d.monitoringStatus !== 'Completed').length;
-            const overdue = allDirectives.filter(d => {
-                if (!d.implementationEndDate || d.monitoringStatus === 'Completed') return false;
-                return new Date(d.implementationEndDate) < new Date();
-            }).length;
-            
-            document.getElementById('stat-total').textContent = total;
-            document.getElementById('stat-completed').textContent = completed;
-            document.getElementById('stat-pending').textContent = pending;
-            document.getElementById('stat-overdue').textContent = overdue;
-        }
-        
-        function filterDirectives(filter) {
-            currentFilter = filter;
-            
-            document.querySelectorAll('[id^="filter-"]').forEach(btn => {
-                btn.classList.remove('active');
-                btn.style.background = '';
-                btn.style.color = '';
+            let totalOutcomes = 0;
+            let completed = 0;
+            let implementing = 0;
+            let delayed = 0;
+            let notStarted = 0;
+
+            allDirectives.forEach(d => {
+                if (d.outcomes && d.outcomes.length > 0) {
+                    d.outcomes.forEach(outcome => {
+                        totalOutcomes++;
+                        switch(outcome.status) {
+                            case 'Completed': completed++; break;
+                            case 'Being Implemented': implementing++; break;
+                            case 'Delayed': delayed++; break;
+                            case 'Not Started': notStarted++; break;
+                        }
+                    });
+                }
             });
-            document.getElementById(`filter-${filter}`).classList.add('active');
-            document.getElementById(`filter-${filter}`).style.background = '#1B5E20';
-            document.getElementById(`filter-${filter}`).style.color = 'white';
-            
-            renderDirectives();
+
+            document.getElementById('stat-total').textContent = totalOutcomes;
+            document.getElementById('stat-completed').textContent = completed;
+            document.getElementById('stat-implementing').textContent = implementing;
+            document.getElementById('stat-delayed').textContent = delayed;
+            document.getElementById('stat-not-started').textContent = notStarted;
         }
-        
+
         function renderDirectives() {
-            let filtered = allDirectives;
-            
-            if (currentFilter === 'pending') {
-                filtered = allDirectives.filter(d => d.monitoringStatus !== 'Completed');
-            } else if (currentFilter === 'completed') {
-                filtered = allDirectives.filter(d => d.monitoringStatus === 'Completed');
-            }
-            
-            const container = document.getElementById('directives-list');
-            
-            if (filtered.length === 0) {
-                container.classList.add('hidden');
-                document.getElementById('empty-state').classList.remove('hidden');
-                return;
-            }
-            
-            document.getElementById('empty-state').classList.add('hidden');
-            container.classList.remove('hidden');
-            
-            container.innerHTML = filtered.map(d => {
-                const statusClass = {
-                    'Completed': 'status-completed',
-                    'On Track': 'status-track',
-                    'At Risk': 'status-risk',
-                    'High Risk': 'status-high-risk',
-                    'Needs Timeline': 'status-needs-timeline'
-                }[d.monitoringStatus] || 'status-track';
-                
-                const isOverdue = d.implementationEndDate && new Date(d.implementationEndDate) < new Date() && d.monitoringStatus !== 'Completed';
+            const filter = document.getElementById('filter-status').value;
+            const search = document.getElementById('search').value.toLowerCase();
+
+            filteredDirectives = allDirectives.filter(d => {
+                // Search filter
+                if (search) {
+                    const matchesSearch = 
+                        (d.subject && d.subject.toLowerCase().includes(search)) ||
+                        (d.ref && d.ref.toLowerCase().includes(search)) ||
+                        (d.particulars && d.particulars.toLowerCase().includes(search));
+                    if (!matchesSearch) return false;
+                }
+
+                // Status filter
+                if (filter !== 'all') {
+                    const stats = getDirectiveStats(d);
+                    
+                    switch(filter) {
+                        case 'completed':
+                            return stats.completed === stats.total && stats.total > 0;
+                        case 'partial':
+                            return stats.completed > 0 && stats.completed < stats.total;
+                        case 'implementing':
+                            return stats.implementing > 0;
+                        case 'delayed':
+                            return stats.delayed > 0;
+                        case 'not-started':
+                            return stats.notStarted === stats.total && stats.total > 0;
+                        default:
+                            return true;
+                    }
+                }
+
+                return true;
+            });
+
+            const html = filteredDirectives.length > 0 ? filteredDirectives.map(d => {
+                const stats = getDirectiveStats(d);
+                const completionType = stats.completed === stats.total ? 'Full Completion' : 
+                                      stats.completed > 0 ? 'Partial Completion' : '';
                 
                 return `
-                    <div class="directive-card ${isOverdue ? 'border-red-300 bg-red-50' : ''}" onclick="openUpdateModal('${d._id}')">
-                        <div class="flex items-start justify-between mb-3">
-                            <div>
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="text-xs font-mono font-bold text-green-700">${d.ref || 'N/A'}</span>
-                                    <span class="status-badge ${statusClass}">${d.monitoringStatus}</span>
-                                    ${isOverdue ? '<span class="status-badge status-high-risk">OVERDUE</span>' : ''}
+                    <div class="card hover:shadow-lg transition-shadow">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-sm font-mono text-gray-500">${d.ref || 'N/A'}</span>
+                                    ${completionType ? `<span class="badge ${stats.completed === stats.total ? 'badge-completed' : 'bg-blue-100 text-blue-700'}">${completionType}</span>` : ''}
                                 </div>
-                                <h3 class="font-semibold text-gray-900">${d.subject}</h3>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-2">${escapeHtml(d.subject)}</h3>
+                                <p class="text-sm text-gray-600 line-clamp-2">${escapeHtml(d.particulars || '')}</p>
                             </div>
-                            <button class="btn-primary text-xs" onclick="event.stopPropagation(); openUpdateModal('${d._id}')">
-                                Update
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between text-xs mb-2">
+                                <span class="font-medium text-gray-700">Overall Progress</span>
+                                <span class="font-semibold text-green-600">${stats.completionRate}%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${stats.completionRate}%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Outcomes Summary -->
+                        <div class="grid grid-cols-4 gap-2 mb-4 text-center">
+                            <div class="bg-green-50 rounded-lg p-2">
+                                <div class="text-lg font-bold text-green-600">${stats.completed}</div>
+                                <div class="text-xs text-green-700">Completed</div>
+                            </div>
+                            <div class="bg-blue-50 rounded-lg p-2">
+                                <div class="text-lg font-bold text-blue-600">${stats.implementing}</div>
+                                <div class="text-xs text-blue-700">Implementing</div>
+                            </div>
+                            <div class="bg-orange-50 rounded-lg p-2">
+                                <div class="text-lg font-bold text-orange-600">${stats.delayed}</div>
+                                <div class="text-xs text-orange-700">Delayed</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-2">
+                                <div class="text-lg font-bold text-gray-600">${stats.notStarted}</div>
+                                <div class="text-xs text-gray-700">Not Started</div>
+                            </div>
+                        </div>
+
+                        <!-- Timeline -->
+                        ${d.implementationEndDate ? `
+                        <div class="text-xs text-gray-500 mb-4">
+                            <span class="font-medium">Deadline:</span> ${formatDate(d.implementationEndDate)}
+                        </div>
+                        ` : ''}
+
+                        <!-- Actions -->
+                        <div class="pt-4 border-t border-gray-200">
+                            <button onclick="openUpdateModal('${d._id}')" class="btn-primary w-full">
+                                <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                                Submit Status Update
                             </button>
                         </div>
-                        <div class="flex gap-6 text-xs text-gray-500">
-                            <div>
-                                <span class="font-semibold">Outcomes:</span> ${d.outcomes?.length || 0}
-                            </div>
-                            <div>
-                                <span class="font-semibold">Deadline:</span> ${d.implementationEndDate ? new Date(d.implementationEndDate).toLocaleDateString('en-GB') : 'Not set'}
-                            </div>
-                            <div>
-                                <span class="font-semibold">Reminders:</span> ${d.reminders || 0}/3
-                            </div>
-                        </div>
                     </div>
                 `;
-            }).join('');
+            }).join('') : '<div class="card text-center py-12 text-gray-500">No directives match your filters</div>';
+
+            document.getElementById('directives-list').innerHTML = html;
         }
-        
-        function openUpdateModal(id) {
-            const directive = allDirectives.find(d => d._id === id);
-            if (!directive) return;
-            
-            currentDirectiveId = id;
-            
-            document.getElementById('modal-ref').textContent = `Reference: ${directive.ref || 'N/A'}`;
-            document.getElementById('modal-subject').textContent = directive.subject;
-            
-            if (directive.implementationStartDate) {
-                document.getElementById('modal-start-date').value = new Date(directive.implementationStartDate).toISOString().split('T')[0];
-            } else {
-                document.getElementById('modal-start-date').value = '';
+
+        function getDirectiveStats(directive) {
+            if (!directive.outcomes || directive.outcomes.length === 0) {
+                return { total: 0, completed: 0, implementing: 0, delayed: 0, notStarted: 0, completionRate: 0 };
             }
-            
-            if (directive.implementationEndDate) {
-                document.getElementById('modal-end-date').value = new Date(directive.implementationEndDate).toISOString().split('T')[0];
-            } else {
-                document.getElementById('modal-end-date').value = '';
+
+            const total = directive.outcomes.length;
+            const completed = directive.outcomes.filter(o => o.status === 'Completed').length;
+            const implementing = directive.outcomes.filter(o => o.status === 'Being Implemented').length;
+            const delayed = directive.outcomes.filter(o => o.status === 'Delayed').length;
+            const notStarted = directive.outcomes.filter(o => o.status === 'Not Started').length;
+            const completionRate = Math.round((completed / total) * 100);
+
+            return { total, completed, implementing, delayed, notStarted, completionRate };
+        }
+
+        function openUpdateModal(directiveId) {
+            currentDirective = allDirectives.find(d => d._id === directiveId);
+            if (!currentDirective) return;
+
+            selectedFiles = [];
+            document.getElementById('file-list').innerHTML = '';
+
+            document.getElementById('directive-id').value = directiveId;
+            document.getElementById('modal-ref').textContent = `Reference: ${currentDirective.ref || 'N/A'}`;
+            document.getElementById('modal-subject').textContent = currentDirective.subject;
+            document.getElementById('modal-particulars').textContent = currentDirective.particulars || '';
+
+            if (currentDirective.implementationStartDate) {
+                document.getElementById('start-date').value = new Date(currentDirective.implementationStartDate).toISOString().split('T')[0];
             }
-            
-            // Render outcomes
-            const outcomesHtml = directive.outcomes.map((o, idx) => {
-                const statusColor = {
-                    'Not Started': 'gray',
-                    'Being Implemented': 'blue',
-                    'Delayed': 'orange',
-                    'Completed': 'green'
-                }[o.status] || 'gray';
-                
+            if (currentDirective.implementationEndDate) {
+                document.getElementById('end-date').value = new Date(currentDirective.implementationEndDate).toISOString().split('T')[0];
+            }
+
+            // Render outcome checkboxes
+            const outcomesHtml = (currentDirective.outcomes || []).map((outcome, idx) => {
+                const statusBadge = getStatusBadgeClass(outcome.status);
                 return `
-                    <div class="outcome-card">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-bold text-indigo-600">Outcome ${idx + 1}</span>
-                            <span class="text-xs px-2 py-1 rounded-full bg-${statusColor}-100 text-${statusColor}-700 font-semibold">${o.status}</span>
+                    <label class="flex items-start p-3 bg-white rounded-lg border border-gray-200 hover:border-green-500 cursor-pointer transition-all outcome-checkbox-label">
+                        <input type="checkbox" value="${idx}" class="outcome-checkbox mt-1 w-4 h-4 text-green-600 rounded" checked onchange="updateOutcomeSelection()">
+                        <div class="ml-3 flex-1">
+                            <div class="text-sm font-medium text-gray-900">${idx + 1}. ${escapeHtml(outcome.text)}</div>
+                            <span class="inline-block mt-1 badge ${statusBadge}">${outcome.status}</span>
                         </div>
-                        <p class="text-sm text-gray-700 mb-3">${o.text}</p>
-                        <div class="space-y-2">
-                            <select name="outcome-status-${idx}" class="form-input text-sm">
-                                <option value="Not Started" ${o.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
-                                <option value="Being Implemented" ${o.status === 'Being Implemented' ? 'selected' : ''}>Being Implemented</option>
-                                <option value="Delayed" ${o.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
-                                <option value="Completed" ${o.status === 'Completed' ? 'selected' : ''}>Completed</option>
-                            </select>
-                            <textarea name="outcome-challenges-${idx}" class="form-input text-sm" rows="2" placeholder="Comments / Challenges / Obstacles...">${o.challenges || ''}</textarea>
-                        </div>
-                    </div>
+                    </label>
                 `;
             }).join('');
-            
-            document.getElementById('modal-outcomes').innerHTML = outcomesHtml;
-            document.getElementById('modal-comments').value = '';
-            document.getElementById('modal-files').value = '';
-            
+
+            document.getElementById('outcomes-selection').innerHTML = outcomesHtml;
+            updateOutcomeSelection();
+
             document.getElementById('update-modal').classList.add('active');
         }
-        
-        function closeModal() {
+
+        function closeUpdateModal() {
             document.getElementById('update-modal').classList.remove('active');
-            currentDirectiveId = null;
+            document.getElementById('update-form').reset();
+            currentDirective = null;
+            selectedFiles = [];
         }
-        
-        // Form submission
+
+        function toggleAllOutcomes() {
+            const checkboxes = document.querySelectorAll('.outcome-checkbox');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+            updateOutcomeSelection();
+        }
+
+        function updateOutcomeSelection() {
+            const checkboxes = document.querySelectorAll('.outcome-checkbox');
+            const selectedIndices = Array.from(checkboxes).filter(cb => cb.checked).map(cb => parseInt(cb.value));
+            
+            const total = checkboxes.length;
+            const selected = selectedIndices.length;
+            document.getElementById('selection-count').textContent = `${selected} of ${total} outcomes selected`;
+
+            // Update labels styling
+            document.querySelectorAll('.outcome-checkbox-label').forEach((label, idx) => {
+                if (selectedIndices.includes(idx)) {
+                    label.classList.add('border-green-500', 'bg-green-50');
+                } else {
+                    label.classList.remove('border-green-500', 'bg-green-50');
+                }
+            });
+
+            // Render update forms for selected outcomes
+            if (selected > 0) {
+                document.getElementById('outcomes-updates').classList.remove('hidden');
+                
+                const updatesHtml = selectedIndices.map(idx => {
+                    const outcome = currentDirective.outcomes[idx];
+                    return `
+                        <div class="outcome-card">
+                            <div class="font-semibold text-sm text-green-700 mb-2">Outcome ${idx + 1}</div>
+                            <div class="text-sm text-gray-700 mb-4">${escapeHtml(outcome.text)}</div>
+                            
+                            <div class="grid gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Update Status</label>
+                                    <select name="outcome-status-${idx}" class="form-input">
+                                        <option value="Not Started" ${outcome.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
+                                        <option value="Being Implemented" ${outcome.status === 'Being Implemented' ? 'selected' : ''}>Being Implemented</option>
+                                        <option value="Delayed" ${outcome.status === 'Delayed' ? 'selected' : ''}>Delayed</option>
+                                        <option value="Completed" ${outcome.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Challenges / Notes</label>
+                                    <textarea name="outcome-challenges-${idx}" rows="2" class="form-input" placeholder="Describe any challenges or progress notes...">${escapeHtml(outcome.challenges || '')}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                document.getElementById('outcomes-container').innerHTML = updatesHtml;
+            } else {
+                document.getElementById('outcomes-updates').classList.add('hidden');
+            }
+        }
+
+        function handleFileSelect(event) {
+            const files = Array.from(event.target.files);
+            selectedFiles = [...selectedFiles, ...files];
+            
+            const fileListHtml = selectedFiles.map((file, idx) => `
+                <div class="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-sm text-gray-700">${file.name}</span>
+                        <span class="text-xs text-gray-400">(${formatFileSize(file.size)})</span>
+                    </div>
+                    <button type="button" onclick="removeFile(${idx})" class="text-red-600 hover:text-red-800">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+            
+            document.getElementById('file-list').innerHTML = fileListHtml;
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            handleFileSelect({ target: { files: [] } });
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
         document.getElementById('update-form').addEventListener('submit', async function(e) {
             e.preventDefault();
+
+            const selectedIndices = Array.from(document.querySelectorAll('.outcome-checkbox:checked')).map(cb => parseInt(cb.value));
             
-            const submitBtn = document.getElementById('submit-btn');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loading-spinner inline-block w-4 h-4 mr-2"></span> Submitting...';
-            
-            try {
-                const directive = allDirectives.find(d => d._id === currentDirectiveId);
-                
-                // Build outcomes array
-                const outcomes = directive.outcomes.map((o, idx) => ({
-                    text: o.text,
-                    status: document.querySelector(`select[name="outcome-status-${idx}"]`).value,
-                    challenges: document.querySelector(`textarea[name="outcome-challenges-${idx}"]`).value
-                }));
-                
-                const formData = new FormData();
-                formData.append('outcomes', JSON.stringify(outcomes));
-                formData.append('implementationStartDate', document.getElementById('modal-start-date').value);
-                formData.append('implementationEndDate', document.getElementById('modal-end-date').value);
-                formData.append('completionNote', document.getElementById('modal-comments').value);
-                
-                // Add files
-                const fileInput = document.getElementById('modal-files');
-                for (let i = 0; i < fileInput.files.length; i++) {
-                    formData.append('files', fileInput.files[i]);
-                }
-                
-                const response = await fetch(`${API_BASE}/submit-update/${currentDirectiveId}`, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert('✅ Update submitted successfully!');
-                    closeModal();
-                    loadDirectives(); // Reload to refresh data
+            if (selectedIndices.length === 0) {
+                alert('Please select at least one outcome to update');
+                return;
+            }
+
+            // Collect outcomes - preserve all outcomes, only update selected ones
+            const outcomes = currentDirective.outcomes.map((outcome, idx) => {
+                if (selectedIndices.includes(idx)) {
+                    const statusEl = document.querySelector(`[name="outcome-status-${idx}"]`);
+                    const challengesEl = document.querySelector(`[name="outcome-challenges-${idx}"]`);
+                    
+                    return {
+                        text: outcome.text,
+                        status: statusEl ? statusEl.value : outcome.status,
+                        challenges: challengesEl ? challengesEl.value : (outcome.challenges || '')
+                    };
                 } else {
-                    throw new Error(result.error);
+                    return outcome; // Keep unchanged
+                }
+            });
+
+            const updateData = {
+                outcomes: outcomes,
+                implementationStartDate: document.getElementById('start-date').value || null,
+                implementationEndDate: document.getElementById('end-date').value || null,
+                completionNote: document.getElementById('comments').value,
+                updateSource: 'self-initiated'
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/directives/${currentDirective._id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('✅ Update submitted successfully! The Corporate Secretariat has been notified.');
+                    closeUpdateModal();
+                    loadDirectives();
+                } else {
+                    alert('❌ Error: ' + (result.error || 'Submission failed'));
                 }
             } catch (error) {
-                alert('❌ Error: ' + error.message);
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Submit Update';
+                console.error('Submission error:', error);
+                alert('❌ Error submitting update. Please try again.');
             }
         });
-        
+
         function logout() {
             sessionStorage.clear();
             window.location.href = '/login.html';
         }
-        
-        // Initialize
+
+        function formatDate(date) {
+            if (!date) return 'N/A';
+            return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function getStatusBadgeClass(status) {
+            const map = {
+                'Completed': 'badge-completed',
+                'Being Implemented': 'badge-implementing',
+                'Delayed': 'badge-delayed',
+                'Not Started': 'badge-not-started'
+            };
+            return map[status] || 'badge-not-started';
+        }
+
+        // Load on page load
         loadDirectives();
     </script>
 </body>

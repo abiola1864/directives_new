@@ -313,89 +313,15 @@
         }
         
         @media print {
-            /* Hide non-printable elements */
             .sidebar, .no-print, .filter-bar, .pagination, .tooltip-icon { display: none !important; }
-            
-            /* Reset layout for print */
-            body {
-                background: white;
-                overflow: visible !important;
-            }
-            
-            .main-content {
-                margin-left: 0;
-                padding: 0;
-                overflow: visible !important;
-                height: auto !important;
-            }
-            
-            /* Show all sections for printing */
-            .view-section {
-                display: block !important;
-                page-break-after: always;
-            }
-            
-            .view-section:last-child {
-                page-break-after: auto;
-            }
-            
-            /* Adjust card spacing for print */
-            .stat-card, .chart-card, .item-card {
-                page-break-inside: avoid;
-                box-shadow: none !important;
-                border: 1px solid #ddd;
-            }
-            
-            /* Add page breaks strategically */
-            .grid {
-                page-break-inside: avoid;
-            }
-            
-            /* Ensure directives and owners lists print completely */
-            #directives-list, #owners-list, #reminders-list {
-                display: block !important;
-            }
-            
-            #directives-list .item-card,
-            #owners-list .item-card,
-            #reminders-list .item-card {
-                page-break-inside: avoid;
-                margin-bottom: 12px;
-            }
-            
-            /* Charts should fit on one page */
-            canvas {
-                max-height: 300px !important;
-            }
-            
-            /* Print-specific title for each section */
-            .view-section h2::before {
-                content: "CBN Board Directives Report - ";
-                font-size: 0.7em;
-                color: #666;
-                display: block;
-                margin-bottom: 0.5em;
-            }
-            
-            /* Add page numbers */
-            @page {
-                margin: 1.5cm;
-                @bottom-right {
-                    content: "Page " counter(page) " of " counter(pages);
-                    font-size: 9pt;
-                    color: #666;
-                }
-            }
-            
-            /* Print header on each page */
-            @page {
-                @top-center {
-                    content: "CBN Board Directives - Analytics Report";
-                    font-size: 10pt;
-                    font-weight: bold;
-                    color: #1B5E20;
-                }
-            }
+            body { background: white; overflow: visible !important; }
+            .main-content { margin-left: 0; padding: 0; overflow: visible !important; height: auto !important; }
+            .view-section { display: block !important; page-break-after: always; }
+            .view-section:last-child { page-break-after: auto; }
+            .stat-card, .chart-card, .item-card { page-break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd; }
+            .grid { page-break-inside: avoid; }
+            canvas { max-height: 300px !important; }
+            @page { margin: 1.5cm; }
         }
     </style>
 </head>
@@ -436,35 +362,30 @@
 
         <!-- Navigation -->
         <nav class="py-2">
-             <a href="/index.html" class="nav-item" style="text-decoration: none; color: inherit;">
-        <span>←</span>
-        <span>Back to Dashboard</span>
-    </a>
+            <a href="/index.html" class="nav-item" style="text-decoration: none; color: inherit;">
+                <span>←</span>
+                <span>Back to Dashboard</span>
+            </a>
             <div class="nav-item active" onclick="showView('overview')">
                 <span>📊</span>
                 <span>Overview</span>
             </div>
-            <div class="nav-item" onclick="showView('status')">
+            <div class="nav-item" onclick="showView('outcomes')">
                 <span>📈</span>
-                <span>Status Analysis</span>
-            </div>
-            <div class="nav-item" onclick="showView('timeline')">
-                <span>⏱️</span>
-                <span>Timeline</span>
+                <span>Outcome Analysis</span>
             </div>
             <div class="nav-item" onclick="showView('directives')">
                 <span>📋</span>
-                <span>Directive Outcomes</span>
+                <span>Directive Details</span>
             </div>
-            <div class="nav-item" onclick="showView('reminders')">
-                <span>📧</span>
-                <span>Reminder Analysis</span>
+            <div class="nav-item" onclick="showView('timeline')">
+                <span>⏱️</span>
+                <span>Timeline Tracking</span>
             </div>
             <div class="nav-item" onclick="showView('owners')">
                 <span>👥</span>
                 <span>Process Owners</span>
             </div>
-
         </nav>
 
         <!-- Actions -->
@@ -488,71 +409,82 @@
                 <p class="text-sm text-gray-600" id="current-date"></p>
             </div>
 
-            <!-- Quick Stats -->
-            <div class="grid grid-cols-4 gap-4 mb-6">
+            <!-- Outcome-Based Stats -->
+            <div class="grid grid-cols-5 gap-4 mb-6">
                 <div class="stat-card">
                     <div class="flex items-center text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                        Total
-                        <span class="tooltip-icon" data-tooltip="Total number of directives">ℹ️</span>
+                        Total Outcomes
+                        <span class="tooltip-icon" data-tooltip="Total individual outcomes across all directives">ℹ️</span>
                     </div>
-                    <div class="metric-big" style="color: var(--cbn-dark);" id="ov-total">0</div>
-                    <div class="text-xs text-gray-500 mt-2">Directives</div>
+                    <div class="metric-big" style="color: var(--cbn-dark);" id="ov-total-outcomes">0</div>
+                    <div class="text-xs text-gray-500 mt-2">From <span id="ov-total-directives">0</span> directives</div>
                 </div>
                 <div class="stat-card">
                     <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-primary);">
                         Completed
-                        <span class="tooltip-icon" data-tooltip="Directives with all outcomes completed">ℹ️</span>
+                        <span class="tooltip-icon" data-tooltip="Outcomes marked as completed">ℹ️</span>
                     </div>
-                    <div class="metric-big" style="color: var(--cbn-primary);" id="ov-done">0</div>
-                    <div class="text-xs font-medium mt-2" style="color: var(--cbn-primary);" id="ov-done-pct">0%</div>
+                    <div class="metric-big" style="color: var(--cbn-primary);" id="ov-completed">0</div>
+                    <div class="text-xs font-medium mt-2" style="color: var(--cbn-primary);" id="ov-completed-pct">0%</div>
                 </div>
                 <div class="stat-card">
                     <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-medium);">
-                        Active
-                        <span class="tooltip-icon" data-tooltip="On Track + At Risk directives">ℹ️</span>
+                        Being Implemented
+                        <span class="tooltip-icon" data-tooltip="Outcomes actively in progress">ℹ️</span>
                     </div>
-                    <div class="metric-big" style="color: var(--cbn-medium);" id="ov-active">0</div>
-                    <div class="text-xs mt-2" style="color: var(--cbn-medium);">In progress</div>
+                    <div class="metric-big" style="color: var(--cbn-medium);" id="ov-implementing">0</div>
+                    <div class="text-xs font-medium mt-2" style="color: var(--cbn-medium);" id="ov-implementing-pct">0%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--red-critical);">
-                        High Risk
-                        <span class="tooltip-icon" data-tooltip="Directives with no response to 3 reminders">ℹ️</span>
+                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2 text-orange-600">
+                        Delayed
+                        <span class="tooltip-icon" data-tooltip="Outcomes marked as delayed">ℹ️</span>
                     </div>
-                    <div class="metric-big" style="color: var(--red-critical);" id="ov-risk">0</div>
-                    <div class="text-xs font-medium mt-2" style="color: var(--red-critical);" id="ov-risk-pct">0%</div>
+                    <div class="metric-big text-orange-600" id="ov-delayed">0</div>
+                    <div class="text-xs font-medium mt-2 text-orange-600" id="ov-delayed-pct">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2 text-gray-500">
+                        Not Started
+                        <span class="tooltip-icon" data-tooltip="Outcomes not yet begun">ℹ️</span>
+                    </div>
+                    <div class="metric-big text-gray-500" id="ov-not-started">0</div>
+                    <div class="text-xs font-medium mt-2 text-gray-500" id="ov-not-started-pct">0%</div>
                 </div>
             </div>
 
-            <!-- Additional Metrics -->
+            <!-- Directive-Level Completion -->
             <div class="grid grid-cols-3 gap-4 mb-6">
                 <div class="stat-card bg-green-50">
                     <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                        Response Rate
-                        <span class="tooltip-icon" data-tooltip="% of directives that have received updates">ℹ️</span>
+                        Full Completion
+                        <span class="tooltip-icon" data-tooltip="Directives with ALL outcomes completed">ℹ️</span>
                     </div>
-                    <div class="text-4xl font-light text-green-700" id="ov-response-rate">0%</div>
+                    <div class="text-4xl font-light text-green-700" id="ov-full-completion">0</div>
+                    <div class="text-xs text-green-700 mt-1" id="ov-full-completion-pct">0%</div>
                 </div>
                 <div class="stat-card bg-blue-50">
                     <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                        Avg. Days to Complete
-                        <span class="tooltip-icon" data-tooltip="Average time from creation to completion">ℹ️</span>
+                        Partial Completion
+                        <span class="tooltip-icon" data-tooltip="Directives with SOME outcomes completed">ℹ️</span>
                     </div>
-                    <div class="text-4xl font-light text-blue-700" id="ov-avg-completion">--</div>
+                    <div class="text-4xl font-light text-blue-700" id="ov-partial-completion">0</div>
+                    <div class="text-xs text-blue-700 mt-1" id="ov-partial-completion-pct">0%</div>
                 </div>
-                <div class="stat-card bg-gray-50">
+                <div class="stat-card bg-red-50">
                     <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                        Outcome Completion
-                        <span class="tooltip-icon" data-tooltip="% of individual outcomes completed">ℹ️</span>
+                        Non-Responsive
+                        <span class="tooltip-icon" data-tooltip="Directives with 3+ reminders, no response">ℹ️</span>
                     </div>
-                    <div class="text-4xl font-light text-gray-700" id="ov-outcome-completion">0%</div>
+                    <div class="text-4xl font-light text-red-700" id="ov-non-responsive">0</div>
+                    <div class="text-xs text-red-700 mt-1" id="ov-non-responsive-pct">0%</div>
                 </div>
             </div>
 
             <!-- Summary -->
             <div class="stat-card mb-6">
                 <h3 class="text-base font-medium mb-2 flex items-center" style="color: var(--cbn-dark);">
-                    Summary
+                    Strategic Summary
                     <span class="tooltip-icon" data-tooltip="Overall performance assessment">ℹ️</span>
                 </h3>
                 <p id="ov-summary" class="text-gray-700 leading-relaxed text-sm"></p>
@@ -561,169 +493,72 @@
             <!-- Charts -->
             <div class="grid grid-cols-2 gap-6">
                 <div class="chart-card">
-                    <h3 class="text-base font-medium mb-2 flex items-center" style="color: var(--cbn-dark);">
-                        Directive-Level Status
-                        <span class="tooltip-icon" data-tooltip="Overall status based on outcome completion & responsiveness">ℹ️</span>
-                    </h3>
-                    <p class="text-xs text-gray-500 mb-4">Monitoring Status (based on outcomes & responses)</p>
-                    <canvas id="ov-chart" height="200"></canvas>
+                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Outcome Status Distribution</h3>
+                    <canvas id="ov-outcome-chart" height="200"></canvas>
                 </div>
                 <div class="chart-card">
-                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Timeline Alerts</h3>
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                            <div>
-                                <div class="font-medium text-sm" style="color: var(--red-critical);">Overdue</div>
-                                <div class="text-xs text-gray-600">Past deadline</div>
-                            </div>
-                            <div class="text-3xl font-light" style="color: var(--red-critical);" id="ov-overdue">0</div>
-                        </div>
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div>
-                                <div class="font-medium text-sm text-gray-700">Due Soon</div>
-                                <div class="text-xs text-gray-600">Within 30 days</div>
-                            </div>
-                            <div class="text-3xl font-light text-gray-700" id="ov-due-soon">0</div>
-                        </div>
-                    </div>
+                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Directive Completion Status</h3>
+                    <canvas id="ov-directive-chart" height="200"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- Status Analysis Section -->
-        <div id="view-status" class="view-section">
+        <!-- Outcome Analysis Section -->
+        <div id="view-outcomes" class="view-section">
             <div class="mb-6">
-                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Status Analysis</h2>
-                <p class="text-sm text-gray-600">Detailed breakdown of directive statuses</p>
+                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Outcome Analysis</h2>
+                <p class="text-sm text-gray-600">Individual outcome status tracking</p>
             </div>
 
-            <!-- Status Definitions -->
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="stat-card bg-green-50 border-2 border-green-200">
-                    <div class="font-medium text-sm text-green-900 mb-2">✅ Completed</div>
-                    <div class="text-xs text-gray-700">All outcomes completed (100% completion rate)</div>
-                </div>
-                <div class="stat-card bg-blue-50 border-2 border-blue-200">
-                    <div class="font-medium text-sm text-blue-900 mb-2">🟢 On Track</div>
-                    <div class="text-xs text-gray-700">Making progress, responded to updates, <60 days old</div>
-                </div>
-                <div class="stat-card bg-yellow-50 border-2 border-yellow-200">
-                    <div class="font-medium text-sm text-yellow-900 mb-2">⚠️ At Risk</div>
-                    <div class="text-xs text-gray-700">Has delayed outcomes OR no progress for 60+ days OR 1-2 reminders sent</div>
-                </div>
-                <div class="stat-card bg-red-50 border-2 border-red-200">
-                    <div class="font-medium text-sm text-red-900 mb-2">🔴 High Risk</div>
-                    <div class="text-xs text-gray-700">No response after 3 reminders (non-responsive)</div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-6">
-                <div class="chart-card">
-                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Distribution</h3>
-                    <canvas id="status-chart" height="280"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Breakdown</h3>
-                    <div id="status-breakdown"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Timeline Section -->
-        <div id="view-timeline" class="view-section">
-            <div class="mb-6">
-                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Timeline Analysis</h2>
-                <p class="text-sm text-gray-600">Tracking deadlines and implementation dates</p>
-            </div>
-
-            <div class="grid grid-cols-3 gap-4 mb-6">
-                <div class="stat-card bg-red-50">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--red-critical);">Overdue</div>
-                    <div class="text-5xl font-light mb-2" style="color: var(--red-critical);" id="tl-overdue">0</div>
-                    <div class="text-xs" style="color: var(--red-critical);">Past deadline</div>
-                </div>
-                <div class="stat-card bg-gray-50">
-                    <div class="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">Due Soon</div>
-                    <div class="text-5xl font-light text-gray-700 mb-2" id="tl-due-soon">0</div>
-                    <div class="text-xs text-gray-700">Within 30 days</div>
-                </div>
-                <div class="stat-card">
-                    <div class="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">No Date</div>
-                    <div class="text-5xl font-light text-gray-600 mb-2" id="tl-no-date">0</div>
-                    <div class="text-xs text-gray-600">Needs scheduling</div>
-                </div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Timeline Health</h3>
-                <canvas id="timeline-chart" height="200"></canvas>
-            </div>
-        </div>
-
-        <!-- Directive Outcomes Section -->
-        <div id="view-directives" class="view-section">
-            <div class="mb-6">
-                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Directive Outcomes</h2>
-                <p class="text-sm text-gray-600">Detailed status breakdown and performance insights</p>
-            </div>
-
-            <!-- Summary Cards -->
+            <!-- Outcome Metrics -->
             <div class="grid grid-cols-4 gap-4 mb-6">
                 <div class="stat-card">
-                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-primary);">
-                        Completed Outcomes
-                        <span class="tooltip-icon" data-tooltip="Individual outcomes marked as completed">ℹ️</span>
-                    </div>
-                    <div class="text-4xl font-light" style="color: var(--cbn-primary);" id="dir-completed">0</div>
-                    <div class="text-xs mt-2" style="color: var(--cbn-primary);" id="dir-completed-pct">0%</div>
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-primary);">Completed</div>
+                    <div class="text-4xl font-light" style="color: var(--cbn-primary);" id="out-completed">0</div>
+                    <div class="text-xs mt-2" style="color: var(--cbn-primary);" id="out-completed-pct">0%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-medium);">
-                        In Progress
-                        <span class="tooltip-icon" data-tooltip="Outcomes currently being implemented">ℹ️</span>
-                    </div>
-                    <div class="text-4xl font-light" style="color: var(--cbn-medium);" id="dir-progress">0</div>
-                    <div class="text-xs mt-2" style="color: var(--cbn-medium);" id="dir-progress-pct">0%</div>
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-medium);">Being Implemented</div>
+                    <div class="text-4xl font-light" style="color: var(--cbn-medium);" id="out-implementing">0</div>
+                    <div class="text-xs mt-2" style="color: var(--cbn-medium);" id="out-implementing-pct">0%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2 text-gray-600">
-                        Delayed
-                        <span class="tooltip-icon" data-tooltip="Outcomes marked as delayed by owner">ℹ️</span>
-                    </div>
-                    <div class="text-4xl font-light text-gray-600" id="dir-delayed">0</div>
-                    <div class="text-xs text-gray-600 mt-2" id="dir-delayed-pct">0%</div>
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-orange-600">Delayed</div>
+                    <div class="text-4xl font-light text-orange-600" id="out-delayed">0</div>
+                    <div class="text-xs text-orange-600 mt-2" id="out-delayed-pct">0%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2 text-gray-500">
-                        Not Started
-                        <span class="tooltip-icon" data-tooltip="Outcomes not yet begun">ℹ️</span>
-                    </div>
-                    <div class="text-4xl font-light text-gray-500" id="dir-not-started">0</div>
-                    <div class="text-xs text-gray-500 mt-2" id="dir-not-started-pct">0%</div>
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-gray-500">Not Started</div>
+                    <div class="text-4xl font-light text-gray-500" id="out-not-started">0</div>
+                    <div class="text-xs text-gray-500 mt-2" id="out-not-started-pct">0%</div>
                 </div>
             </div>
 
-            <!-- Analysis Insights -->
             <div class="grid grid-cols-2 gap-6 mb-6">
-                <div class="chart-card bg-red-50">
-                    <h3 class="text-base font-medium mb-2 flex items-center" style="color: var(--cbn-dark);">
-                        <span class="text-xl mr-2">🚧</span>
-                        Bottleneck Analysis
-                        <span class="tooltip-icon" data-tooltip="Directives with most delayed/not-started outcomes">ℹ️</span>
-                    </h3>
-                    <p class="text-xs text-gray-600 mb-4">Top 5 directives with implementation challenges</p>
-                    <div id="bottleneck-analysis"></div>
+                <div class="chart-card">
+                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Status Distribution</h3>
+                    <canvas id="outcome-status-chart" height="200"></canvas>
                 </div>
+                <div class="chart-card">
+                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Top 10: Most Outcomes</h3>
+                    <canvas id="outcome-by-directive-chart" height="200"></canvas>
+                </div>
+            </div>
 
-                <div class="chart-card bg-green-50">
-                    <h3 class="text-base font-medium mb-2 flex items-center" style="color: var(--cbn-dark);">
-                        <span class="text-xl mr-2">⚡</span>
-                        Completion Velocity
-                        <span class="tooltip-icon" data-tooltip="Outcomes completed per month">ℹ️</span>
-                    </h3>
-                    <p class="text-xs text-gray-600 mb-4">Top 5 fastest-moving directives</p>
-                    <div id="velocity-analysis"></div>
-                </div>
+            <!-- Problematic Outcomes -->
+            <div class="chart-card">
+                <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">
+                    ⚠️ Directives with Most Delayed/Not Started Outcomes
+                </h3>
+                <div id="problematic-outcomes"></div>
+            </div>
+        </div>
+
+        <!-- Directive Details Section -->
+        <div id="view-directives" class="view-section">
+            <div class="mb-6">
+                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Directive Details</h2>
+                <p class="text-sm text-gray-600">Full list with completion tracking</p>
             </div>
 
             <!-- Filters -->
@@ -731,16 +566,14 @@
                 <div class="filter-bar no-print">
                     <select id="dir-filter-status" class="flex-1">
                         <option value="all">All Statuses</option>
-                        <option value="completed">Completed Only</option>
-                        <option value="progress">In Progress</option>
-                        <option value="delayed">Delayed</option>
-                        <option value="not-started">Not Started</option>
+                        <option value="full">Full Completion</option>
+                        <option value="partial">Partial Completion</option>
+                        <option value="none">No Completion</option>
                     </select>
                     <select id="dir-filter-sort" class="flex-1">
                         <option value="completion-desc">Completion Rate ↓</option>
                         <option value="completion-asc">Completion Rate ↑</option>
-                        <option value="velocity-desc">Velocity ↓</option>
-                        <option value="risk-desc">Risk Level ↓</option>
+                        <option value="outcomes-desc">Most Outcomes</option>
                     </select>
                     <input type="text" id="dir-search" placeholder="Search directives...">
                 </div>
@@ -749,88 +582,52 @@
             </div>
         </div>
 
-        <!-- Reminder Analysis Section -->
-        <div id="view-reminders" class="view-section">
+        <!-- Timeline Section -->
+        <div id="view-timeline" class="view-section">
             <div class="mb-6">
-                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Reminder Analysis</h2>
-                <p class="text-sm text-gray-600">Tracking update request reminders sent to process owners</p>
+                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Timeline Tracking</h2>
+                <p class="text-sm text-gray-600">Deadlines and implementation schedules</p>
             </div>
 
-            <!-- Reminder Stats -->
-            <div class="grid grid-cols-4 gap-4 mb-6">
-                <div class="stat-card bg-green-50">
-                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                        0 Reminders
-                        <span class="tooltip-icon" data-tooltip="No reminders needed yet">ℹ️</span>
-                    </div>
-                    <div class="text-4xl font-light text-green-700" id="rem-zero">0</div>
-                    <div class="text-xs text-green-700 mt-2">No action needed</div>
-                </div>
-                <div class="stat-card bg-blue-50">
-                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                        1 Reminder
-                        <span class="tooltip-icon" data-tooltip="First reminder sent">ℹ️</span>
-                    </div>
-                    <div class="text-4xl font-light text-blue-700" id="rem-one">0</div>
-                    <div class="text-xs text-blue-700 mt-2">First follow-up</div>
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="stat-card bg-red-50">
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-red-700">Overdue</div>
+                    <div class="text-5xl font-light text-red-700 mb-2" id="tl-overdue">0</div>
+                    <div class="text-xs text-red-700">Past deadline</div>
                 </div>
                 <div class="stat-card bg-yellow-50">
-                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                        2 Reminders
-                        <span class="tooltip-icon" data-tooltip="Second reminder sent">ℹ️</span>
-                    </div>
-                    <div class="text-4xl font-light text-yellow-700" id="rem-two">0</div>
-                    <div class="text-xs text-yellow-700 mt-2">Escalating</div>
+                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-yellow-700">Due Soon</div>
+                    <div class="text-5xl font-light text-yellow-700 mb-2" id="tl-due-soon">0</div>
+                    <div class="text-xs text-yellow-700">Within 30 days</div>
                 </div>
-                <div class="stat-card bg-red-50">
-                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                        3+ Reminders
-                        <span class="tooltip-icon" data-tooltip="Non-responsive (High Risk)">ℹ️</span>
-                    </div>
-                    <div class="text-4xl font-light text-red-700" id="rem-three">0</div>
-                    <div class="text-xs text-red-700 mt-2">Non-responsive</div>
+                <div class="stat-card">
+                    <div class="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">No Timeline</div>
+                    <div class="text-5xl font-light text-gray-600 mb-2" id="tl-no-date">0</div>
+                    <div class="text-xs text-gray-600">Needs scheduling</div>
                 </div>
             </div>
 
-            <!-- Charts -->
-            <div class="grid grid-cols-2 gap-6 mb-6">
-                <div class="chart-card">
-                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Reminder Distribution</h3>
-                    <canvas id="reminder-chart" height="200"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Most Reminders</h3>
-                    <div id="most-reminders"></div>
-                </div>
+            <div class="chart-card mb-6">
+                <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Timeline Status</h3>
+                <canvas id="timeline-chart" height="150"></canvas>
             </div>
 
-            <!-- Filters -->
             <div class="chart-card">
-                <div class="filter-bar no-print">
-                    <select id="rem-filter" class="flex-1">
-                        <option value="all">All Reminder Levels</option>
-                        <option value="0">0 Reminders</option>
-                        <option value="1">1 Reminder</option>
-                        <option value="2">2 Reminders</option>
-                        <option value="3">3+ Reminders</option>
-                    </select>
-                    <select id="rem-sort" class="flex-1">
-                        <option value="reminders-desc">Most Reminders First</option>
-                        <option value="reminders-asc">Fewest Reminders First</option>
-                        <option value="age-desc">Oldest First</option>
-                    </select>
-                    <input type="text" id="rem-search" placeholder="Search by owner or ref...">
-                </div>
-
-                <div id="reminders-list"></div>
+                <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">🚨 Overdue Directives</h3>
+                <div id="overdue-list"></div>
             </div>
         </div>
 
         <!-- Process Owners Section -->
         <div id="view-owners" class="view-section">
             <div class="mb-6">
-                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Process Owners</h2>
-                <p class="text-sm text-gray-600">Performance rankings by owner</p>
+                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Process Owner Performance</h2>
+                <p class="text-sm text-gray-600">Ranked by outcome completion rate</p>
+            </div>
+
+            <div class="chart-card mb-6">
+                <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Top 10 Performers</h3>
+                <canvas id="top-owners-chart" height="300"></canvas>
             </div>
 
             <!-- Filters -->
@@ -844,9 +641,8 @@
                     </select>
                     <select id="owner-filter-sort" class="flex-1">
                         <option value="completion-desc">Completion Rate ↓</option>
-                        <option value="completion-asc">Completion Rate ↑</option>
-                        <option value="total-desc">Total Directives ↓</option>
-                        <option value="risk-desc">Risk Level ↓</option>
+                        <option value="outcomes-desc">Most Outcomes</option>
+                        <option value="directives-desc">Most Directives</option>
                     </select>
                     <input type="text" id="owner-search" placeholder="Search owners...">
                 </div>
@@ -864,21 +660,15 @@
         
         let currentSource = 'CG';
         let allDirectives = [];
-        let statsData = null;
         let charts = {};
         
-        // Pagination state
+        // Pagination & filter state
         let dirCurrentPage = 1;
         let dirPageSize = 15;
         let ownerCurrentPage = 1;
         let ownerPageSize = 15;
-        let remCurrentPage = 1;
-        let remPageSize = 15;
-        
-        // Filter state
         let dirFilters = { status: 'all', sort: 'completion-desc', search: '' };
         let ownerFilters = { performance: 'all', sort: 'completion-desc', search: '' };
-        let remFilters = { level: 'all', sort: 'reminders-desc', search: '' };
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', {
@@ -934,29 +724,6 @@
                     renderOwnersList(getFilteredOwners());
                 }, 300);
             });
-
-            // Reminder filters
-            document.getElementById('rem-filter').addEventListener('change', (e) => {
-                remFilters.level = e.target.value;
-                remCurrentPage = 1;
-                renderRemindersList(getFilteredReminders());
-            });
-
-            document.getElementById('rem-sort').addEventListener('change', (e) => {
-                remFilters.sort = e.target.value;
-                remCurrentPage = 1;
-                renderRemindersList(getFilteredReminders());
-            });
-
-            let remSearchTimeout;
-            document.getElementById('rem-search').addEventListener('input', (e) => {
-                clearTimeout(remSearchTimeout);
-                remSearchTimeout = setTimeout(() => {
-                    remFilters.search = e.target.value.toLowerCase();
-                    remCurrentPage = 1;
-                    renderRemindersList(getFilteredReminders());
-                }, 300);
-            });
         }
 
         function showLoading(show = true) {
@@ -982,18 +749,12 @@
         async function loadReport() {
             showLoading();
             try {
-                const [directivesRes, statsRes] = await Promise.all([
-                    fetch(`${API_BASE}/directives?source=${currentSource}`),
-                    fetch(`${API_BASE}/reports/stats?source=${currentSource}`)
-                ]);
+                const response = await fetch(`${API_BASE}/directives?source=${currentSource}`);
+                const result = await response.json();
                 
-                const directivesData = await directivesRes.json();
-                const stats = await statsRes.json();
-                
-                if (directivesData.success) allDirectives = directivesData.data;
-                if (stats.success) {
-                    statsData = stats.data;
-                    renderAll(statsData);
+                if (result.success) {
+                    allDirectives = result.data;
+                    renderAll();
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -1003,78 +764,86 @@
             }
         }
 
-        function renderAll(data) {
-            renderOverview(data);
-            renderStatus(data);
-            renderTimeline(data);
+        function renderAll() {
+            renderOverview();
+            renderOutcomes();
             renderDirectives();
-            renderReminders();
+            renderTimeline();
             renderOwners();
         }
 
-        function renderOverview(data) {
-            // Basic stats
-            document.getElementById('ov-total').textContent = data.summary.total;
-            document.getElementById('ov-done').textContent = data.summary.completed;
-            document.getElementById('ov-active').textContent = data.summary.track + data.summary.atRisk;
-            document.getElementById('ov-risk').textContent = data.summary.highRisk;
-            document.getElementById('ov-done-pct').textContent = `${data.complianceRate}%`;
-            document.getElementById('ov-risk-pct').textContent = `${data.riskRate}%`;
-            document.getElementById('ov-overdue').textContent = data.timeline.overdue;
-            document.getElementById('ov-due-soon').textContent = data.timeline.dueSoon;
-            
-            // Additional metrics
-            const responsiveCount = allDirectives.filter(d => d.isResponsive !== false).length;
-            const responseRate = data.summary.total > 0 ? Math.round((responsiveCount / data.summary.total) * 100) : 0;
-            document.getElementById('ov-response-rate').textContent = `${responseRate}%`;
-
-            // Average completion time
-            const completedDirectives = allDirectives.filter(d => d.monitoringStatus === 'Completed' && d.createdAt);
-            if (completedDirectives.length > 0) {
-                const avgDays = completedDirectives.reduce((sum, d) => {
-                    const created = new Date(d.createdAt);
-                    const completed = new Date(d.lastSbuUpdate || Date.now());
-                    return sum + Math.ceil((completed - created) / (1000 * 60 * 60 * 24));
-                }, 0) / completedDirectives.length;
-                document.getElementById('ov-avg-completion').textContent = Math.round(avgDays);
-            } else {
-                document.getElementById('ov-avg-completion').textContent = '--';
-            }
-
-            // Outcome completion rate
+        function renderOverview() {
+            // Calculate outcome stats
             let totalOutcomes = 0;
-            let completedOutcomes = 0;
+            let completed = 0;
+            let implementing = 0;
+            let delayed = 0;
+            let notStarted = 0;
+            
+            let fullCompletion = 0;
+            let partialCompletion = 0;
+            let nonResponsive = 0;
+            
             allDirectives.forEach(d => {
                 if (d.outcomes && d.outcomes.length > 0) {
+                    const outcomeStats = {
+                        total: d.outcomes.length,
+                        completed: d.outcomes.filter(o => o.status === 'Completed').length
+                    };
+                    
                     totalOutcomes += d.outcomes.length;
-                    completedOutcomes += d.outcomes.filter(o => o.status === 'Completed').length;
+                    completed += outcomeStats.completed;
+                    implementing += d.outcomes.filter(o => o.status === 'Being Implemented').length;
+                    delayed += d.outcomes.filter(o => o.status === 'Delayed').length;
+                    notStarted += d.outcomes.filter(o => o.status === 'Not Started').length;
+                    
+                    if (outcomeStats.completed === outcomeStats.total) fullCompletion++;
+                    else if (outcomeStats.completed > 0) partialCompletion++;
                 }
+                
+                if (d.isResponsive === false) nonResponsive++;
             });
-            const outcomeRate = totalOutcomes > 0 ? Math.round((completedOutcomes / totalOutcomes) * 100) : 0;
-            document.getElementById('ov-outcome-completion').textContent = `${outcomeRate}%`;
+            
+            // Update DOM
+            document.getElementById('ov-total-outcomes').textContent = totalOutcomes;
+            document.getElementById('ov-total-directives').textContent = allDirectives.length;
+            document.getElementById('ov-completed').textContent = completed;
+            document.getElementById('ov-completed-pct').textContent = totalOutcomes > 0 ? `${Math.round((completed / totalOutcomes) * 100)}%` : '0%';
+            document.getElementById('ov-implementing').textContent = implementing;
+            document.getElementById('ov-implementing-pct').textContent = totalOutcomes > 0 ? `${Math.round((implementing / totalOutcomes) * 100)}%` : '0%';
+            document.getElementById('ov-delayed').textContent = delayed;
+            document.getElementById('ov-delayed-pct').textContent = totalOutcomes > 0 ? `${Math.round((delayed / totalOutcomes) * 100)}%` : '0%';
+            document.getElementById('ov-not-started').textContent = notStarted;
+            document.getElementById('ov-not-started-pct').textContent = totalOutcomes > 0 ? `${Math.round((notStarted / totalOutcomes) * 100)}%` : '0%';
+            
+            document.getElementById('ov-full-completion').textContent = fullCompletion;
+            document.getElementById('ov-full-completion-pct').textContent = allDirectives.length > 0 ? `${Math.round((fullCompletion / allDirectives.length) * 100)}%` : '0%';
+            document.getElementById('ov-partial-completion').textContent = partialCompletion;
+            document.getElementById('ov-partial-completion-pct').textContent = allDirectives.length > 0 ? `${Math.round((partialCompletion / allDirectives.length) * 100)}%` : '0%';
+            document.getElementById('ov-non-responsive').textContent = nonResponsive;
+            document.getElementById('ov-non-responsive-pct').textContent = allDirectives.length > 0 ? `${Math.round((nonResponsive / allDirectives.length) * 100)}%` : '0%';
             
             // Summary text
-            const completionRate = parseFloat(data.complianceRate);
+            const completionRate = totalOutcomes > 0 ? Math.round((completed / totalOutcomes) * 100) : 0;
             const grade = completionRate >= 80 ? 'Excellent' : completionRate >= 70 ? 'Good' : completionRate >= 60 ? 'Satisfactory' : 'Needs Improvement';
             
             document.getElementById('ov-summary').innerHTML = `
                 <strong>Overall Performance: ${grade}</strong>. 
-                ${data.summary.completed} of ${data.summary.total} directives completed (${data.complianceRate}% directive-level completion). 
-                ${completedOutcomes} of ${totalOutcomes} individual outcomes completed (${outcomeRate}% outcome-level completion). 
-                ${responseRate}% response rate from process owners.
-                ${data.summary.highRisk > 0 ? `<span style="color: var(--red-critical);"> ⚠️ ${data.summary.highRisk} non-responsive directive(s) require immediate attention.</span>` : ''}
+                ${completed} of ${totalOutcomes} outcomes completed (${completionRate}%). 
+                ${fullCompletion} directives fully completed, ${partialCompletion} partially completed. 
+                ${nonResponsive > 0 ? `<span style="color: var(--red-critical);"> ⚠️ ${nonResponsive} non-responsive directive(s) require immediate attention.</span>` : ''}
             `;
             
-            // Chart
-            if (charts.overview) charts.overview.destroy();
-            const ctx = document.getElementById('ov-chart').getContext('2d');
-            charts.overview = new Chart(ctx, {
+            // Outcome chart
+            if (charts.outcomeChart) charts.outcomeChart.destroy();
+            const ctx1 = document.getElementById('ov-outcome-chart').getContext('2d');
+            charts.outcomeChart = new Chart(ctx1, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Completed', 'On Track', 'At Risk', 'High Risk'],
+                    labels: ['Completed', 'Being Implemented', 'Delayed', 'Not Started'],
                     datasets: [{
-                        data: [data.summary.completed, data.summary.track, data.summary.atRisk, data.summary.highRisk],
-                        backgroundColor: ['#43A047', '#66BB6A', '#FDD835', '#C62828'],
+                        data: [completed, implementing, delayed, notStarted],
+                        backgroundColor: ['#43A047', '#66BB6A', '#FB8C00', '#9E9E9E'],
                         borderWidth: 0
                     }]
                 },
@@ -1086,18 +855,68 @@
                     }
                 }
             });
-        }
-
-        function renderStatus(data) {
-            if (charts.status) charts.status.destroy();
-            const ctx = document.getElementById('status-chart').getContext('2d');
-            charts.status = new Chart(ctx, {
+            
+            // Directive chart
+            if (charts.directiveChart) charts.directiveChart.destroy();
+            const ctx2 = document.getElementById('ov-directive-chart').getContext('2d');
+            charts.directiveChart = new Chart(ctx2, {
                 type: 'bar',
                 data: {
-                    labels: ['Completed', 'On Track', 'At Risk', 'High Risk'],
+                    labels: ['Full Completion', 'Partial Completion', 'Non-Responsive'],
                     datasets: [{
-                        data: [data.summary.completed, data.summary.track, data.summary.atRisk, data.summary.highRisk],
-                        backgroundColor: ['#43A047', '#66BB6A', '#FDD835', '#C62828'],
+                        data: [fullCompletion, partialCompletion, nonResponsive],
+                        backgroundColor: ['#43A047', '#2196F3', '#C62828'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function renderOutcomes() {
+            let totalOutcomes = 0;
+            let completed = 0;
+            let implementing = 0;
+            let delayed = 0;
+            let notStarted = 0;
+            
+            allDirectives.forEach(d => {
+                if (d.outcomes && d.outcomes.length > 0) {
+                    totalOutcomes += d.outcomes.length;
+                    completed += d.outcomes.filter(o => o.status === 'Completed').length;
+                    implementing += d.outcomes.filter(o => o.status === 'Being Implemented').length;
+                    delayed += d.outcomes.filter(o => o.status === 'Delayed').length;
+                    notStarted += d.outcomes.filter(o => o.status === 'Not Started').length;
+                }
+            });
+            
+            document.getElementById('out-completed').textContent = completed;
+            document.getElementById('out-completed-pct').textContent = totalOutcomes > 0 ? `${Math.round((completed / totalOutcomes) * 100)}%` : '0%';
+            document.getElementById('out-implementing').textContent = implementing;
+            document.getElementById('out-implementing-pct').textContent = totalOutcomes > 0 ? `${Math.round((implementing / totalOutcomes) * 100)}%` : '0%';
+            document.getElementById('out-delayed').textContent = delayed;
+            document.getElementById('out-delayed-pct').textContent = totalOutcomes > 0 ? `${Math.round((delayed / totalOutcomes) * 100)}%` : '0%';
+            document.getElementById('out-not-started').textContent = notStarted;
+            document.getElementById('out-not-started-pct').textContent = totalOutcomes > 0 ? `${Math.round((notStarted / totalOutcomes) * 100)}%` : '0%';
+            
+            // Status chart
+            if (charts.outcomeStatus) charts.outcomeStatus.destroy();
+            const ctx = document.getElementById('outcome-status-chart').getContext('2d');
+            charts.outcomeStatus = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Completed', 'Being Implemented', 'Delayed', 'Not Started'],
+                    datasets: [{
+                        data: [completed, implementing, delayed, notStarted],
+                        backgroundColor: ['#43A047', '#66BB6A', '#FB8C00', '#9E9E9E'],
                         borderRadius: 8
                     }]
                 },
@@ -1112,48 +931,21 @@
                 }
             });
             
-            const breakdown = `
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                        <span class="font-medium text-sm text-green-900">Completed</span>
-                        <span class="text-2xl font-light text-green-600">${data.summary.completed}</span>
-                    </div>
-                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <span class="font-medium text-sm text-gray-900">On Track</span>
-                        <span class="text-2xl font-light text-gray-700">${data.summary.track}</span>
-                    </div>
-                    <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                        <span class="font-medium text-sm text-yellow-900">At Risk</span>
-                        <span class="text-2xl font-light text-yellow-700">${data.summary.atRisk}</span>
-                    </div>
-                    <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                        <span class="font-medium text-sm text-red-900">High Risk</span>
-                        <span class="text-2xl font-light text-red-600">${data.summary.highRisk}</span>
-                    </div>
-                </div>
-            `;
-            document.getElementById('status-breakdown').innerHTML = breakdown;
-        }
-
-        function renderTimeline(data) {
-            document.getElementById('tl-overdue').textContent = data.timeline.overdue;
-            document.getElementById('tl-due-soon').textContent = data.timeline.dueSoon;
-            document.getElementById('tl-no-date').textContent = allDirectives.filter(d => !d.implementationEndDate).length;
+            // Top directives by outcome count
+            const top10 = [...allDirectives]
+                .filter(d => d.outcomes && d.outcomes.length > 0)
+                .sort((a, b) => b.outcomes.length - a.outcomes.length)
+                .slice(0, 10);
             
-            if (charts.timeline) charts.timeline.destroy();
-            const ctx = document.getElementById('timeline-chart').getContext('2d');
-            charts.timeline = new Chart(ctx, {
+            if (charts.outcomeByDirective) charts.outcomeByDirective.destroy();
+            const ctx2 = document.getElementById('outcome-by-directive-chart').getContext('2d');
+            charts.outcomeByDirective = new Chart(ctx2, {
                 type: 'bar',
                 data: {
-                    labels: ['Overdue', 'Due Soon', 'On Schedule', 'No Timeline'],
+                    labels: top10.map(d => (d.ref || 'N/A').substring(0, 15)),
                     datasets: [{
-                        data: [
-                            data.timeline.overdue,
-                            data.timeline.dueSoon,
-                            data.summary.total - data.timeline.overdue - data.timeline.dueSoon - allDirectives.filter(d => !d.implementationEndDate).length,
-                            allDirectives.filter(d => !d.implementationEndDate).length
-                        ],
-                        backgroundColor: ['#C62828', '#9E9E9E', '#43A047', '#E0E0E0'],
+                        data: top10.map(d => d.outcomes.length),
+                        backgroundColor: '#2196F3',
                         borderRadius: 8
                     }]
                 },
@@ -1168,181 +960,88 @@
                     }
                 }
             });
+            
+            // Problematic outcomes
+            const problematic = allDirectives
+                .map(d => {
+                    if (!d.outcomes || d.outcomes.length === 0) return null;
+                    const delayedCount = d.outcomes.filter(o => o.status === 'Delayed').length;
+                    const notStartedCount = d.outcomes.filter(o => o.status === 'Not Started').length;
+                    const problems = delayedCount + notStartedCount;
+                    return problems > 0 ? { directive: d, delayedCount, notStartedCount, problems } : null;
+                })
+                .filter(Boolean)
+                .sort((a, b) => b.problems - a.problems)
+                .slice(0, 10);
+            
+            document.getElementById('problematic-outcomes').innerHTML = problematic.length > 0 ? `
+                <div class="space-y-2">
+                    ${problematic.map((p, idx) => `
+                        <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs font-bold text-red-600">#${idx + 1}</span>
+                                    <span class="text-xs font-mono font-medium text-gray-700 truncate">${p.directive.ref || 'N/A'}</span>
+                                </div>
+                                <div class="text-xs text-gray-600 truncate mb-1">${p.directive.subject}</div>
+                                <div class="text-xs text-gray-500">${p.delayedCount} delayed • ${p.notStartedCount} not started</div>
+                            </div>
+                            <div class="text-right ml-4">
+                                <div class="text-3xl font-light text-red-600">${p.problems}</div>
+                                <div class="text-xs text-red-600">problems</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : '<p class="text-gray-500 text-sm text-center py-6">No significant issues detected ✓</p>';
         }
 
-       function renderDirectives() {
-    let totalOutcomes = 0;
-    let completedOutcomes = 0;
-    let inProgressOutcomes = 0;
-    let delayedOutcomes = 0;
-    let notStartedOutcomes = 0;
-    
-    const directiveAnalysis = [];
-    
-    allDirectives.forEach(d => {
-        const hasOutcomes = d.outcomes && d.outcomes.length > 0;
-        
-        const analysis = {
-            directive: d,
-            total: hasOutcomes ? d.outcomes.length : 0,
-            completed: hasOutcomes ? d.outcomes.filter(o => o.status === 'Completed').length : 0,
-            inProgress: hasOutcomes ? d.outcomes.filter(o => o.status === 'Being Implemented').length : 0,
-            delayed: hasOutcomes ? d.outcomes.filter(o => o.status === 'Delayed').length : 0,
-            notStarted: hasOutcomes ? d.outcomes.filter(o => o.status === 'Not Started').length : 0,
-            isNonResponsive: d.isResponsive === false,
-            daysSinceCreation: Math.ceil((new Date() - new Date(d.createdAt || Date.now())) / (1000 * 60 * 60 * 24)),
-            reminders: d.reminders || 0
-        };
-        
-        analysis.completionRate = analysis.total > 0 ? Math.round((analysis.completed / analysis.total) * 100) : 0;
-        const monthsSinceCreation = analysis.daysSinceCreation / 30;
-        analysis.velocity = monthsSinceCreation > 0 && analysis.completed > 0 ? (analysis.completed / monthsSinceCreation).toFixed(2) : 0;
-        
-        if (hasOutcomes) {
-            totalOutcomes += analysis.total;
-            completedOutcomes += analysis.completed;
-            inProgressOutcomes += analysis.inProgress;
-            delayedOutcomes += analysis.delayed;
-            notStartedOutcomes += analysis.notStarted;
+        function renderDirectives() {
+            renderDirectivesList(getFilteredDirectives());
         }
-        
-        directiveAnalysis.push(analysis);
-    });
-    
-    // Update summary
-    document.getElementById('dir-completed').textContent = completedOutcomes;
-    document.getElementById('dir-completed-pct').textContent = totalOutcomes > 0 ? `${Math.round((completedOutcomes / totalOutcomes) * 100)}%` : '0%';
-    document.getElementById('dir-progress').textContent = inProgressOutcomes;
-    document.getElementById('dir-progress-pct').textContent = totalOutcomes > 0 ? `${Math.round((inProgressOutcomes / totalOutcomes) * 100)}%` : '0%';
-    document.getElementById('dir-delayed').textContent = delayedOutcomes;
-    document.getElementById('dir-delayed-pct').textContent = totalOutcomes > 0 ? `${Math.round((delayedOutcomes / totalOutcomes) * 100)}%` : '0%';
-    document.getElementById('dir-not-started').textContent = notStartedOutcomes;
-    document.getElementById('dir-not-started-pct').textContent = totalOutcomes > 0 ? `${Math.round((notStartedOutcomes / totalOutcomes) * 100)}%` : '0%';
-    
-    // Bottleneck Analysis
-    const bottlenecks = directiveAnalysis
-        .filter(a => a.delayed > 0 || (a.notStarted > 0 && a.daysSinceCreation > 60))
-        .sort((a, b) => (b.delayed + b.notStarted) - (a.delayed + a.notStarted))
-        .slice(0, 5);
-    
-    document.getElementById('bottleneck-analysis').innerHTML = bottlenecks.length > 0 ? `
-        <div class="space-y-2">
-            ${bottlenecks.map((b, idx) => {
-                const totalProblems = b.delayed + b.notStarted;
-                return `
-                <div class="flex items-start justify-between p-3 bg-white rounded-lg border border-red-200">
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="text-xs font-bold text-red-600">#${idx + 1}</span>
-                            <span class="text-xs font-mono font-medium text-gray-700 truncate">${b.directive.ref || 'N/A'}</span>
-                            ${b.isNonResponsive ? '<span class="badge badge-red text-xs py-0">NON-RESP</span>' : ''}
-                        </div>
-                        <div class="text-xs text-gray-600 mb-1 truncate">${(b.directive.subject || '').substring(0, 60)}...</div>
-                        <div class="text-xs text-gray-500">
-                            ${b.delayed} delayed • ${b.notStarted} not started • ${b.daysSinceCreation}d old
-                        </div>
-                    </div>
-                    <div class="text-right ml-4 flex-shrink-0">
-                        <div class="text-2xl font-light text-red-600">${totalProblems}</div>
-                        <div class="text-xs text-red-600">problems</div>
-                    </div>
-                </div>
-            `;
-            }).join('')}
-        </div>
-    ` : '<p class="text-gray-500 text-sm text-center py-6">No significant bottlenecks detected ✓</p>';
-    
-    // Velocity Analysis
-    const fastMovers = directiveAnalysis
-        .filter(a => a.completed > 0 && parseFloat(a.velocity) > 0)
-        .sort((a, b) => parseFloat(b.velocity) - parseFloat(a.velocity))
-        .slice(0, 5);
-    
-    document.getElementById('velocity-analysis').innerHTML = fastMovers.length > 0 ? `
-        <div class="space-y-2">
-            ${fastMovers.map((f, idx) => `
-                <div class="flex items-start justify-between p-3 bg-white rounded-lg border border-green-200">
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="text-xs font-bold text-green-600">#${idx + 1}</span>
-                            <span class="text-xs font-mono font-medium text-gray-700 truncate">${f.directive.ref || 'N/A'}</span>
-                        </div>
-                        <div class="text-xs text-gray-600 mb-1 truncate">${(f.directive.subject || '').substring(0, 60)}...</div>
-                        <div class="text-xs text-gray-500">${f.completed}/${f.total} done (${f.completionRate}%) • ${f.daysSinceCreation}d old</div>
-                    </div>
-                    <div class="text-right ml-4 flex-shrink-0">
-                        <div class="text-2xl font-light text-green-600">${f.velocity}</div>
-                        <div class="text-xs text-green-600">per month</div>
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    ` : '<p class="text-gray-500 text-sm text-center py-6">No completed outcomes yet</p>';
-    
-    renderDirectivesList(getFilteredDirectives());
-}
 
-
-       function getFilteredDirectives() {
-    let directiveAnalysis = [];
-    
-    allDirectives.forEach(d => {
-        const hasOutcomes = d.outcomes && d.outcomes.length > 0;
-        
-        const analysis = {
-            directive: d,
-            total: hasOutcomes ? d.outcomes.length : 0,
-            completed: hasOutcomes ? d.outcomes.filter(o => o.status === 'Completed').length : 0,
-            inProgress: hasOutcomes ? d.outcomes.filter(o => o.status === 'Being Implemented').length : 0,
-            delayed: hasOutcomes ? d.outcomes.filter(o => o.status === 'Delayed').length : 0,
-            notStarted: hasOutcomes ? d.outcomes.filter(o => o.status === 'Not Started').length : 0,
-            isNonResponsive: d.isResponsive === false,
-            daysSinceCreation: Math.ceil((new Date() - new Date(d.createdAt || Date.now())) / (1000 * 60 * 60 * 24)),
-            reminders: d.reminders || 0
-        };
-        
-        analysis.completionRate = analysis.total > 0 ? Math.round((analysis.completed / analysis.total) * 100) : 0;
-        const monthsSinceCreation = analysis.daysSinceCreation / 30;
-        analysis.velocity = monthsSinceCreation > 0 && analysis.completed > 0 ? (analysis.completed / monthsSinceCreation).toFixed(2) : 0;
-        
-        directiveAnalysis.push(analysis);
-    });
-    
-    // Apply filters
-    if (dirFilters.status !== 'all') {
-        directiveAnalysis = directiveAnalysis.filter(a => {
-            switch(dirFilters.status) {
-                case 'completed': return a.completionRate === 100;
-                case 'progress': return a.inProgress > 0;
-                case 'delayed': return a.delayed > 0;
-                case 'not-started': return a.notStarted === a.total;
-                default: return true;
+        function getFilteredDirectives() {
+            let directiveAnalysis = allDirectives.map(d => {
+                const hasOutcomes = d.outcomes && d.outcomes.length > 0;
+                return {
+                    directive: d,
+                    total: hasOutcomes ? d.outcomes.length : 0,
+                    completed: hasOutcomes ? d.outcomes.filter(o => o.status === 'Completed').length : 0,
+                    inProgress: hasOutcomes ? d.outcomes.filter(o => o.status === 'Being Implemented').length : 0,
+                    delayed: hasOutcomes ? d.outcomes.filter(o => o.status === 'Delayed').length : 0,
+                    notStarted: hasOutcomes ? d.outcomes.filter(o => o.status === 'Not Started').length : 0,
+                    completionRate: hasOutcomes && d.outcomes.length > 0 ? Math.round((d.outcomes.filter(o => o.status === 'Completed').length / d.outcomes.length) * 100) : 0
+                };
+            });
+            
+            // Apply filters
+            if (dirFilters.status !== 'all') {
+                directiveAnalysis = directiveAnalysis.filter(a => {
+                    if (dirFilters.status === 'full') return a.completionRate === 100;
+                    if (dirFilters.status === 'partial') return a.completionRate > 0 && a.completionRate < 100;
+                    if (dirFilters.status === 'none') return a.completionRate === 0;
+                    return true;
+                });
             }
-        });
-    }
-    
-    if (dirFilters.search) {
-        directiveAnalysis = directiveAnalysis.filter(a => 
-            (a.directive.subject || '').toLowerCase().includes(dirFilters.search) ||
-            (a.directive.ref || '').toLowerCase().includes(dirFilters.search) ||
-            (a.directive.owner || '').toLowerCase().includes(dirFilters.search)
-        );
-    }
-    
-    // Apply sorting
-    directiveAnalysis.sort((a, b) => {
-        switch(dirFilters.sort) {
-            case 'completion-desc': return b.completionRate - a.completionRate;
-            case 'completion-asc': return a.completionRate - b.completionRate;
-            case 'velocity-desc': return parseFloat(b.velocity) - parseFloat(a.velocity);
-            case 'risk-desc': return (b.delayed + b.notStarted) - (a.delayed + a.notStarted);
-            default: return b.completionRate - a.completionRate;
+            
+            if (dirFilters.search) {
+                directiveAnalysis = directiveAnalysis.filter(a => 
+                    (a.directive.subject || '').toLowerCase().includes(dirFilters.search) ||
+                    (a.directive.ref || '').toLowerCase().includes(dirFilters.search) ||
+                    (a.directive.owner || '').toLowerCase().includes(dirFilters.search)
+                );
+            }
+            
+            // Apply sorting
+            directiveAnalysis.sort((a, b) => {
+                if (dirFilters.sort === 'completion-desc') return b.completionRate - a.completionRate;
+                if (dirFilters.sort === 'completion-asc') return a.completionRate - b.completionRate;
+                if (dirFilters.sort === 'outcomes-desc') return b.total - a.total;
+                return b.completionRate - a.completionRate;
+            });
+            
+            return directiveAnalysis;
         }
-    });
-    
-    return directiveAnalysis;
-}
-
 
         function renderDirectivesList(data) {
             if (data.length === 0) {
@@ -1357,51 +1056,145 @@
             
             const html = `
                 <div class="text-xs text-gray-500 mb-4">Showing ${startIdx + 1}-${endIdx} of ${data.length} directives</div>
-                <div class="space-y-3">
+                <div class="space-y-4">
                     ${pageData.map((analysis, idx) => {
-                        const globalIdx = startIdx + idx;
+                        const d = analysis.directive;
+                        const today = new Date();
+                        const deadline = d.implementationEndDate ? new Date(d.implementationEndDate) : null;
+                        const daysUntil = deadline ? Math.ceil((deadline - today) / (1000 * 60 * 60 * 24)) : null;
+                        const isOverdue = daysUntil !== null && daysUntil < 0;
+                        const isDueSoon = daysUntil !== null && daysUntil > 0 && daysUntil <= 30;
+                        
                         return `
-                            <div class="item-card ${analysis.isNonResponsive ? 'border-2 border-red-500' : ''}">
-                                <div class="flex items-start justify-between mb-3">
+                            <div class="item-card ${d.isResponsive === false ? 'border-2 border-red-500' : ''}">
+                                <!-- Header -->
+                                <div class="flex items-start justify-between mb-4">
                                     <div class="flex-1">
                                         <div class="flex items-center gap-2 mb-2">
-                                            <span class="badge ${analysis.completionRate === 100 ? 'badge-green' : analysis.completionRate >= 50 ? 'badge-blue' : 'badge-red'}">#${globalIdx + 1}</span>
-                                            <span class="text-xs font-mono font-medium" style="color: var(--cbn-primary);">${analysis.directive.ref || 'N/A'}</span>
-                                            ${analysis.isNonResponsive ? '<span class="badge badge-red">⚠️ NON-RESPONSIVE</span>' : ''}
+                                            <span class="badge ${analysis.completionRate === 100 ? 'badge-green' : analysis.completionRate >= 50 ? 'badge-blue' : 'badge-red'}">
+                                                ${analysis.completionRate}% Complete
+                                            </span>
+                                            <span class="text-xs font-mono font-medium text-gray-700">${d.ref || 'N/A'}</span>
+                                            ${d.isResponsive === false ? '<span class="badge badge-red">⚠️ NON-RESPONSIVE</span>' : ''}
+                                            ${isOverdue ? '<span class="badge badge-red">⏰ OVERDUE</span>' : ''}
+                                            ${isDueSoon ? '<span class="badge badge-yellow">⏱️ DUE SOON</span>' : ''}
                                         </div>
-                                        <div class="font-medium text-sm text-gray-900 mb-2">${analysis.directive.subject}</div>
-                                        <div class="text-xs text-gray-600">
-                                            <strong>Owner:</strong> ${analysis.directive.owner} • 
-                                            <strong>Age:</strong> ${analysis.daysSinceCreation} days since creation • 
-                                            <strong>Reminders:</strong> ${analysis.reminders}/3
+                                        <div class="font-medium text-base text-gray-900 mb-3">${d.subject}</div>
+                                        
+                                        <!-- Key Metrics Row -->
+                                        <div class="grid grid-cols-4 gap-3 mb-3 text-xs">
+                                            <div class="bg-gray-50 rounded p-2">
+                                                <div class="text-gray-500 mb-1">Owner</div>
+                                                <div class="font-medium text-gray-900 truncate">${d.owner || 'Unassigned'}</div>
+                                            </div>
+                                            <div class="bg-gray-50 rounded p-2">
+                                                <div class="text-gray-500 mb-1">Reminders</div>
+                                                <div class="font-medium ${(d.reminders || 0) >= 3 ? 'text-red-600' : (d.reminders || 0) >= 2 ? 'text-yellow-600' : 'text-gray-900'}">
+                                                    ${d.reminders || 0}/3 sent ${(d.reminders || 0) >= 3 ? '🚨' : (d.reminders || 0) >= 2 ? '⚠️' : (d.reminders || 0) === 1 ? '📧' : '✓'}
+                                                </div>
+                                            </div>
+                                            <div class="bg-gray-50 rounded p-2">
+                                                <div class="text-gray-500 mb-1">Deadline</div>
+                                                <div class="font-medium ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-yellow-600' : 'text-gray-900'}">
+                                                    ${deadline ? new Date(deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Not set'}
+                                                </div>
+                                                ${daysUntil !== null ? `
+                                                    <div class="text-xs ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-yellow-600' : 'text-gray-500'}">
+                                                        ${isOverdue ? `${Math.abs(daysUntil)}d overdue` : `${daysUntil}d left`}
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                            <div class="bg-gray-50 rounded p-2">
+                                                <div class="text-gray-500 mb-1">Age</div>
+                                                <div class="font-medium text-gray-900">
+                                                    ${d.createdAt ? `${Math.ceil((today - new Date(d.createdAt)) / (1000 * 60 * 60 * 24))} days` : 'Unknown'}
+                                                </div>
+                                                ${d.createdAt ? `
+                                                    <div class="text-xs text-gray-500">
+                                                        Since ${new Date(d.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                    </div>
+                                                ` : ''}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="text-right ml-6">
-                                        <div class="text-4xl font-light" style="color: var(--cbn-primary);">${analysis.completionRate}%</div>
-                                        ${analysis.velocity > 0 ? `<div class="text-xs text-green-600 font-medium mt-1">${analysis.velocity}/mo</div>` : ''}
+                                    <div class="text-right ml-6 flex-shrink-0">
+                                        <div class="text-5xl font-light" style="color: var(--cbn-primary);">${analysis.completionRate}%</div>
+                                        <div class="text-xs text-gray-500 mt-1">${analysis.completed}/${analysis.total} done</div>
                                     </div>
                                 </div>
                                 
-                                <div class="grid grid-cols-4 gap-2 mb-3">
-                                    <div class="bg-green-50 rounded-lg p-2 text-center">
-                                        <div class="text-xl font-light text-green-600">${analysis.completed}</div>
+                                <!-- Outcome Status Summary -->
+                                <div class="grid grid-cols-4 gap-2 mb-4">
+                                    <div class="bg-green-50 rounded-lg p-3 text-center">
+                                        <div class="text-2xl font-light text-green-600">${analysis.completed}</div>
                                         <div class="text-xs text-green-700 font-medium">Completed</div>
                                     </div>
-                                    <div class="bg-gray-50 rounded-lg p-2 text-center">
-                                        <div class="text-xl font-light text-gray-700">${analysis.inProgress}</div>
-                                        <div class="text-xs text-gray-700 font-medium">In Progress</div>
+                                    <div class="bg-blue-50 rounded-lg p-3 text-center">
+                                        <div class="text-2xl font-light text-blue-600">${analysis.inProgress}</div>
+                                        <div class="text-xs text-blue-700 font-medium">Implementing</div>
                                     </div>
-                                    <div class="bg-gray-100 rounded-lg p-2 text-center">
-                                        <div class="text-xl font-light text-gray-700">${analysis.delayed}</div>
-                                        <div class="text-xs text-gray-700 font-medium">Delayed</div>
+                                    <div class="bg-orange-50 rounded-lg p-3 text-center">
+                                        <div class="text-2xl font-light text-orange-600">${analysis.delayed}</div>
+                                        <div class="text-xs text-orange-700 font-medium">Delayed</div>
                                     </div>
-                                    <div class="bg-gray-200 rounded-lg p-2 text-center">
-                                        <div class="text-xl font-light text-gray-600">${analysis.notStarted}</div>
+                                    <div class="bg-gray-100 rounded-lg p-3 text-center">
+                                        <div class="text-2xl font-light text-gray-600">${analysis.notStarted}</div>
                                         <div class="text-xs text-gray-600 font-medium">Not Started</div>
                                     </div>
                                 </div>
                                 
-                                <div class="progress-bar">
+                                <!-- Detailed Outcome List (if has outcomes) -->
+                                ${analysis.total > 0 ? `
+                                    <div class="border-t border-gray-200 pt-4">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div>
+                                                <h4 class="text-sm font-semibold text-gray-900">
+                                                    📋 All ${analysis.total} Outcomes Explained
+                                                </h4>
+                                                <p class="text-xs text-gray-500 mt-1">
+                                                    ${analysis.completed} completed • ${analysis.inProgress} implementing • ${analysis.delayed} delayed • ${analysis.notStarted} not started
+                                                </p>
+                                            </div>
+                                            <button onclick="toggleOutcomes('${d._id}')" class="text-xs text-blue-600 hover:text-blue-800 font-medium px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors">
+                                                <span id="toggle-${d._id}">▼ Show All Outcomes</span>
+                                            </button>
+                                        </div>
+                                        <div id="outcomes-${d._id}" class="hidden space-y-2">${d.outcomes.map((outcome, oIdx) => {
+                                                const statusStyles = {
+                                                    'Completed': { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', badge: 'badge-green', icon: '✓' },
+                                                    'Being Implemented': { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800', badge: 'badge-blue', icon: '⚙️' },
+                                                    'Delayed': { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', badge: 'badge-red', icon: '⏸️' },
+                                                    'Not Started': { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-800', badge: 'bg-gray-200 text-gray-700', icon: '○' }
+                                                };
+                                                const style = statusStyles[outcome.status] || statusStyles['Not Started'];
+                                                
+                                                return `
+                                                    <div class="flex items-start gap-3 p-3 rounded-lg border-2 ${style.border} ${style.bg}">
+                                                        <div class="flex-shrink-0 w-7 h-7 rounded-full bg-white border-2 border-current flex items-center justify-center text-sm font-bold ${style.text}">
+                                                            ${oIdx + 1}
+                                                        </div>
+                                                        <div class="flex-1 min-w-0">
+                                                            <div class="text-sm font-medium ${style.text} mb-2">${outcome.text}</div>
+                                                            <div class="flex items-center gap-2 flex-wrap">
+                                                                <span class="badge ${style.badge} text-xs">
+                                                                    ${style.icon} ${outcome.status}
+                                                                </span>
+                                                                ${outcome.challenges ? `
+                                                                    <div class="text-xs ${style.text} opacity-90 mt-1 w-full">
+                                                                        <strong>📝 Update:</strong> ${outcome.challenges.substring(0, 100)}${outcome.challenges.length > 100 ? '...' : ''}
+                                                                    </div>
+                                                                ` : ''}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                `;
+                                            }).join('')}
+                                        </div>
+                                    </div>
+                                ` : '<p class="text-xs text-gray-500 italic text-center py-4">No outcomes recorded for this directive</p>'}
+                                
+                                <!-- Progress Bar -->
+                                <div class="progress-bar mt-4">
                                     <div class="progress-fill" style="width: ${analysis.completionRate}%;"></div>
                                 </div>
                             </div>
@@ -1415,294 +1208,202 @@
             document.getElementById('directives-list').innerHTML = html;
         }
 
-        function renderReminders() {
-            const reminderCounts = { zero: 0, one: 0, two: 0, three: 0 };
+        function toggleOutcomes(directiveId) {
+            const outcomesDiv = document.getElementById(`outcomes-${directiveId}`);
+            const toggleText = document.getElementById(`toggle-${directiveId}`);
+            
+            if (outcomesDiv.classList.contains('hidden')) {
+                outcomesDiv.classList.remove('hidden');
+                toggleText.textContent = '▲ Hide Outcomes';
+            } else {
+                outcomesDiv.classList.add('hidden');
+                toggleText.textContent = '▼ Show All Outcomes';
+            }
+        }
+
+        function renderTimeline() {
+            const today = new Date();
+            let overdue = 0;
+            let dueSoon = 0;
+            let noDate = 0;
+            const overdueList = [];
             
             allDirectives.forEach(d => {
-                const rem = d.reminders || 0;
-                if (rem === 0) reminderCounts.zero++;
-                else if (rem === 1) reminderCounts.one++;
-                else if (rem === 2) reminderCounts.two++;
-                else reminderCounts.three++;
+                if (!d.implementationEndDate) {
+                    noDate++;
+                } else {
+                    const deadline = new Date(d.implementationEndDate);
+                    const daysUntil = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+                    
+                    if (daysUntil < 0) {
+                        overdue++;
+                        overdueList.push({ directive: d, daysOverdue: Math.abs(daysUntil) });
+                    } else if (daysUntil <= 30) {
+                        dueSoon++;
+                    }
+                }
             });
             
-            document.getElementById('rem-zero').textContent = reminderCounts.zero;
-            document.getElementById('rem-one').textContent = reminderCounts.one;
-            document.getElementById('rem-two').textContent = reminderCounts.two;
-            document.getElementById('rem-three').textContent = reminderCounts.three;
+            document.getElementById('tl-overdue').textContent = overdue;
+            document.getElementById('tl-due-soon').textContent = dueSoon;
+            document.getElementById('tl-no-date').textContent = noDate;
             
-            // Chart
-            if (charts.reminders) charts.reminders.destroy();
-            const ctx = document.getElementById('reminder-chart').getContext('2d');
-            charts.reminders = new Chart(ctx, {
+            // Timeline chart
+            if (charts.timeline) charts.timeline.destroy();
+            const ctx = document.getElementById('timeline-chart').getContext('2d');
+            const onSchedule = allDirectives.length - overdue - dueSoon - noDate;
+            
+            charts.timeline = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['0 Reminders', '1 Reminder', '2 Reminders', '3+ Reminders'],
+                    labels: ['Overdue', 'Due Soon', 'On Schedule', 'No Timeline'],
                     datasets: [{
-                        data: [reminderCounts.zero, reminderCounts.one, reminderCounts.two, reminderCounts.three],
-                        backgroundColor: ['#43A047', '#2196F3', '#FDD835', '#C62828'],
+                        data: [overdue, dueSoon, onSchedule, noDate],
+                        backgroundColor: ['#C62828', '#FB8C00', '#43A047', '#9E9E9E'],
                         borderRadius: 8
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
+                    indexAxis: 'y',
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, grid: { display: false } },
-                        x: { grid: { display: false } }
+                        x: { beginAtZero: true, grid: { display: false } },
+                        y: { grid: { display: false } }
                     }
                 }
             });
             
-            // Most reminders
-            const mostReminded = allDirectives
-                .filter(d => (d.reminders || 0) > 0)
-                .sort((a, b) => (b.reminders || 0) - (a.reminders || 0))
-                .slice(0, 5);
-            
-            document.getElementById('most-reminders').innerHTML = mostReminded.length > 0 ? `
+            // Overdue list
+            overdueList.sort((a, b) => b.daysOverdue - a.daysOverdue);
+            document.getElementById('overdue-list').innerHTML = overdueList.length > 0 ? `
                 <div class="space-y-2">
-                    ${mostReminded.map(d => `
-                        <div class="flex items-center justify-between p-3 ${(d.reminders || 0) >= 3 ? 'bg-red-50 border border-red-200' : 'bg-gray-50'} rounded-lg">
+                    ${overdueList.slice(0, 10).map(item => `
+                        <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
                             <div class="flex-1 min-w-0">
-                                <div class="text-xs font-mono font-medium text-gray-700 truncate mb-1">${d.ref || 'N/A'}</div>
-                                <div class="text-xs text-gray-600 truncate">${d.owner}</div>
+                                <div class="text-xs font-mono font-medium text-gray-700 truncate mb-1">${item.directive.ref || 'N/A'}</div>
+                                <div class="text-xs text-gray-600 truncate">${item.directive.subject}</div>
                             </div>
                             <div class="text-right ml-4">
-                                <div class="text-2xl font-light ${(d.reminders || 0) >= 3 ? 'text-red-600' : 'text-gray-700'}">${d.reminders || 0}</div>
-                                <div class="text-xs text-gray-500">reminders</div>
+                                <div class="text-2xl font-light text-red-600">${item.daysOverdue}</div>
+                                <div class="text-xs text-red-600">days overdue</div>
                             </div>
                         </div>
                     `).join('')}
                 </div>
-            ` : '<p class="text-gray-500 text-sm text-center py-6">No reminders sent yet</p>';
-            
-            renderRemindersList(getFilteredReminders());
+            ` : '<p class="text-gray-500 text-sm text-center py-6">No overdue directives ✓</p>';
         }
 
-        function getFilteredReminders() {
-            let filtered = [...allDirectives];
+        function renderOwners() {
+            const ownerStats = {};
             
-            if (remFilters.level !== 'all') {
-                const level = parseInt(remFilters.level);
-                filtered = filtered.filter(d => {
-                    const rem = d.reminders || 0;
-                    if (level === 3) return rem >= 3;
-                    return rem === level;
-                });
-            }
-            
-            if (remFilters.search) {
-                filtered = filtered.filter(d => 
-                    (d.owner || '').toLowerCase().includes(remFilters.search) ||
-                    (d.ref || '').toLowerCase().includes(remFilters.search) ||
-                    (d.subject || '').toLowerCase().includes(remFilters.search)
-                );
-            }
-            
-            filtered.sort((a, b) => {
-                switch(remFilters.sort) {
-                    case 'reminders-desc': return (b.reminders || 0) - (a.reminders || 0);
-                    case 'reminders-asc': return (a.reminders || 0) - (b.reminders || 0);
-                    case 'age-desc': 
-                        const ageA = new Date(a.createdAt || 0);
-                        const ageB = new Date(b.createdAt || 0);
-                        return ageA - ageB;
-                    default: return (b.reminders || 0) - (a.reminders || 0);
+            allDirectives.forEach(d => {
+                const owner = d.owner || 'Unassigned';
+                if (!ownerStats[owner]) {
+                    ownerStats[owner] = {
+                        name: owner,
+                        directivesTotal: 0,
+                        totalOutcomes: 0,
+                        completedOutcomes: 0
+                    };
+                }
+                
+                ownerStats[owner].directivesTotal++;
+                
+                if (d.outcomes && d.outcomes.length > 0) {
+                    ownerStats[owner].totalOutcomes += d.outcomes.length;
+                    ownerStats[owner].completedOutcomes += d.outcomes.filter(o => o.status === 'Completed').length;
                 }
             });
             
-            return filtered;
+            let owners = Object.values(ownerStats).map(owner => {
+                owner.completionRate = owner.totalOutcomes > 0 ? Math.round((owner.completedOutcomes / owner.totalOutcomes) * 100) : 0;
+                return owner;
+            });
+            
+            // Top 10 chart
+            const top10 = [...owners].sort((a, b) => b.completionRate - a.completionRate).slice(0, 10);
+            
+            if (charts.topOwners) charts.topOwners.destroy();
+            const ctx = document.getElementById('top-owners-chart').getContext('2d');
+            charts.topOwners = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: top10.map(o => o.name.substring(0, 25)),
+                    datasets: [{
+                        label: 'Completion Rate (%)',
+                        data: top10.map(o => o.completionRate),
+                        backgroundColor: '#43A047',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, max: 100, grid: { display: false } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+            
+            renderOwnersList(getFilteredOwners());
         }
 
-        function renderRemindersList(data) {
-            if (data.length === 0) {
-                document.getElementById('reminders-list').innerHTML = '<p class="text-gray-500 text-sm text-center py-12">No directives found</p>';
-                return;
-            }
+        function getFilteredOwners() {
+            const ownerStats = {};
             
-            const totalPages = Math.ceil(data.length / remPageSize);
-            const startIdx = (remCurrentPage - 1) * remPageSize;
-            const endIdx = Math.min(startIdx + remPageSize, data.length);
-            const pageData = data.slice(startIdx, endIdx);
-            
-            const html = `
-                <div class="text-xs text-gray-500 mb-4">Showing ${startIdx + 1}-${endIdx} of ${data.length} directives</div>
-                <div class="space-y-3">
-                    ${pageData.map(d => {
-                        const reminders = d.reminders || 0;
-                        const bgColor = reminders >= 3 ? 'bg-red-50 border-2 border-red-500' : 
-                                       reminders === 2 ? 'bg-yellow-50 border border-yellow-200' :
-                                       reminders === 1 ? 'bg-blue-50 border border-blue-200' : 'bg-white';
-                        const daysSince = Math.ceil((new Date() - new Date(d.createdAt || Date.now())) / (1000 * 60 * 60 * 24));
-                        
-                        return `
-                            <div class="item-card ${bgColor}">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <div class="flex items-center gap-2 mb-2">
-                                            <span class="text-xs font-mono font-medium" style="color: var(--cbn-primary);">${d.ref || 'N/A'}</span>
-                                            ${reminders >= 3 ? '<span class="badge badge-red">NON-RESPONSIVE</span>' : ''}
-                                        </div>
-                                        <div class="font-medium text-sm text-gray-900 mb-2">${d.subject}</div>
-                                        <div class="text-xs text-gray-600">
-                                            <strong>Owner:</strong> ${d.owner} • 
-                                            <strong>Age:</strong> ${daysSince} days • 
-                                            <strong>Status:</strong> ${d.monitoringStatus || 'Unknown'}
-                                        </div>
-                                    </div>
-                                    <div class="text-right ml-6">
-                                        <div class="text-4xl font-light ${reminders >= 3 ? 'text-red-600' : reminders === 2 ? 'text-yellow-600' : reminders === 1 ? 'text-blue-600' : 'text-green-600'}">${reminders}</div>
-                                        <div class="text-xs text-gray-500">reminders</div>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
+            allDirectives.forEach(d => {
+                const owner = d.owner || 'Unassigned';
+                if (!ownerStats[owner]) {
+                    ownerStats[owner] = {
+                        name: owner,
+                        directivesTotal: 0,
+                        totalOutcomes: 0,
+                        completedOutcomes: 0
+                    };
+                }
                 
-                ${totalPages > 1 ? renderPagination(remCurrentPage, totalPages, 'rem') : ''}
-            `;
+                ownerStats[owner].directivesTotal++;
+                
+                if (d.outcomes && d.outcomes.length > 0) {
+                    ownerStats[owner].totalOutcomes += d.outcomes.length;
+                    ownerStats[owner].completedOutcomes += d.outcomes.filter(o => o.status === 'Completed').length;
+                }
+            });
             
-            document.getElementById('reminders-list').innerHTML = html;
-        }
-
-      
-
-
-        function renderOwners() {
-    const ownerStats = {};
-    
-    allDirectives.forEach(d => {
-        const owner = d.owner || 'Unassigned';
-        if (!ownerStats[owner]) {
-            ownerStats[owner] = {
-                name: owner,
-                total: 0,
-                completed: 0,
-                onTrack: 0,
-                atRisk: 0,
-                highRisk: 0,
-                totalOutcomes: 0,
-                completedOutcomes: 0
-            };
-        }
-        
-        ownerStats[owner].total++;
-        
-        switch (d.monitoringStatus) {
-            case 'Completed':
-                ownerStats[owner].completed++;
-                break;
-            case 'On Track':
-                ownerStats[owner].onTrack++;
-                break;
-            case 'At Risk':
-                ownerStats[owner].atRisk++;
-                break;
-            case 'High Risk':
-                ownerStats[owner].highRisk++;
-                break;
-        }
-        
-        if (d.outcomes && d.outcomes.length > 0) {
-            ownerStats[owner].totalOutcomes += d.outcomes.length;
-            ownerStats[owner].completedOutcomes += d.outcomes.filter(o => o.status === 'Completed').length;
-        }
-    });
-    
-    let owners = Object.values(ownerStats).map(owner => {
-        owner.completionRate = owner.total > 0 ? Math.round((owner.completed / owner.total) * 100) : 0;
-        owner.outcomeRate = owner.totalOutcomes > 0 ? Math.round((owner.completedOutcomes / owner.totalOutcomes) * 100) : 0;
-        owner.riskCount = owner.atRisk + owner.highRisk;
-        return owner;
-    });
-    
-    renderOwnersList(getFilteredOwners());
-}
-
-
-
-
-function getFilteredOwners() {
-    const ownerStats = {};
-    
-    allDirectives.forEach(d => {
-        const owner = d.owner || 'Unassigned';
-        if (!ownerStats[owner]) {
-            ownerStats[owner] = {
-                name: owner,
-                total: 0,
-                completed: 0,
-                onTrack: 0,
-                atRisk: 0,
-                highRisk: 0,
-                totalOutcomes: 0,
-                completedOutcomes: 0
-            };
-        }
-        
-        ownerStats[owner].total++;
-        
-        switch (d.monitoringStatus) {
-            case 'Completed':
-                ownerStats[owner].completed++;
-                break;
-            case 'On Track':
-                ownerStats[owner].onTrack++;
-                break;
-            case 'At Risk':
-                ownerStats[owner].atRisk++;
-                break;
-            case 'High Risk':
-                ownerStats[owner].highRisk++;
-                break;
-        }
-        
-        if (d.outcomes && d.outcomes.length > 0) {
-            ownerStats[owner].totalOutcomes += d.outcomes.length;
-            ownerStats[owner].completedOutcomes += d.outcomes.filter(o => o.status === 'Completed').length;
-        }
-    });
-    
-    let owners = Object.values(ownerStats).map(owner => {
-        owner.completionRate = owner.total > 0 ? Math.round((owner.completed / owner.total) * 100) : 0;
-        owner.outcomeRate = owner.totalOutcomes > 0 ? Math.round((owner.completedOutcomes / owner.totalOutcomes) * 100) : 0;
-        owner.riskCount = owner.atRisk + owner.highRisk;
-        return owner;
-    });
-    
-    // Apply filters
-    if (ownerFilters.performance !== 'all') {
-        owners = owners.filter(o => {
-            switch(ownerFilters.performance) {
-                case 'excellent': return o.completionRate >= 80;
-                case 'good': return o.completionRate >= 60 && o.completionRate < 80;
-                case 'needs-improvement': return o.completionRate < 60;
-                default: return true;
+            let owners = Object.values(ownerStats).map(owner => {
+                owner.completionRate = owner.totalOutcomes > 0 ? Math.round((owner.completedOutcomes / owner.totalOutcomes) * 100) : 0;
+                return owner;
+            });
+            
+            // Apply filters
+            if (ownerFilters.performance !== 'all') {
+                owners = owners.filter(o => {
+                    if (ownerFilters.performance === 'excellent') return o.completionRate >= 80;
+                    if (ownerFilters.performance === 'good') return o.completionRate >= 60 && o.completionRate < 80;
+                    if (ownerFilters.performance === 'needs-improvement') return o.completionRate < 60;
+                    return true;
+                });
             }
-        });
-    }
-    
-    if (ownerFilters.search) {
-        owners = owners.filter(o => o.name.toLowerCase().includes(ownerFilters.search));
-    }
-    
-    // Apply sorting
-    owners.sort((a, b) => {
-        switch(ownerFilters.sort) {
-            case 'completion-desc': return b.completionRate - a.completionRate;
-            case 'completion-asc': return a.completionRate - b.completionRate;
-            case 'total-desc': return b.total - a.total;
-            case 'risk-desc': return b.riskCount - a.riskCount;
-            default: return b.completionRate - a.completionRate;
+            
+            if (ownerFilters.search) {
+                owners = owners.filter(o => o.name.toLowerCase().includes(ownerFilters.search));
+            }
+            
+            // Apply sorting
+            owners.sort((a, b) => {
+                if (ownerFilters.sort === 'completion-desc') return b.completionRate - a.completionRate;
+                if (ownerFilters.sort === 'outcomes-desc') return b.totalOutcomes - a.totalOutcomes;
+                if (ownerFilters.sort === 'directives-desc') return b.directivesTotal - a.directivesTotal;
+                return b.completionRate - a.completionRate;
+            });
+            
+            return owners;
         }
-    });
-    
-    return owners;
-}
-
 
         function renderOwnersList(data) {
             if (data.length === 0) {
@@ -1725,24 +1426,24 @@ function getFilteredOwners() {
                         
                         return `
                             <div class="item-card">
-                                <div class="flex items-start justify-between mb-3">
+                                <div class="flex items-start justify-between">
                                     <div class="flex-1">
                                         <div class="flex items-center gap-3 mb-2">
                                             <span class="badge badge-${gradeColor}">Rank #${globalIdx + 1}</span>
                                             <span class="text-lg font-medium" style="color: var(--cbn-dark);">${owner.name}</span>
                                         </div>
-                                        <div class="grid grid-cols-3 gap-4 text-sm mb-3">
+                                        <div class="grid grid-cols-3 gap-4 text-sm">
                                             <div>
-                                                <div class="text-xs text-gray-500 mb-1">Total Directives</div>
-                                                <div class="font-medium text-xl" style="color: var(--cbn-primary);">${owner.total}</div>
+                                                <div class="text-xs text-gray-500 mb-1">Directives</div>
+                                                <div class="font-medium text-xl">${owner.directivesTotal}</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-xs text-gray-500 mb-1">Total Outcomes</div>
+                                                <div class="font-medium text-xl">${owner.totalOutcomes}</div>
                                             </div>
                                             <div>
                                                 <div class="text-xs text-gray-500 mb-1">Completed</div>
-                                                <div class="font-medium text-xl text-green-600">${owner.completed}</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-xs text-gray-500 mb-1">At Risk</div>
-                                                <div class="font-medium text-xl text-red-600">${owner.riskCount}</div>
+                                                <div class="font-medium text-xl text-green-600">${owner.completedOutcomes}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -1751,35 +1452,6 @@ function getFilteredOwners() {
                                         <div class="text-xs text-gray-500 mt-1">completion</div>
                                     </div>
                                 </div>
-                                
-                                <div class="grid grid-cols-4 gap-2 mb-3">
-                                    <div class="bg-green-50 rounded-lg p-2 text-center">
-                                        <div class="text-lg font-light text-green-600">${owner.completed}</div>
-                                        <div class="text-xs text-green-700 font-medium">Done</div>
-                                    </div>
-                                    <div class="bg-gray-50 rounded-lg p-2 text-center">
-                                        <div class="text-lg font-light text-gray-700">${owner.onTrack}</div>
-                                        <div class="text-xs text-gray-700 font-medium">On Track</div>
-                                    </div>
-                                    <div class="bg-yellow-50 rounded-lg p-2 text-center">
-                                        <div class="text-lg font-light text-yellow-700">${owner.atRisk}</div>
-                                        <div class="text-xs text-yellow-700 font-medium">At Risk</div>
-                                    </div>
-                                    <div class="bg-red-50 rounded-lg p-2 text-center">
-                                        <div class="text-lg font-light text-red-600">${owner.highRisk}</div>
-                                        <div class="text-xs text-red-700 font-medium">High Risk</div>
-                                    </div>
-                                </div>
-                                
-                                ${owner.totalOutcomes > 0 ? `
-                                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-xs">
-                                        <span class="font-medium text-gray-700">Outcomes Progress:</span>
-                                        <span class="font-medium" style="color: var(--cbn-primary);">
-                                            ${owner.completedOutcomes}/${owner.totalOutcomes} (${owner.outcomeRate}%)
-                                        </span>
-                                    </div>
-                                ` : ''}
-                                
                                 <div class="progress-bar mt-3">
                                     <div class="progress-fill" style="width: ${owner.completionRate}%;"></div>
                                 </div>
@@ -1841,15 +1513,9 @@ function getFilteredOwners() {
             if (type === 'dir') {
                 dirCurrentPage = page;
                 renderDirectivesList(getFilteredDirectives());
-                document.getElementById('view-directives').scrollIntoView({ behavior: 'smooth' });
             } else if (type === 'owner') {
                 ownerCurrentPage = page;
                 renderOwnersList(getFilteredOwners());
-                document.getElementById('view-owners').scrollIntoView({ behavior: 'smooth' });
-            } else if (type === 'rem') {
-                remCurrentPage = page;
-                renderRemindersList(getFilteredReminders());
-                document.getElementById('view-reminders').scrollIntoView({ behavior: 'smooth' });
             }
         }
 
@@ -1859,13 +1525,12 @@ function getFilteredOwners() {
             const summaryData = [
                 ['Board Directives Report'],
                 ['Date:', new Date().toLocaleDateString()],
-                ['Source:', currentSource === 'CG' ? 'Committee of Governors' : 'Board of Directors'],
+                ['Source:', currentSource === 'CG' ? 'Council of Governors' : 'Board of Directors'],
                 [],
                 ['Metric', 'Value'],
-                ['Total', statsData.summary.total],
-                ['Completed', statsData.summary.completed],
-                ['In Progress', statsData.summary.track + statsData.summary.atRisk],
-                ['At Risk', statsData.summary.highRisk]
+                ['Total Directives', allDirectives.length],
+                ['Total Outcomes', allDirectives.reduce((sum, d) => sum + (d.outcomes ? d.outcomes.length : 0), 0)],
+                ['Completed Outcomes', allDirectives.reduce((sum, d) => sum + (d.outcomes ? d.outcomes.filter(o => o.status === 'Completed').length : 0), 0)]
             ];
             
             const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
@@ -1875,10 +1540,11 @@ function getFilteredOwners() {
                 'Ref': d.ref || 'N/A',
                 'Subject': d.subject,
                 'Owner': d.owner,
-                'Status': d.monitoringStatus,
-                'Reminders': d.reminders || 0,
-                'Outcomes': d.outcomes?.length || 0,
-                'Completed': d.outcomes?.filter(o => o.status === 'Completed').length || 0
+                'Total Outcomes': d.outcomes?.length || 0,
+                'Completed': d.outcomes?.filter(o => o.status === 'Completed').length || 0,
+                'Being Implemented': d.outcomes?.filter(o => o.status === 'Being Implemented').length || 0,
+                'Delayed': d.outcomes?.filter(o => o.status === 'Delayed').length || 0,
+                'Not Started': d.outcomes?.filter(o => o.status === 'Not Started').length || 0
             }));
             
             const ws2 = XLSX.utils.json_to_sheet(detailsData);
@@ -1886,34 +1552,6 @@ function getFilteredOwners() {
             
             XLSX.writeFile(wb, `Report_${currentSource}_${new Date().toISOString().split('T')[0]}.xlsx`);
         }
-
-        // Print All Sections Function
-        function printAllSections() {
-            // Store current active section
-            const currentSection = document.querySelector('.view-section.active');
-            
-            // Make all sections visible for printing
-            document.querySelectorAll('.view-section').forEach(section => {
-                section.classList.add('active');
-            });
-            
-            // Print
-            window.print();
-            
-            // Restore original state after print
-            setTimeout(() => {
-                document.querySelectorAll('.view-section').forEach(section => {
-                    section.classList.remove('active');
-                });
-                if (currentSection) {
-                    currentSection.classList.add('active');
-                }
-            }, 1000);
-        }
-
-        // Override window.print to use printAllSections
-        const originalPrint = window.print;
-        window.print = printAllSections;
     </script>
 </body>
 </html>

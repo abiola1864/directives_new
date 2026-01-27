@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Process Owner Signup - CBN Directives</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        
+        :root {
+            --cbn-forest: #1B5E20;
+            --cbn-dark-green: #2E7D32;
+            --cbn-green: #388E3C;
+            --cbn-medium-green: #4CAF50;
+            --cbn-light-green: #66BB6A;
+            --cbn-pale-green: #E8F5E9;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 50%, #A5D6A7 100%);
+            min-height: 100vh;
+        }
+        
+        .signup-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(27, 94, 32, 0.15);
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #E0E0E0;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--cbn-medium-green);
+            box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--cbn-forest) 0%, var(--cbn-dark-green) 100%);
+            color: white;
+            padding: 14px 32px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 15px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(27, 94, 32, 0.25);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .logo-circle {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--cbn-forest) 0%, var(--cbn-dark-green) 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(27, 94, 32, 0.2);
+        }
+        
+        .error-message, .success-message {
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        
+        .error-message {
+            background: #FEE2E2;
+            color: #DC2626;
+        }
+        
+        .success-message {
+            background: #D1FAE5;
+            color: #059669;
+        }
+        
+        .error-message.show, .success-message.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .password-strength {
+            height: 4px;
+            background: #E0E0E0;
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .password-strength-bar {
+            height: 100%;
+            width: 0%;
+            transition: all 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    
+    <div class="signup-card w-full max-w-md p-8">
+        <!-- Logo & Title -->
+        <div class="text-center mb-8">
+            <div class="logo-circle mx-auto mb-4">
+                <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                    <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900">Create Process Owner Account</h1>
+            <p class="text-gray-500 text-sm mt-1">CBN Directives Management Platform</p>
+        </div>
+        
+        <!-- Messages -->
+        <div id="error-message" class="error-message"></div>
+        <div id="success-message" class="success-message"></div>
+        
+        <!-- Signup Form -->
+        <form id="signup-form" class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
+                <input type="text" id="name" class="form-input" placeholder="Enter your full name" required>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Official Email Address *</label>
+                <input type="email" id="email" class="form-input" placeholder="yourname@cbn.gov.ng" required>
+                <p id="email-status" class="text-xs mt-1 hidden"></p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Department</label>
+                <input type="text" id="department" class="form-input" placeholder="e.g., Banking Supervision">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Position/Title</label>
+                <input type="text" id="position" class="form-input" placeholder="e.g., Director">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Phone Number</label>
+                <input type="tel" id="phone" class="form-input" placeholder="+234 xxx xxx xxxx">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Password *</label>
+                <input type="password" id="password" class="form-input" placeholder="Minimum 8 characters" required>
+                <div class="password-strength">
+                    <div id="password-strength-bar" class="password-strength-bar"></div>
+                </div>
+                <p id="password-hint" class="text-xs text-gray-500 mt-1">Password strength: <span id="strength-text">Not entered</span></p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Confirm Password *</label>
+                <input type="password" id="confirm-password" class="form-input" placeholder="Re-enter password" required>
+            </div>
+            
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p class="text-xs text-blue-800">
+                    <strong>🔐 Authorization Required:</strong> Only process owners with directives already assigned to their email can create accounts. If you don't have directives assigned yet, please contact the Corporate Secretariat.
+                </p>
+            </div>
+            
+            <button type="submit" id="signup-btn" class="btn-primary mt-6">
+                Create Account
+            </button>
+            
+            <div class="text-center mt-4">
+                <p class="text-sm text-gray-600">
+                    Already have an account? 
+                    <a href="/login.html" class="text-green-700 font-semibold hover:underline">Sign in here</a>
+                </p>
+            </div>
+        </form>
+        
+        <!-- Footer -->
+        <div class="mt-8 pt-6 border-t border-gray-200 text-center">
+            <p class="text-xs text-gray-400">
+                © 2025 Central Bank of Nigeria. All rights reserved.
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3001/api'
+            : '/api';
+        
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+            document.getElementById('success-message').classList.remove('show');
+        }
+        
+        function showSuccess(message) {
+            const successEl = document.getElementById('success-message');
+            successEl.textContent = message;
+            successEl.classList.add('show');
+            document.getElementById('error-message').classList.remove('show');
+        }
+        
+        function hideMessages() {
+            document.getElementById('error-message').classList.remove('show');
+            document.getElementById('success-message').classList.remove('show');
+        }
+        
+        // Password strength indicator
+        document.getElementById('password').addEventListener('input', function() {
+            const password = this.value;
+            const strengthBar = document.getElementById('password-strength-bar');
+            const strengthText = document.getElementById('strength-text');
+            
+            if (password.length === 0) {
+                strengthBar.style.width = '0%';
+                strengthText.textContent = 'Not entered';
+                strengthBar.style.backgroundColor = '#E0E0E0';
+                return;
+            }
+            
+            let strength = 0;
+            if (password.length >= 8) strength += 25;
+            if (password.length >= 12) strength += 25;
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 25;
+            if (/\d/.test(password)) strength += 15;
+            if (/[^a-zA-Z0-9]/.test(password)) strength += 10;
+            
+            strengthBar.style.width = strength + '%';
+            
+            if (strength < 40) {
+                strengthBar.style.backgroundColor = '#DC2626';
+                strengthText.textContent = 'Weak';
+            } else if (strength < 70) {
+                strengthBar.style.backgroundColor = '#F59E0B';
+                strengthText.textContent = 'Fair';
+            } else if (strength < 90) {
+                strengthBar.style.backgroundColor = '#3B82F6';
+                strengthText.textContent = 'Good';
+            } else {
+                strengthBar.style.backgroundColor = '#10B981';
+                strengthText.textContent = 'Strong';
+            }
+        });
+        
+        // Email verification
+        let emailCheckTimeout;
+        document.getElementById('email').addEventListener('input', function() {
+            const email = this.value.trim();
+            const statusEl = document.getElementById('email-status');
+            
+            // Clear previous timeout
+            clearTimeout(emailCheckTimeout);
+            
+            if (!email || !email.includes('@')) {
+                statusEl.classList.add('hidden');
+                return;
+            }
+            
+            // Debounce email check
+            emailCheckTimeout = setTimeout(async () => {
+                try {
+                    statusEl.textContent = 'Checking...';
+                    statusEl.className = 'text-xs mt-1 text-gray-500';
+                    statusEl.classList.remove('hidden');
+                    
+                    const response = await fetch(`${API_BASE}/process-owners/check-email`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.authorized) {
+                        statusEl.textContent = `✓ Email authorized (${result.directivesCount} directive${result.directivesCount !== 1 ? 's' : ''} assigned)`;
+                        statusEl.className = 'text-xs mt-1 text-green-600 font-medium';
+                    } else if (result.accountExists) {
+                        statusEl.textContent = '⚠ Account already exists. Please login.';
+                        statusEl.className = 'text-xs mt-1 text-orange-600 font-medium';
+                    } else {
+                        statusEl.textContent = '✗ Email not authorized. Contact Corporate Secretariat.';
+                        statusEl.className = 'text-xs mt-1 text-red-600 font-medium';
+                    }
+                } catch (error) {
+                    statusEl.classList.add('hidden');
+                }
+            }, 1000);
+        });
+        
+        // Form submission
+        document.getElementById('signup-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            hideMessages();
+            
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const department = document.getElementById('department').value.trim();
+            const position = document.getElementById('position').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            
+            // Validation
+            if (!name || !email || !password || !confirmPassword) {
+                showError('Please fill in all required fields');
+                return;
+            }
+            
+            if (password.length < 8) {
+                showError('Password must be at least 8 characters long');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showError('Passwords do not match');
+                return;
+            }
+            
+            const btn = document.getElementById('signup-btn');
+            btn.disabled = true;
+            btn.textContent = 'Creating Account...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/process-owners/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, department, position, phone, password })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(`Account created successfully! You have ${result.directivesCount || 0} directive(s) assigned. Redirecting to login...`);
+                    setTimeout(() => {
+                        window.location.href = '/login.html?registered=true&email=' + encodeURIComponent(email);
+                    }, 2000);
+                } else {
+                    // Check for specific error types
+                    if (result.unauthorized) {
+                        showError('⚠️ ' + result.error);
+                        // Show contact info
+                        setTimeout(() => {
+                            const errorDiv = document.getElementById('error-message');
+                            errorDiv.innerHTML = `
+                                <strong>⚠️ Email Not Authorized</strong><br>
+                                Your email (${email}) is not found in our directives database.<br><br>
+                                <strong>What this means:</strong> Only process owners who already have directives assigned can create accounts.<br><br>
+                                <strong>Next steps:</strong> Contact the Corporate Secretariat to have directives assigned to your email, then return here to create your account.
+                            `;
+                        }, 100);
+                    } else if (result.accountExists) {
+                        showError('An account already exists with this email. Please login instead.');
+                        setTimeout(() => {
+                            window.location.href = '/login.html?email=' + encodeURIComponent(email);
+                        }, 2000);
+                    } else {
+                        showError(result.error || 'Signup failed. Please try again.');
+                    }
+                    btn.disabled = false;
+                    btn.textContent = 'Create Account';
+                }
+            } catch (error) {
+                showError('Network error. Please check your connection and try again.');
+                btn.disabled = false;
+                btn.textContent = 'Create Account';
+            }
+        });
+    </script>
+</body>
+</html>
