@@ -3,332 +3,452 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - CBN Directives Management Platform</title>
+    <title>Login – CBN Directives Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Inter', sans-serif; }
-        
-        :root {
-            --cbn-forest: #1B5E20;
-            --cbn-dark-green: #2E7D32;
-            --cbn-green: #388E3C;
-            --cbn-medium-green: #4CAF50;
-            --cbn-light-green: #66BB6A;
-            --cbn-pale-green: #E8F5E9;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 50%, #A5D6A7 100%);
-            min-height: 100vh;
-        }
-        
-        .login-card {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(27, 94, 32, 0.15);
-        }
-        
+        body { background: #f5f5f5; }
         .form-input {
-            width: 100%;
-            padding: 14px 16px;
-            border: 2px solid #E0E0E0;
-            border-radius: 12px;
-            font-size: 15px;
-            transition: all 0.3s ease;
+            width: 100%; padding: 12px 14px;
+            border: 1px solid #E0E0E0; border-radius: 8px;
+            font-size: 15px; transition: all .2s ease;
         }
-        
-        .form-input:focus {
-            outline: none;
-            border-color: var(--cbn-medium-green);
-            box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.1);
-        }
-        
+        .form-input:focus { outline: none; border-color: #4CAF50; background: #E8F5E9; }
         .btn-primary {
-            background: linear-gradient(135deg, var(--cbn-forest) 0%, var(--cbn-dark-green) 100%);
-            color: white;
-            padding: 14px 32px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 15px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            width: 100%;
+            width: 100%; background: linear-gradient(135deg, #1B5E20, #2E7D32);
+            color: white; padding: 14px; border-radius: 8px;
+            font-weight: 600; font-size: 15px; border: none; cursor: pointer;
+            transition: all .2s ease;
         }
-        
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(27, 94, 32, 0.25);
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(27,94,32,.25); }
+        .btn-primary:disabled { opacity: .6; transform: none; cursor: not-allowed; }
+        .tab-btn { padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; border: none; cursor: pointer; transition: all .2s; }
+        .tab-btn.active { background: #E8F5E9; color: #1B5E20; }
+        .tab-btn:not(.active) { background: transparent; color: #666; }
+        .tab-btn:not(.active):hover { background: #f5f5f5; }
+        /* OTP digit input */
+        .otp-input {
+            width: 48px; height: 56px; text-align: center;
+            font-size: 24px; font-weight: 700; letter-spacing: 0;
+            border: 2px solid #E0E0E0; border-radius: 10px;
+            transition: border-color .2s;
         }
-        
-        .btn-primary:active {
-            transform: translateY(0);
-        }
-        
-        .btn-secondary {
-            background: var(--cbn-pale-green);
-            color: var(--cbn-forest);
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-weight: 500;
-            font-size: 14px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-secondary:hover {
-            background: #C8E6C9;
-        }
-        
-        .tab-btn {
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: none;
-            background: transparent;
-            color: #666;
-        }
-        
-        .tab-btn.active {
-            background: var(--cbn-pale-green);
-            color: var(--cbn-forest);
-            font-weight: 600;
-        }
-        
-        .tab-btn:hover:not(.active) {
-            background: #f5f5f5;
-        }
-        
-        .logo-circle {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, var(--cbn-forest) 0%, var(--cbn-dark-green) 100%);
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 10px 30px rgba(27, 94, 32, 0.2);
-        }
-        
-        .error-message {
-            background: #FEE2E2;
-            color: #DC2626;
-            padding: 12px 16px;
-            border-radius: 10px;
-            font-size: 14px;
-            margin-bottom: 16px;
-            display: none;
-        }
-        
-        .success-message {
-            background: #D1FAE5;
-            color: #059669;
-            padding: 12px 16px;
-            border-radius: 10px;
-            font-size: 14px;
-            margin-bottom: 16px;
-            display: none;
-        }
-        
-        .error-message.show, .success-message.show {
-            display: block;
-            animation: shake 0.5s ease;
-        }
-        
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.5s ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .otp-input:focus { outline: none; border-color: #4CAF50; background: #E8F5E9; }
+        .hidden { display: none !important; }
+        .error-box { background: #FEE2E2; border: 1px solid #FCA5A5; color: #DC2626; padding: 12px; border-radius: 8px; font-size: 13px; }
+        .info-box  { background: #E8F5E9; border: 1px solid #86EFAC; color: #166534; padding: 12px; border-radius: 8px; font-size: 13px; }
     </style>
 </head>
-<body class="flex items-center justify-center p-4">
-    
-    <div class="login-card w-full max-w-md p-8 fade-in">
-        <!-- Logo & Title -->
-    <div class="flex items-center gap-3">
-    <div class="logo-compact flex-shrink-0">
-  <img src="/assets/cbn_logo.png" alt="CBN Logo" class="h-12 w-12 object-contain">
+<body class="min-h-screen flex items-center justify-center p-4">
+
+<div class="w-full max-w-md">
+
+    <!-- Logo -->
+    <div class="text-center mb-8">
+        <img src="/assets/cbn_logo.png" alt="CBN" class="w-16 h-16 object-contain mx-auto mb-3"
+             onerror="this.style.display='none'">
+        <h1 class="text-2xl font-bold text-gray-900">CBN Directives Platform</h1>
+        <p class="text-sm text-gray-500 mt-1">Corporate Secretariat</p>
     </div>
-    
-            <h1 class="text-2xl font-bold text-gray-900">Board Directives Tracker</h1>
-            <p class="text-gray-500 text-sm mt-1">Central Bank of Nigeria - Corporate Secretariat</p>
+
+    <!-- ═══ STEP 1: Login form ══════════════════════════════════════════ -->
+    <div id="step-login" class="bg-white rounded-2xl shadow-lg p-8">
+
+        <!-- Tab selector -->
+        <div class="flex gap-2 mb-6 p-1 bg-gray-100 rounded-xl">
+            <button id="tab-admin"  onclick="switchTab('admin')"  class="tab-btn active flex-1">Admin</button>
+            <button id="tab-owner"  onclick="switchTab('owner')"  class="tab-btn flex-1">Business Unit</button>
         </div>
-        
-        <!-- Tab Toggle -->
-        <div class="flex bg-gray-100 rounded-xl p-1 mb-6">
-            <button id="tab-admin" class="tab-btn active flex-1" onclick="switchTab('admin')">
-                Admin Login
-            </button>
-            <button id="tab-owner" class="tab-btn flex-1" onclick="switchTab('owner')">
-                Process Owner
+
+        <h2 class="text-lg font-semibold text-gray-900 mb-6" id="login-heading">Admin Login</h2>
+
+        <div id="error-login" class="error-box mb-4 hidden"></div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                <input type="email" id="login-email" class="form-input"
+                       placeholder="email@cbn.gov.ng"
+                       onkeydown="if(event.key==='Enter')submitLogin()">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                <div class="relative">
+                    <input type="password" id="login-password" class="form-input pr-12"
+                           placeholder="••••••••"
+                           onkeydown="if(event.key==='Enter')submitLogin()">
+                    <button type="button" onclick="togglePasswordVisibility()"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        <svg id="eye-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <button id="btn-login" onclick="submitLogin()" class="btn-primary mt-2">Sign In</button>
+        </div>
+
+        <!-- Forgot password (business unit only) -->
+        <div id="forgot-password-link" class="hidden text-center mt-4">
+            <button onclick="showForgotPassword()" class="text-sm text-green-700 hover:text-green-800 font-medium underline">
+                Forgot password?
             </button>
         </div>
-        
-        <!-- Error/Success Message -->
-        <div id="error-message" class="error-message"></div>
-        <div id="success-message" class="success-message"></div>
-        
-        <!-- Admin Login Form -->
-        <form id="admin-form" class="space-y-4">
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>
-                <input type="text" id="admin-username" class="form-input" placeholder="Enter username" required>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-                <input type="password" id="admin-password" class="form-input" placeholder="Enter password" required>
-            </div>
-            <button type="submit" class="btn-primary mt-6">
-                Sign In to Dashboard
-            </button>
-        </form>
-        
-        <!-- Process Owner Login Form -->
-        <form id="owner-form" class="space-y-4 hidden">
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
-                <input type="email" id="owner-email" class="form-input" placeholder="Enter your email" required>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-                <input type="password" id="owner-password" class="form-input" placeholder="Enter password" required>
-            </div>
-            <button type="submit" class="btn-primary mt-6">
-                Sign In to Submit Updates
-            </button>
-            <p class="text-center text-sm text-gray-500 mt-4">
-                Don't have an account? 
-                <a href="/signup.html" class="text-green-700 font-semibold hover:underline">Create one here</a>
-            </p>
-        </form>
-        
-        <!-- Footer -->
-        <div class="mt-8 pt-6 border-t border-gray-200 text-center">
-            <p class="text-xs text-gray-400">
-                © 2026 Central Bank of Nigeria. All rights reserved.
+
+        <!-- Setup account link (business unit only) -->
+        <div id="setup-account-link" class="hidden text-center mt-3">
+            <p class="text-xs text-gray-500">
+                New to the portal?
+                <a href="/setup-password.html" class="text-green-700 font-medium hover:underline">Set up your account</a>
             </p>
         </div>
     </div>
-    
-    <script>
-        const API_BASE = window.location.hostname === 'localhost' 
-            ? 'http://localhost:3001/api'
-            : '/api';
-        
-        function switchTab(tab) {
-            document.getElementById('tab-admin').classList.toggle('active', tab === 'admin');
-            document.getElementById('tab-owner').classList.toggle('active', tab === 'owner');
-            document.getElementById('admin-form').classList.toggle('hidden', tab !== 'admin');
-            document.getElementById('owner-form').classList.toggle('hidden', tab !== 'owner');
-            hideMessages();
-        }
-        
-        function showError(message) {
-            const errorEl = document.getElementById('error-message');
-            errorEl.textContent = message;
-            errorEl.classList.add('show');
-            document.getElementById('success-message').classList.remove('show');
-        }
-        
-        function showSuccess(message) {
-            const successEl = document.getElementById('success-message');
-            successEl.textContent = message;
-            successEl.classList.add('show');
-            document.getElementById('error-message').classList.remove('show');
-        }
-        
-        function hideMessages() {
-            document.getElementById('error-message').classList.remove('show');
-            document.getElementById('success-message').classList.remove('show');
-        }
-        
-        // Check for registration success
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('registered') === 'true') {
-            switchTab('owner');
-            const email = urlParams.get('email');
-            if (email) {
-                document.getElementById('owner-email').value = decodeURIComponent(email);
-            }
-            showSuccess('Account created successfully! Please log in.');
-        }
-        
-        // Admin Login
-        document.getElementById('admin-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            hideMessages();
-            
-            const username = document.getElementById('admin-username').value;
-            const password = document.getElementById('admin-password').value;
-            
-            // Simple admin authentication (in production, this should be server-side)
-            // Default credentials: admin / cbn2025
-            if (username === 'admin' && password === 'cbn2025') {
-                sessionStorage.setItem('isLoggedIn', 'true');
-                sessionStorage.setItem('userType', 'admin');
-                sessionStorage.setItem('username', username);
-                window.location.href = '/index.html';
+
+    <!-- ═══ STEP 2: OTP Verification ═══════════════════════════════════ -->
+    <div id="step-otp" class="hidden bg-white rounded-2xl shadow-lg p-8">
+        <div class="text-center mb-6">
+            <div class="text-4xl mb-3">🔐</div>
+            <h2 class="text-xl font-bold text-gray-900">Two-Factor Authentication</h2>
+            <p class="text-sm text-gray-500 mt-2" id="otp-instruction">
+                Enter the 6-digit code sent to your email.
+            </p>
+            <p class="text-sm font-semibold text-green-700 mt-1" id="otp-email-display"></p>
+        </div>
+
+        <div id="error-otp" class="error-box mb-4 hidden"></div>
+        <div id="info-otp"  class="info-box  mb-4 hidden"></div>
+
+        <!-- OTP digit boxes -->
+        <div class="flex justify-center gap-2 mb-6" id="otp-boxes">
+            <input class="otp-input" maxlength="1" type="text" inputmode="numeric"
+                   id="otp-0" onkeyup="otpKeyUp(event,0)" oninput="otpInput(0)">
+            <input class="otp-input" maxlength="1" type="text" inputmode="numeric"
+                   id="otp-1" onkeyup="otpKeyUp(event,1)" oninput="otpInput(1)">
+            <input class="otp-input" maxlength="1" type="text" inputmode="numeric"
+                   id="otp-2" onkeyup="otpKeyUp(event,2)" oninput="otpInput(2)">
+            <input class="otp-input" maxlength="1" type="text" inputmode="numeric"
+                   id="otp-3" onkeyup="otpKeyUp(event,3)" oninput="otpInput(3)">
+            <input class="otp-input" maxlength="1" type="text" inputmode="numeric"
+                   id="otp-4" onkeyup="otpKeyUp(event,4)" oninput="otpInput(4)">
+            <input class="otp-input" maxlength="1" type="text" inputmode="numeric"
+                   id="otp-5" onkeyup="otpKeyUp(event,5)" oninput="otpInput(5)">
+        </div>
+
+        <button id="btn-verify" onclick="verifyOtp()" class="btn-primary">Verify Code</button>
+
+        <div class="text-center mt-4 space-y-2">
+            <button onclick="resendOtp()" id="btn-resend" class="text-sm text-green-700 hover:text-green-800 font-medium underline">
+                Resend code
+            </button>
+            <span id="resend-timer" class="hidden text-sm text-gray-500"> (resend in <span id="timer-count">60</span>s)</span>
+        </div>
+
+        <button onclick="backToLogin()" class="w-full mt-4 text-sm text-gray-500 hover:text-gray-700 text-center">
+            ← Back to login
+        </button>
+    </div>
+
+    <!-- ═══ Forgot Password (business unit) ═══════════════════════════ -->
+    <div id="step-forgot" class="hidden bg-white rounded-2xl shadow-lg p-8">
+        <button onclick="showLogin()" class="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Back to login
+        </button>
+        <h2 class="text-xl font-bold text-gray-900 mb-2">Reset Password</h2>
+        <p class="text-sm text-gray-500 mb-6">Enter your email and we'll send a reset link.</p>
+
+        <div id="error-forgot" class="error-box mb-4 hidden"></div>
+        <div id="success-forgot" class="info-box mb-4 hidden"></div>
+
+        <div class="space-y-4">
+            <input type="email" id="forgot-email" class="form-input" placeholder="email@cbn.gov.ng"
+                   onkeydown="if(event.key==='Enter')submitForgot()">
+            <button onclick="submitForgot()" class="btn-primary">Send Reset Link</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const API_BASE = window.location.hostname === 'localhost'
+        ? 'http://localhost:3001/api'
+        : '/api';
+
+    // State
+    let currentTab      = 'admin';   // 'admin' | 'owner'
+    let pendingEmail    = '';
+    let resendInterval  = null;
+
+    // ── Tab switch ─────────────────────────────────────────────────────
+    function switchTab(tab) {
+        currentTab = tab;
+        document.getElementById('tab-admin').classList.toggle('active', tab === 'admin');
+        document.getElementById('tab-owner').classList.toggle('active', tab === 'owner');
+        document.getElementById('login-heading').textContent =
+            tab === 'admin' ? 'Admin Login' : 'Business Unit Login';
+        document.getElementById('forgot-password-link').classList.toggle('hidden', tab !== 'owner');
+        document.getElementById('setup-account-link').classList.toggle('hidden',   tab !== 'owner');
+        clearError('error-login');
+    }
+
+    // ── Step 1: Submit login ────────────────────────────────────────────
+    async function submitLogin() {
+        const email    = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-password').value;
+
+        if (!email || !password) { showError('error-login', 'Email and password are required.'); return; }
+
+        const btn = document.getElementById('btn-login');
+        btn.disabled = true; btn.textContent = 'Signing in…';
+        clearError('error-login');
+
+        try {
+            const endpoint = currentTab === 'admin'
+                ? `${API_BASE}/auth/admin/login`
+                : `${API_BASE}/process-owners/login`;
+
+            const r = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const j = await r.json();
+
+            if (j.success && j.step === '2fa') {
+                // ✅ 2FA required — move to OTP step
+                pendingEmail = j.email || email;
+                document.getElementById('otp-email-display').textContent = pendingEmail;
+                showOtpStep();
+                startResendTimer();
+
+            } else if (j.success && j.token) {
+                // Direct login (admin without 2FA configured — shouldn't normally happen)
+                handleLoginSuccess(j);
+
+            } else if (j.needsPasswordSetup) {
+                showError('error-login', 'Your password has not been set up yet. Check your email for a setup link.');
+
             } else {
-                showError('Invalid username or password');
+                showError('error-login', j.error || 'Invalid credentials. Please try again.');
             }
-        });
-        
-        // Process Owner Login
-        document.getElementById('owner-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            hideMessages();
-            
-            const email = document.getElementById('owner-email').value;
-            const password = document.getElementById('owner-password').value;
-            
-            try {
-                const response = await fetch(`${API_BASE}/process-owners/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    sessionStorage.setItem('isLoggedIn', 'true');
-                    sessionStorage.setItem('userType', 'processOwner');
-                    sessionStorage.setItem('userEmail', email);
-                    sessionStorage.setItem('userName', result.owner.name);
-                    sessionStorage.setItem('authToken', result.token);
-                    window.location.href = '/process-owner-dashboard.html';
-                } else {
-                    showError(result.error || 'Invalid credentials');
-                }
-            } catch (error) {
-                showError('Login failed. Please try again.');
-            }
-        });
-        
-        // Check if already logged in
-        if (sessionStorage.getItem('isLoggedIn') === 'true') {
-            const userType = sessionStorage.getItem('userType');
-            if (userType === 'admin') {
-                window.location.href = '/index.html';
-            } else if (userType === 'processOwner') {
-                window.location.href = '/process-owner-dashboard.html';
-            }
+        } catch (e) {
+            showError('error-login', 'Connection error. Please check your internet connection and try again.');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Sign In';
         }
-    </script>
+    }
+
+    // ── Step 2: Verify OTP ─────────────────────────────────────────────
+    async function verifyOtp() {
+        const otp = getOtpValue();
+        if (otp.length !== 6) { showError('error-otp', 'Please enter all 6 digits.'); return; }
+
+        const btn = document.getElementById('btn-verify');
+        btn.disabled = true; btn.textContent = 'Verifying…';
+        clearError('error-otp');
+
+        try {
+            const endpoint = currentTab === 'admin'
+                ? `${API_BASE}/auth/admin/verify-otp`
+                : `${API_BASE}/process-owners/verify-otp`;
+
+            const r = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: pendingEmail, otp })
+            });
+            const j = await r.json();
+
+            if (j.success) {
+                handleLoginSuccess(j);
+            } else {
+                showError('error-otp', j.error || 'Incorrect code. Please try again.');
+                clearOtpBoxes();
+                document.getElementById('otp-0').focus();
+            }
+        } catch (e) {
+            showError('error-otp', 'Connection error. Please try again.');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Verify Code';
+        }
+    }
+
+    // ── Handle successful login ─────────────────────────────────────────
+    function handleLoginSuccess(j) {
+        sessionStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('authToken',  j.token || '');
+
+        if (currentTab === 'admin' || j.userType === 'admin') {
+            sessionStorage.setItem('userType', 'admin');
+            window.location.href = '/index.html';
+
+        } else {
+            // Business owner — store 'businessOwner' so businessowner.html auth check passes
+            sessionStorage.setItem('userType',  'businessOwner');
+            sessionStorage.setItem('userName',   j.owner?.name  || '');
+            sessionStorage.setItem('userEmail',  j.owner?.email || pendingEmail);
+            window.location.href = '/businessowner.html';
+        }
+    }
+
+    // ── Resend OTP ──────────────────────────────────────────────────────
+    async function resendOtp() {
+        clearError('error-otp');
+        document.getElementById('btn-resend').classList.add('hidden');
+        document.getElementById('resend-timer').classList.remove('hidden');
+
+        try {
+            // Re-trigger login step 1 to generate a new OTP
+            const endpoint = currentTab === 'admin'
+                ? `${API_BASE}/auth/admin/login`
+                : `${API_BASE}/process-owners/login`;
+
+            const email    = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            showInfo('info-otp', 'A new code has been sent to ' + pendingEmail);
+            clearOtpBoxes();
+            document.getElementById('otp-0').focus();
+        } catch (e) {
+            showError('error-otp', 'Failed to resend code. Please try again.');
+        }
+
+        startResendTimer();
+    }
+
+    function startResendTimer() {
+        let count = 60;
+        document.getElementById('btn-resend').classList.add('hidden');
+        document.getElementById('resend-timer').classList.remove('hidden');
+        document.getElementById('timer-count').textContent = count;
+
+        if (resendInterval) clearInterval(resendInterval);
+        resendInterval = setInterval(() => {
+            count--;
+            document.getElementById('timer-count').textContent = count;
+            if (count <= 0) {
+                clearInterval(resendInterval);
+                document.getElementById('btn-resend').classList.remove('hidden');
+                document.getElementById('resend-timer').classList.add('hidden');
+            }
+        }, 1000);
+    }
+
+    // ── Forgot password ─────────────────────────────────────────────────
+    function showForgotPassword() {
+        document.getElementById('step-login').classList.add('hidden');
+        document.getElementById('step-forgot').classList.remove('hidden');
+    }
+
+    function showLogin() {
+        document.getElementById('step-forgot').classList.add('hidden');
+        document.getElementById('step-login').classList.remove('hidden');
+    }
+
+    async function submitForgot() {
+        const email = document.getElementById('forgot-email').value.trim();
+        if (!email) { showError('error-forgot', 'Please enter your email address.'); return; }
+
+        clearError('error-forgot');
+        clearError('success-forgot');
+
+        try {
+            const r = await fetch(`${API_BASE}/process-owners/request-password-reset`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const j = await r.json();
+            if (j.success) {
+                document.getElementById('success-forgot').textContent = j.message || 'Reset link sent. Check your email.';
+                document.getElementById('success-forgot').classList.remove('hidden');
+            } else {
+                showError('error-forgot', j.error || 'Failed to send reset link.');
+            }
+        } catch (e) {
+            showError('error-forgot', 'Connection error. Please try again.');
+        }
+    }
+
+    // ── OTP box helpers ─────────────────────────────────────────────────
+    function otpInput(idx) {
+        const val = document.getElementById(`otp-${idx}`).value.replace(/\D/g, '');
+        document.getElementById(`otp-${idx}`).value = val.slice(-1);
+        if (val && idx < 5) document.getElementById(`otp-${idx+1}`).focus();
+        if (getOtpValue().length === 6) verifyOtp();
+    }
+
+    function otpKeyUp(e, idx) {
+        if (e.key === 'Backspace' && !document.getElementById(`otp-${idx}`).value && idx > 0) {
+            document.getElementById(`otp-${idx-1}`).focus();
+        }
+        if (e.key === 'ArrowLeft'  && idx > 0) document.getElementById(`otp-${idx-1}`).focus();
+        if (e.key === 'ArrowRight' && idx < 5) document.getElementById(`otp-${idx+1}`).focus();
+    }
+
+    function getOtpValue() {
+        return [0,1,2,3,4,5].map(i => document.getElementById(`otp-${i}`).value).join('');
+    }
+
+    function clearOtpBoxes() {
+        [0,1,2,3,4,5].forEach(i => { document.getElementById(`otp-${i}`).value = ''; });
+    }
+
+    // ── Step transitions ────────────────────────────────────────────────
+    function showOtpStep() {
+        document.getElementById('step-login').classList.add('hidden');
+        document.getElementById('step-otp').classList.remove('hidden');
+        setTimeout(() => document.getElementById('otp-0').focus(), 100);
+    }
+
+    function backToLogin() {
+        if (resendInterval) clearInterval(resendInterval);
+        clearOtpBoxes();
+        clearError('error-otp');
+        clearError('info-otp');
+        document.getElementById('step-otp').classList.add('hidden');
+        document.getElementById('step-login').classList.remove('hidden');
+    }
+
+    // ── Password visibility toggle ──────────────────────────────────────
+    function togglePasswordVisibility() {
+        const inp = document.getElementById('login-password');
+        inp.type  = inp.type === 'password' ? 'text' : 'password';
+    }
+
+    // ── Error/info helpers ──────────────────────────────────────────────
+    function showError(id, msg) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+    function showInfo(id, msg) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+    function clearError(id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    }
+
+    // ── Auto-redirect if already logged in ─────────────────────────────
+    if (sessionStorage.getItem('isLoggedIn') === 'true') {
+        const t = sessionStorage.getItem('userType');
+        window.location.href = t === 'admin' ? '/index.html' : '/businessowner.html';
+    }
+</script>
 </body>
 </html>

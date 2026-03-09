@@ -17,10 +17,12 @@
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
     "googleapis": "^128.0.0",
+    "mongodb": "3.7",
     "mongoose": "^8.20.1",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
-    "nodemailer": "^7.0.11"
+    "nodemailer": "^7.0.11",
+    "sendgrid": "^5.2.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
