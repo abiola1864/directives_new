@@ -1275,60 +1275,63 @@ async function loadDirectives() {
         }
 
         // ── Request Update Modal ─────────────────────────────────────────────────
-        async function openRequestUpdateModal(directiveId) {
-            showLoading();
-            try {
-                const response = await fetch(`${API_BASE}/directives/${directiveId}`);
-                const result   = await response.json();
-                if (!result.success) { alert('Failed to load directive'); return; }
+      async function openRequestUpdateModal(directiveId) {
+    showLoading();
+    try {
+        const response = await fetch(`${API_BASE}/directives/${directiveId}`);
+        const result   = await response.json();
+        if (!result.success) { alert('Failed to load directive'); return; }
 
-                currentRequestDirective = result.data;
-                const d        = currentRequestDirective;
-                const reminders = d.reminders || 0;
+        currentRequestDirective = result.data;
+        const d        = currentRequestDirective;
+        const reminders = d.reminders || 0;
 
-                document.getElementById('modal-directive-ref').textContent = `Ref: ${d.ref || 'N/A'}`;
-                document.getElementById('modal-owner').textContent         = d.owner || 'Unassigned';
+        document.getElementById('modal-directive-ref').textContent = `Ref: ${d.ref || 'N/A'}`;
+        document.getElementById('modal-owner').textContent         = d.owner || 'Unassigned';
 
-                const reminderEl = document.getElementById('modal-reminder-count');
-                reminderEl.textContent = `${reminders}/3`;
-                reminderEl.className   = `font-semibold ml-1 ${reminders >= 3 ? 'text-red-600' : reminders === 2 ? 'text-amber-600' : 'text-green-600'}`;
+        const reminderEl = document.getElementById('modal-reminder-count');
+        reminderEl.textContent = `${reminders}/3`;
+        reminderEl.className   = `font-semibold ml-1 ${reminders >= 3 ? 'text-red-600' : reminders === 2 ? 'text-amber-600' : 'text-green-600'}`;
 
-                const emailEl = document.getElementById('modal-email');
-                emailEl.textContent = d.primaryEmail || 'Not configured';
-                emailEl.className   = d.primaryEmail ? 'font-semibold text-gray-800 ml-1' : 'font-semibold text-red-600 ml-1';
+        const emailEl = document.getElementById('modal-email');
+        emailEl.textContent = d.primaryEmail || 'Not configured';
+        emailEl.className   = d.primaryEmail ? 'font-semibold text-gray-800 ml-1' : 'font-semibold text-red-600 ml-1';
 
-                const noEmail = !d.primaryEmail?.trim();
-                const maxRem  = reminders >= 3;
-                document.getElementById('no-email-warning').classList.toggle('hidden',     !noEmail);
-                document.getElementById('max-reminders-warning').classList.toggle('hidden', !maxRem);
+        const noEmail = !d.primaryEmail?.trim();
+        const maxRem  = reminders >= 3;
+        document.getElementById('no-email-warning').classList.toggle('hidden',     !noEmail);
+        document.getElementById('max-reminders-warning').classList.toggle('hidden', !maxRem);
 
-                const sendBtn = document.getElementById('send-request-btn');
-                const canSend = !noEmail && !maxRem;
-                sendBtn.disabled = !canSend;
-                sendBtn.classList.toggle('opacity-50',        !canSend);
-                sendBtn.classList.toggle('cursor-not-allowed', !canSend);
+        const sendBtn = document.getElementById('send-request-btn');
+        const canSend = !noEmail && !maxRem;
+        sendBtn.disabled = !canSend;
+        sendBtn.classList.toggle('opacity-50',        !canSend);
+        sendBtn.classList.toggle('cursor-not-allowed', !canSend);
 
-                const reminderInfo = document.getElementById('reminder-info');
-                if (maxRem) { reminderInfo.innerHTML = ''; reminderInfo.classList.add('hidden'); }
-                else if (reminders === 2) {
-                    reminderInfo.innerHTML = '⚠️ This will be the <strong>FINAL</strong> reminder (3/3)';
-                    reminderInfo.className = 'text-sm mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-700';
-                } else {
-                    reminderInfo.innerHTML = `✅ This will be reminder <strong>${reminders + 1}/3</strong>`;
-                    reminderInfo.className = 'text-sm mb-4 p-3 bg-green-50 rounded-lg border border-green-200 text-green-700';
-                }
+        const reminderInfo = document.getElementById('reminder-info');
+        if (maxRem) { reminderInfo.innerHTML = ''; reminderInfo.classList.add('hidden'); }
+        else if (reminders === 2) {
+            reminderInfo.innerHTML = '⚠️ This will be the <strong>FINAL</strong> reminder (3/3)';
+            reminderInfo.className = 'text-sm mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-700';
+        } else {
+            reminderInfo.innerHTML = `✅ This will be reminder <strong>${reminders + 1}/3</strong>`;
+            reminderInfo.className = 'text-sm mb-4 p-3 bg-green-50 rounded-lg border border-green-200 text-green-700';
+        }
 
-                document.getElementById('outcome-checkboxes').innerHTML = d.outcomes.map((outcome, idx) => `
-                    <label class="flex items-start p-3 bg-gray-50 rounded-lg hover:bg-green-50 cursor-pointer transition-colors">
-                        <input type="checkbox" id="outcome-cb-${idx}" value="${idx}" checked class="outcome-checkbox mt-1 w-4 h-4 text-green-600 rounded">
-                        <div class="ml-3 flex-1">
-                            <div class="text-sm">${idx + 1}. ${outcome.text}</div>
-                            <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded font-medium badge ${getBadgeClass(outcome.status)}">${outcome.status}</span>
-                        </div>
-                    </label>`).join('');
+        document.getElementById('outcome-checkboxes').innerHTML = d.outcomes.map((outcome, idx) => `
+            <label class="flex items-start p-3 bg-gray-50 rounded-lg hover:bg-green-50 cursor-pointer transition-colors">
+                <input type="checkbox" id="outcome-cb-${idx}" value="${idx}" checked class="outcome-checkbox mt-1 w-4 h-4 text-green-600 rounded">
+                <div class="ml-3 flex-1">
+                    <div class="text-sm">${idx + 1}. ${outcome.text}</div>
+                    <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded font-medium badge ${getBadgeClass(outcome.status)}">${outcome.status}</span>
+                </div>
+            </label>`).join('');
 
-                updateSelectionCount();
-               await loadDeptCCOptions(d);
+        updateSelectionCount();
+
+        // Load department CC options
+        await loadDeptCCOptions(d);
+
         document.getElementById('request-update-modal').classList.add('active');
     } catch (error) { alert('Error: ' + error.message); }
     finally { showLoading(false); }
@@ -1337,42 +1340,57 @@ async function loadDirectives() {
 
 
 
+
+
+
 async function loadDeptCCOptions(directive) {
+    const container = document.getElementById('dept-cc-list');
+    if (!container) return;
+
     try {
         const r = await fetch(`${API_BASE}/process-owners-with-directives`);
         const j = await r.json();
-        if (!j.success) return;
 
-        // All BUs except the one this directive belongs to
-        const others = j.data.filter(o =>
-            o.name !== directive.owner && o.primaryEmail?.trim()
-        );
-
-        const container = document.getElementById('dept-cc-list');
-        if (!others.length) {
-            container.innerHTML = '<div class="text-xs text-gray-400 italic">No other departments with configured emails.</div>';
+        if (!j.success || !j.data?.length) {
+            container.innerHTML = '<div class="text-xs text-gray-400 italic">No other departments found.</div>';
             return;
         }
 
-        container.innerHTML = others.map(o => `
-            <label class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg hover:bg-green-50 cursor-pointer">
+        const others = j.data.filter(o => o.name !== directive.owner);
+
+        if (!others.length) {
+            container.innerHTML = '<div class="text-xs text-gray-400 italic">No other departments available.</div>';
+            return;
+        }
+
+        container.innerHTML = others.map(o => {
+            const hasEmail = !!o.primaryEmail?.trim();
+            return `
+            <label class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg hover:bg-green-50 cursor-pointer ${!hasEmail ? 'opacity-50' : ''}">
                 <input type="checkbox" class="dept-cc-checkbox w-4 h-4 text-green-600 rounded"
-                       value="${o.primaryEmail}" data-name="${escapeHtml(o.name)}">
+                       value="${o.primaryEmail || ''}"
+                       data-name="${o.name}"
+                       ${!hasEmail ? 'disabled' : ''}>
                 <div>
-                    <div class="text-sm font-medium">${escapeHtml(o.name)}</div>
-                    <div class="text-xs text-gray-400">${o.primaryEmail}</div>
+                    <div class="text-sm font-medium">${o.name}</div>
+                    <div class="text-xs text-gray-400">${hasEmail ? o.primaryEmail : 'No email configured'}</div>
                 </div>
-            </label>`).join('');
+            </label>`;
+        }).join('');
+
     } catch (e) {
-        console.error('Could not load dept CC options:', e);
+        console.error('loadDeptCCOptions error:', e);
+        container.innerHTML = '<div class="text-xs text-red-400">Could not load departments.</div>';
     }
 }
+
 
 function getSelectedDeptCCEmails() {
     return Array.from(document.querySelectorAll('.dept-cc-checkbox:checked'))
         .map(cb => cb.value)
         .filter(Boolean);
 }
+
 
 
         function toggleAllOutcomes() {
@@ -1396,40 +1414,54 @@ function getSelectedDeptCCEmails() {
             if (e.target.classList.contains('outcome-checkbox')) updateSelectionCount();
         });
 
+        
+
+
+
+
         async function sendRequestUpdate() {
-            if (!currentRequestDirective) return;
-            const selectedIndices = getSelectedOutcomeIndices();
-            if (!selectedIndices.length) { alert('Please select at least one decision'); return; }
-            if (!confirm(`Send request to ${currentRequestDirective.owner}?\n\nReminder ${(currentRequestDirective.reminders || 0) + 1}/3`)) return;
+    if (!currentRequestDirective) return;
+    const selectedIndices = getSelectedOutcomeIndices();
+    if (!selectedIndices.length) { alert('Please select at least one decision'); return; }
 
-            const sendBtn   = document.getElementById('send-request-btn');
-            const origHTML  = sendBtn.innerHTML;
-            showLoading();
-            try {
-                sendBtn.disabled = true; sendBtn.innerHTML = 'Sending...';
-                const response = await fetch(`${API_BASE}/directives/${currentRequestDirective._id}/request-update`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ 
-    selectedOutcomes: selectedIndices,
-    deptCCEmails: getSelectedDeptCCEmails()
-})
+    const deptCCEmails = getSelectedDeptCCEmails();
+    const ccNames = Array.from(document.querySelectorAll('.dept-cc-checkbox:checked'))
+        .map(cb => cb.dataset.name).filter(Boolean);
 
-                });
-                const result = await response.json();
-                if (result.success) {
-                    let msg = `✅ ${result.message}`;
-                    if (!result.emailSent && result.submissionUrl) {
-                        msg += `\n\n📋 Test link:\n${result.submissionUrl}`;
-                        try { await navigator.clipboard.writeText(result.submissionUrl); msg += '\n(Link copied to clipboard)'; } catch (e) {}
-                    }
-                    alert(msg);
-                    closeModal('request-update-modal');
-                    loadDirectives();
-                } else { alert(`❌ ${result.error || 'Failed'}`); }
-            } catch (error) { alert('❌ Error: ' + error.message); }
-            finally { sendBtn.disabled = false; sendBtn.innerHTML = origHTML; showLoading(false); }
-        }
+    const confirmMsg = `Send request to ${currentRequestDirective.owner}?\n\nReminder ${(currentRequestDirective.reminders || 0) + 1}/3`
+        + (ccNames.length ? `\n\nCC departments:\n${ccNames.join('\n')}` : '');
+
+    if (!confirm(confirmMsg)) return;
+
+    const sendBtn  = document.getElementById('send-request-btn');
+    const origHTML = sendBtn.innerHTML;
+    showLoading();
+    try {
+        sendBtn.disabled = true; sendBtn.innerHTML = 'Sending...';
+        const response = await fetch(`${API_BASE}/directives/${currentRequestDirective._id}/request-update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                selectedOutcomes: selectedIndices,
+                deptCCEmails
+            })
+        });
+        const result = await response.json();
+        if (result.success) {
+            let msg = `✅ ${result.message}`;
+            if (!result.emailSent && result.submissionUrl) {
+                msg += `\n\n📋 Test link:\n${result.submissionUrl}`;
+                try { await navigator.clipboard.writeText(result.submissionUrl); msg += '\n(Link copied to clipboard)'; } catch (e) {}
+            }
+            alert(msg);
+            closeModal('request-update-modal');
+            loadDirectives();
+        } else { alert(`❌ ${result.error || 'Failed'}`); }
+    } catch (error) { alert('❌ Error: ' + error.message); }
+    finally { sendBtn.disabled = false; sendBtn.innerHTML = origHTML; showLoading(false); }
+}
+
+
 
         // ── Email Preview ────────────────────────────────────────────────────────
         function showEmailPreview() {
