@@ -1426,7 +1426,7 @@ app.post('/api/directives/:id/request-update', async (req, res) => {
     const directive = await Directive.findById(req.params.id);
     if (!directive) return res.status(404).json({ success: false, error: 'Not found' });
 
-    const { selectedOutcomes } = req.body;
+    const { selectedOutcomes, deptCCEmails } = req.body;
     if (!selectedOutcomes?.length)
       return res.status(400).json({ success: false, error: 'No decisions selected' });
     if (!directive.primaryEmail?.trim())
@@ -1518,8 +1518,19 @@ app.post('/api/directives/:id/request-update', async (req, res) => {
 
     let emailSent = false;
     if (emailTransporter) {
-      const allCC = [...(directive.inCopy || [])];
-      if (directive.secondaryEmail && !allCC.includes(directive.secondaryEmail)) allCC.push(directive.secondaryEmail);
+     const allCC = [...(directive.inCopy || [])];
+if (directive.secondaryEmail && !allCC.includes(directive.secondaryEmail)) 
+    allCC.push(directive.secondaryEmail);
+
+// Add department CC emails selected by admin
+if (deptCCEmails?.length) {
+    deptCCEmails.forEach(email => {
+        if (email && !allCC.includes(email)) allCC.push(email);
+    });
+}
+
+
+      
       const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       try {
         await emailTransporter.sendMail({
@@ -2694,7 +2705,7 @@ app.post('/api/auth/admin/verify-otp', async (req, res) => {
     });
    // Auto-expire session after 8 hours
     setTimeout(() => adminSessions.delete(token), 8 * 60 * 60 * 1000);
-    
+
     res.json({
       success:  true,
       token,
