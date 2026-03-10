@@ -32,29 +32,24 @@
         .table-minimal tbody tr:hover { background: var(--cbn-pale-green); }
         .table-minimal tbody td { padding: 16px 12px; font-size: 13px; color: var(--cbn-text); vertical-align: top; }
         .badge { display: inline-flex; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; letter-spacing: .3px; }
-        /* NEW status badges */
         .badge-implemented   { background: #E8F5E9; color: #2E7D32; }
         .badge-being-impl    { background: #E3F2FD; color: #1565C0; }
         .badge-not-impl      { background: #FFF3E0; color: #E65100; }
         .badge-no-response   { background: #FFEBEE; color: #C62828; }
-        /* Monitoring badges */
         .badge-track         { background: #E3F2FD; color: #1565C0; }
         .badge-risk          { background: #FFF3E0; color: #E65100; }
         .badge-high-risk     { background: #FFEBEE; color: #C62828; }
         .badge-needs-timeline{ background: #F5F5F5; color: #757575; border: 1px dashed #BDBDBD; }
         .badge-non-responsive{ background: #C62828; color: white; animation: pulse 2s infinite; }
         @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.7; } }
-        /* Slide panels */
         .slide-panel { position: fixed; top: 0; right: -700px; width: 700px; height: 100vh; background: white; box-shadow: -4px 0 20px rgba(0,0,0,.15); z-index: 1000; transition: right .4s cubic-bezier(.4,0,.2,1); overflow-y: auto; }
         .slide-panel.active { right: 0; }
         .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); backdrop-filter: blur(2px); z-index: 999; opacity: 0; visibility: hidden; transition: all .3s ease; }
         .backdrop.active { opacity: 1; visibility: visible; }
-        /* Sheet tabs */
         .sheet-tabs-float { position: sticky; bottom: 20px; left: 0; right: 0; z-index: 100; display: flex; justify-content: center; pointer-events: none; }
         .sheet-tabs-container { background: white; padding: 8px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.12); display: flex; gap: 4px; pointer-events: all; max-width: 90vw; overflow-x: auto; }
         .sheet-tab { padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 500; color: var(--cbn-text-light); cursor: pointer; transition: all .2s ease; white-space: nowrap; border: none; background: transparent; }
         .sheet-tab:hover, .sheet-tab.active { background: var(--cbn-pale-green); color: var(--cbn-forest); font-weight: 600; }
-        /* Modals */
         .modal { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; }
         .modal.active { display: flex; }
         .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(3px); }
@@ -87,6 +82,24 @@
         .outcome-field{background:var(--cbn-pale-green);border:1px solid var(--cbn-border);border-radius:8px;padding:16px;margin-bottom:12px}
         .hidden{display:none !important}
         a.no-underline{text-decoration:none}
+
+        /* Settings dropdown */
+        .settings-dropdown { position: relative; display: inline-block; }
+        .settings-menu {
+            position: absolute; right: 0; top: calc(100% + 8px);
+            background: white; border: 1px solid var(--cbn-border); border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 200px; z-index: 200;
+            overflow: hidden; display: none;
+        }
+        .settings-menu.open { display: block; }
+        .settings-menu a, .settings-menu button {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+            padding: 12px 16px; font-size: 13px; font-weight: 500; color: var(--cbn-text);
+            background: none; border: none; cursor: pointer; text-decoration: none;
+            transition: background .15s ease;
+        }
+        .settings-menu a:hover, .settings-menu button:hover { background: var(--cbn-pale-green); color: var(--cbn-forest); }
+        .settings-menu .menu-divider { border-top: 1px solid var(--cbn-border); margin: 4px 0; }
     </style>
 </head>
 <body>
@@ -127,20 +140,17 @@
 
             <!-- Actions -->
             <div class="flex items-center gap-1">
-                <button onclick="openAddDirective()"     class="btn-flat" title="Add New Directive">
+                <button onclick="openAddDirective()" class="btn-flat" title="Add New Directive">
                     <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Add
                 </button>
-                <button onclick="openFilters()"          class="btn-flat" title="Filter Directives">
+                <button onclick="openFilters()" class="btn-flat" title="Filter Directives">
                     <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
                     Filters
                 </button>
-                <button onclick="openReminderSettings()" class="btn-flat" title="Configure Reminders">
-                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                    Reminders
-                </button>
+
                 <div class="w-px h-5 bg-gray-300 mx-1"></div>
-                <a href="/email-updates.html" class="btn-flat no-underline" title="Manage Email Updates">
+                <a href="/email-updates.html" class="btn-flat no-underline" title="Manage Emails & Departments">
                     <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>
                     Emails
                 </a>
@@ -148,11 +158,32 @@
                     <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     Reports
                 </a>
+
                 <div class="w-px h-5 bg-gray-300 mx-1"></div>
                 <button onclick="syncData()" class="btn-primary-flat" title="Sync from Google Sheets">
                     <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                     Sync
                 </button>
+
+                <!-- ⚙️ Settings Dropdown (replaces standalone Reminders button) -->
+                <div class="settings-dropdown" id="settings-dropdown">
+                    <button onclick="toggleSettingsMenu()" class="btn-flat" title="Settings">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        Settings
+                    </button>
+                    <div id="settings-menu" class="settings-menu">
+                        <button onclick="openReminderSettings(); toggleSettingsMenu();">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                            Auto-Reminder Config
+                        </button>
+                        <div class="menu-divider"></div>
+                        <a href="/admin-management.html" class="no-underline">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                            Admin Management
+                        </a>
+                    </div>
+                </div>
+
                 <div class="w-px h-5 bg-gray-300 mx-1"></div>
                 <button onclick="logout()" class="btn-flat text-red-600" title="Logout">
                     <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -166,14 +197,30 @@
 <!-- ═══ MAIN CONTENT ═════════════════════════════════════════════════════════ -->
 <main class="max-w-[1800px] mx-auto px-8 py-6">
 
-    <!-- Quick Stats -->
+    <!-- Quick Stats — DECISION-LEVEL counts (not monitoring status) -->
     <div class="grid grid-cols-5 gap-3 mb-5 fade-in">
-        <div class="stat-card"><div class="stat-number" id="stat-total">0</div><div class="stat-label">Total</div></div>
-        <div class="stat-card"><div class="stat-number" id="stat-completed"  style="color:#2E7D32;">0</div><div class="stat-label">Implemented</div></div>
-        <div class="stat-card"><div class="stat-number" id="stat-track"      style="color:#1565C0;">0</div><div class="stat-label">On Track</div></div>
-        <div class="stat-card"><div class="stat-number" id="stat-risk"       style="color:#E65100;">0</div><div class="stat-label">At Risk</div></div>
-        <div class="stat-card"><div class="stat-number" id="stat-high-risk"  style="color:#C62828;">0</div><div class="stat-label">High Risk</div></div>
+    <div class="stat-card">
+        <div class="stat-number" id="stat-total">0</div>
+        <div class="stat-label">Total Directives</div>
     </div>
+    <div class="stat-card">
+        <div class="stat-number" id="stat-completed" style="color:#2E7D32;">0</div>
+        <div class="stat-label">Implemented</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number" id="stat-track" style="color:#1565C0;">0</div>
+        <div class="stat-label">Being Implemented</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number" id="stat-risk" style="color:#E65100;">0</div>
+        <div class="stat-label">Not Implemented</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number" id="stat-high-risk" style="color:#C62828;">0</div>
+        <div class="stat-label">No Response</div>
+    </div>
+</div>
+
 
     <!-- Search & Actions Bar -->
     <div class="flex items-center justify-between mb-4">
@@ -200,19 +247,20 @@
             <table class="table-minimal" id="main-table">
                 <thead>
                     <tr>
-                        <th style="width:120px;">Ref No.</th>
+                        <!-- FIX 1: "Ref No." → "Meeting Ref." -->
+                        <th style="width:130px;">Meeting Ref.</th>
                         <th style="width:100px;">Date</th>
-                        <th style="width:280px;">Subject</th>
-                        <th style="width:200px;">Business Unit</th>
-                        <th style="width:130px;">Decision Status</th>
+                        <th style="width:260px;">Subject</th>
+                        <th style="width:190px;">Business Unit</th>
+                        <!-- FIX 2: Removed single "Decision Status" column → replaced with "Decisions" (per-decision mini-counts) -->
+                        <th style="width:180px;">Decisions</th>
                         <th style="width:150px;" class="col-optional">Timeline</th>
                         <th style="width:120px;" class="col-optional">Monitoring</th>
                         <th style="width:200px;" class="col-optional">Comments</th>
-                        <th style="width:180px;">Actions</th>
+                        <th style="width:160px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <!-- Populated by JS -->
                 </tbody>
             </table>
         </div>
@@ -242,7 +290,7 @@
         <button onclick="openEditFromPanel()"              class="btn-flat">Edit</button>
         <button onclick="openRequestUpdateFromPanel()"     class="btn-primary-flat">Request Update</button>
     </div>
-</div><!-- FIX: detail-panel properly closed here -->
+</div>
 
 <!-- ═══ FILTER PANEL ══════════════════════════════════════════════════════════ -->
 <div id="filter-panel" class="slide-panel" style="width:400px;">
@@ -255,6 +303,13 @@
         </div>
     </div>
     <div class="p-6 space-y-4">
+        <!-- FIX 3: Filter by Department name (not Business Unit/owner name) -->
+        <div>
+            <label class="stat-label block mb-2">Department</label>
+            <select id="filter-department" class="filter-input-minimal w-full" onchange="applyFilters()">
+                <option value="All">All Departments</option>
+            </select>
+        </div>
         <div>
             <label class="stat-label block mb-2">Business Unit</label>
             <select id="filter-owner" class="filter-input-minimal w-full" onchange="applyFilters()">
@@ -295,7 +350,6 @@
             <select id="sort-by" class="filter-input-minimal w-full" onchange="applyFilters()">
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
-                <option value="deadline">By Deadline</option>
             </select>
         </div>
     </div>
@@ -351,7 +405,7 @@
                 </div>
                 <div>
                     <label class="stat-label block mb-2">In Copy (CC)</label>
-                    <input type="email" id="add-secondary-email" class="form-input">
+                    <input type="email" id="add-secondary-email" class="form-input" placeholder="First CC email (more in Email Management)">
                 </div>
             </div>
             <div class="mb-4">
@@ -394,16 +448,7 @@
                     <input type="text" id="add-vendor" class="form-input">
                 </div>
             </div>
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                    <label class="stat-label block mb-2">Start Date</label>
-                    <input type="date" id="add-start-date" class="form-input">
-                </div>
-                <div>
-                    <label class="stat-label block mb-2">End Date</label>
-                    <input type="date" id="add-end-date" class="form-input">
-                </div>
-            </div>
+            <!-- FIX 4: Timeline / start-end date fields REMOVED from add modal -->
             <div class="flex gap-3 justify-end pt-4 border-t">
                 <button type="button" onclick="closeModal('add-modal')" class="btn-flat px-6">Cancel</button>
                 <button type="submit" class="btn-primary-flat px-8">Create Directive</button>
@@ -434,16 +479,7 @@
                     <div id="update-subject" class="font-medium"></div>
                 </div>
             </div>
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                    <label class="stat-label block mb-2">Start Date</label>
-                    <input type="date" id="update-start-date" class="form-input">
-                </div>
-                <div>
-                    <label class="stat-label block mb-2">End Date</label>
-                    <input type="date" id="update-end-date" class="form-input">
-                </div>
-            </div>
+            <!-- FIX 5: Timeline start/end date fields REMOVED from update modal -->
             <div class="mb-6">
                 <label class="stat-label block mb-2">Overall Status</label>
                 <select id="update-impl-status" class="form-input">
@@ -470,7 +506,6 @@
 </div>
 
 <!-- ═══ REQUEST UPDATE MODAL ══════════════════════════════════════════════════ -->
-<!-- IDs here match what JS uses: modal-directive-ref, modal-owner, modal-email, etc. -->
 <div id="request-update-modal" class="modal">
     <div class="modal-backdrop" onclick="closeModal('request-update-modal')"></div>
     <div class="modal-content" style="max-width:600px;">
@@ -492,7 +527,6 @@
             </div>
         </div>
         <div class="p-6">
-            <!-- Info summary -->
             <div class="mb-6 bg-gray-50 rounded-lg p-4">
                 <div class="grid grid-cols-2 gap-3 text-sm">
                     <div><span class="text-gray-500">To:</span>       <span id="modal-owner"          class="font-semibold text-gray-800 ml-1"></span></div>
@@ -502,7 +536,6 @@
             </div>
             <div id="no-email-warning"     class="hidden mb-4 p-3 bg-red-50 rounded-lg border border-red-200"><p class="text-sm text-red-700">⚠️ No email configured. Add email in Email Management first.</p></div>
             <div id="max-reminders-warning" class="hidden mb-4 p-3 bg-red-50 rounded-lg border border-red-200"><p class="text-sm text-red-700">⚠️ Maximum reminders (3/3) already sent.</p></div>
-            <!-- Decision selection -->
             <div class="mb-4">
                 <div class="flex items-center justify-between mb-3">
                     <h3>Select Decisions to Include:</h3>
@@ -559,7 +592,7 @@
         </div>
         <form onsubmit="event.preventDefault(); submitEdit();" class="p-6">
             <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <p class="text-xs text-blue-700"><strong>Note:</strong> Implementation timeline can only be set by the Business Unit through the submission form.</p>
+                <p class="text-xs text-blue-700"><strong>Note:</strong> Implementation timeline is set by the Business Unit through the submission form.</p>
             </div>
             <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
@@ -578,7 +611,7 @@
                 </div>
                 <div>
                     <label class="stat-label block mb-2">In Copy (CC)</label>
-                    <input type="email" id="edit-secondary-email" class="form-input">
+                    <input type="email" id="edit-secondary-email" class="form-input" placeholder="First CC email">
                 </div>
             </div>
             <div class="mb-4">
@@ -660,7 +693,6 @@
             ? 'http://localhost:3001/api'
             : 'https://directives-new.onrender.com/api';
         
-        // ── Decision status constants ─────────────────────────────────────────
         const DS = {
             IMPLEMENTED: 'Implemented',
             BEING_IMPL:  'Being Implemented',
@@ -677,6 +709,19 @@
         let outcomeCounter = 1;
         let reminderSettings = {};
         let currentRequestDirective = null;
+
+        // ── Settings dropdown ────────────────────────────────────────────────────
+        function toggleSettingsMenu() {
+            const menu = document.getElementById('settings-menu');
+            menu.classList.toggle('open');
+        }
+        // Close settings menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const dd = document.getElementById('settings-dropdown');
+            if (dd && !dd.contains(e.target)) {
+                document.getElementById('settings-menu').classList.remove('open');
+            }
+        });
 
         // ── Auth ────────────────────────────────────────────────────────────────
         function checkAuth() {
@@ -717,48 +762,62 @@
         }
 
         // ── Load directives ─────────────────────────────────────────────────────
-        async function loadDirectives() {
-            showLoading();
-            try {
-                const response = await fetch(`${API_BASE}/directives?source=${currentSource}`);
-                const result   = await response.json();
-                if (result.success) {
-                    allData = result.data;
-                    
-                    const stats = {
-                        total:    allData.length,
-                        completed:allData.filter(d => d.monitoringStatus === 'Completed').length,
-                        track:    allData.filter(d => d.monitoringStatus === 'On Track').length,
-                        risk:     allData.filter(d => d.monitoringStatus === 'At Risk').length,
-                        highRisk: allData.filter(d => d.monitoringStatus === 'High Risk').length
-                    };
-                    document.getElementById('stat-total').textContent     = stats.total;
-                    document.getElementById('stat-completed').textContent = stats.completed;
-                    document.getElementById('stat-track').textContent     = stats.track;
-                    document.getElementById('stat-risk').textContent      = stats.risk;
-                    document.getElementById('stat-high-risk').textContent = stats.highRisk;
-                    
-                    // Populate Business Unit filter
-                    const owners = [...new Set(allData.map(d => d.owner).filter(o => o))].sort();
-                    const ownerSelect = document.getElementById('filter-owner');
-                    ownerSelect.innerHTML = '<option value="All">All Business Units</option>';
-                    owners.forEach(owner => {
-                        const option = document.createElement('option');
-                        option.value = owner;
-                        option.textContent = owner.length > 50 ? owner.substring(0, 50) + '...' : owner;
-                        ownerSelect.appendChild(option);
-                    });
-                    
-                    // Sheet tabs
-                    const sheets = [...new Set(allData.map(d => d.sheetName).filter(s => s))].sort();
-                    renderSheetTabs(sheets);
-                    applyFilters();
-                }
-            } catch (error) { console.error('Error:', error); }
-            finally { showLoading(false); }
-        }
+async function loadDirectives() {
+    showLoading();
+    try {
+        const response = await fetch(`${API_BASE}/directives?source=${currentSource}`);
+        const result   = await response.json();
+        if (result.success) {
+            allData = result.data;
 
-        // ── Load Business Units (was Process Owners) ────────────────────────────
+            // ── Decision-level stat counts (not monitoring status) ──
+            let decImplemented = 0, decBeingImpl = 0, decNotImpl = 0, decNoResp = 0;
+            allData.forEach(d => {
+                (d.outcomes || []).forEach(o => {
+                    if      (o.status === 'Implemented')       decImplemented++;
+                    else if (o.status === 'Being Implemented') decBeingImpl++;
+                    else if (o.status === 'No Response')       decNoResp++;
+                    else                                        decNotImpl++;
+                });
+            });
+            document.getElementById('stat-total').textContent     = allData.length;
+            document.getElementById('stat-completed').textContent = decImplemented;
+            document.getElementById('stat-track').textContent     = decBeingImpl;
+            document.getElementById('stat-risk').textContent      = decNotImpl;
+            document.getElementById('stat-high-risk').textContent = decNoResp;
+
+            // ── Department filter (by d.department field, not owner name) ──
+            const departments = [...new Set(allData.map(d => d.department).filter(d => d && d.trim()))].sort();
+            const deptSelect = document.getElementById('filter-department');
+            deptSelect.innerHTML = '<option value="All">All Departments</option>';
+            departments.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept;
+                option.textContent = dept;
+                deptSelect.appendChild(option);
+            });
+
+            // ── Business Unit filter (secondary) ──
+            const owners = [...new Set(allData.map(d => d.owner).filter(o => o))].sort();
+            const ownerSelect = document.getElementById('filter-owner');
+            ownerSelect.innerHTML = '<option value="All">All Business Units</option>';
+            owners.forEach(owner => {
+                const option = document.createElement('option');
+                option.value = owner;
+                option.textContent = owner.length > 50 ? owner.substring(0, 50) + '...' : owner;
+                ownerSelect.appendChild(option);
+            });
+
+            const sheets = [...new Set(allData.map(d => d.sheetName).filter(s => s))].sort();
+            renderSheetTabs(sheets);
+            applyFilters();
+        }
+    } catch (error) { console.error('Error:', error); }
+    finally { showLoading(false); }
+}
+
+
+
         async function loadProcessOwners() {
             try {
                 const response = await fetch(`${API_BASE}/process-owners`);
@@ -777,8 +836,6 @@
             } catch (error) { console.error('Error loading business units:', error); }
         }
 
-        // ── Load Departments ─────────────────────────────────────────────────────
-        // FIX: API now returns objects {_id, name, code}, not plain strings
         async function loadDepartments() {
             try {
                 const response = await fetch(`${API_BASE}/departments`);
@@ -789,7 +846,6 @@
                     select.innerHTML = '<option value="">Select Department</option>';
                     result.data.forEach(dept => {
                         const option = document.createElement('option');
-                        // dept is an object {_id, name, code} — use dept.name
                         option.value       = dept.name || dept;
                         option.textContent = dept.name || dept;
                         select.appendChild(option);
@@ -806,7 +862,6 @@
             } catch (error) { console.error('Error loading reminder settings:', error); }
         }
 
-        // ── Sheet Tabs ───────────────────────────────────────────────────────────
         function renderSheetTabs(sheets) {
             const container = document.getElementById('sheet-tabs');
             container.innerHTML = '';
@@ -833,6 +888,11 @@
                 d.ref?.toLowerCase().includes(search)
             );
 
+            // FIX: Filter by department name
+            const dept = document.getElementById('filter-department')?.value;
+            if (dept && dept !== 'All') data = data.filter(d => d.department === dept);
+
+            // Business unit secondary filter
             const owner = document.getElementById('filter-owner')?.value;
             if (owner && owner !== 'All') data = data.filter(d => d.owner?.includes(owner));
 
@@ -849,9 +909,8 @@
             }
 
             const sort = document.getElementById('sort-by')?.value || 'newest';
-            if      (sort === 'newest')   data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            else if (sort === 'oldest')   data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-            else if (sort === 'deadline') data.sort((a, b) => new Date(a.implementationEndDate) - new Date(b.implementationEndDate));
+            if      (sort === 'newest') data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            else if (sort === 'oldest') data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
             filteredData = data;
             renderTable();
@@ -893,12 +952,29 @@
 
             filteredData.forEach(d => {
                 const tr = document.createElement('tr');
-                const decStatus  = getActualDecisionStatus(d);
-                const decBadge   = getBadgeClass(decStatus);
-                const monBadge   = getBadgeClass(d.monitoringStatus);
-
                 tr.onclick = () => openDetailPanel(d._id);
                 tr.style.cursor = 'pointer';
+
+                // FIX: Per-decision status counts (replacing single Decision Status column)
+                const outcomes = d.outcomes || [];
+                const nImpl     = outcomes.filter(o => o.status === DS.IMPLEMENTED).length;
+                const nBeing    = outcomes.filter(o => o.status === DS.BEING_IMPL).length;
+                const nNot      = outcomes.filter(o => o.status === DS.NOT_IMPL).length;
+                const nNoResp   = outcomes.filter(o => o.status === DS.NO_RESPONSE).length;
+                const total     = outcomes.length;
+
+                const decisionsCellHtml = total === 0
+                    ? '<span class="text-gray-400 text-xs italic">No decisions</span>'
+                    : `
+                    <div class="flex flex-wrap gap-1">
+                        ${nImpl   > 0 ? `<span class="badge badge-implemented">${nImpl} Impl.</span>` : ''}
+                        ${nBeing  > 0 ? `<span class="badge badge-being-impl">${nBeing} Being Impl.</span>` : ''}
+                        ${nNot    > 0 ? `<span class="badge badge-not-impl">${nNot} Not Impl.</span>` : ''}
+                        ${nNoResp > 0 ? `<span class="badge badge-no-response">${nNoResp} No Resp.</span>` : ''}
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">${total} decision${total !== 1 ? 's' : ''} total</div>`;
+
+                const monBadge = getBadgeClass(d.monitoringStatus);
 
                 tr.innerHTML = `
                     <td><span class="font-mono text-xs">${d.ref || 'N/A'}</span></td>
@@ -909,9 +985,10 @@
                     </td>
                     <td>
                         <div class="text-sm">${d.owner || 'Unassigned'}</div>
-                        <div class="text-xs text-gray-500">${d.primaryEmail || 'No email'}</div>
+                        <div class="text-xs text-gray-500">${d.department || ''}</div>
+                        <div class="text-xs text-gray-400">${d.primaryEmail || 'No email'}</div>
                     </td>
-                    <td><span class="badge ${decBadge}">${decStatus}</span></td>
+                    <td>${decisionsCellHtml}</td>
                     <td class="col-optional"><div class="text-xs">${d.implementationEndDate ? formatDate(d.implementationEndDate) : 'Not set'}</div></td>
                     <td class="col-optional">
                         <span class="badge ${monBadge}">${d.monitoringStatus}</span>
@@ -924,9 +1001,9 @@
                     </td>
                     <td onclick="event.stopPropagation()">
                         <div class="flex flex-col gap-1">
-                            <button onclick="openDetailPanel('${d._id}')"      class="action-link text-left">View</button>
-                            <button onclick="openRequestUpdateModal('${d._id}')" class="action-link text-left">Request Update</button>
-                            <button onclick="openEditModal('${d._id}')"         class="action-link text-left">Edit</button>
+                            <button onclick="openDetailPanel('${d._id}')"           class="action-link text-left">View</button>
+                            <button onclick="openRequestUpdateModal('${d._id}')"    class="action-link text-left">Request Update</button>
+                            <button onclick="openEditModal('${d._id}')"             class="action-link text-left">Edit</button>
                         </div>
                     </td>`;
                 tbody.appendChild(tr);
@@ -943,7 +1020,7 @@
                     const d = result.data;
                     currentDirectiveId = id;
                     document.getElementById('panel-title').textContent = d.subject;
-                    document.getElementById('panel-ref').textContent   = `Reference: ${d.ref || 'N/A'}`;
+                    document.getElementById('panel-ref').textContent   = `Meeting Ref: ${d.ref || 'N/A'}`;
 
                     const monBadge = getBadgeClass(d.monitoringStatus);
                     const inCopyArr = d.inCopy?.length ? d.inCopy : (d.secondaryEmail ? [d.secondaryEmail] : []);
@@ -962,10 +1039,6 @@
                                 <div><div class="stat-label mb-1">In Copy</div><div class="text-sm">${inCopyHtml}</div></div>
                                 <div><div class="stat-label mb-1">Amount</div><div class="text-sm">${d.amount || '—'}</div></div>
                                 <div><div class="stat-label mb-1">Vendor</div><div class="text-sm">${d.vendor || '—'}</div></div>
-                                <div>
-                                    <div class="stat-label mb-1">Decision Status</div>
-                                    <div class="mt-1"><span class="badge ${getBadgeClass(getActualDecisionStatus(d))}">${getActualDecisionStatus(d)}</span></div>
-                                </div>
                                 <div>
                                     <div class="stat-label mb-1">Monitoring Status</div>
                                     <div class="mt-1">
@@ -994,15 +1067,6 @@
                                     </div>`).join('')}
                                 </div>
                             </div>
-                            ${d.implementationStartDate || d.implementationEndDate ? `
-                            <div>
-                                <h3 class="mb-3">Timeline</h3>
-                                <div class="flex items-center gap-4 text-sm">
-                                    <span>${d.implementationStartDate ? formatDate(d.implementationStartDate) : 'Not set'}</span>
-                                    <span class="text-gray-400">→</span>
-                                    <span>${d.implementationEndDate ? formatDate(d.implementationEndDate) : 'Not set'}</span>
-                                </div>
-                            </div>` : ''}
                             ${d.additionalComments ? `
                             <div>
                                 <h3 class="mb-3">Additional Comments</h3>
@@ -1089,19 +1153,18 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        source:       document.getElementById('add-source').value,
-                        sheetName:    document.getElementById('add-department').value,
-                        department:   document.getElementById('add-department').value,
-                        meetingDate:  new Date(document.getElementById('add-meeting-date').value),
-                        subject:      document.getElementById('add-subject').value,
-                        particulars:  document.getElementById('add-particulars').value,
-                        owner:        document.getElementById('add-owner').value,
-                        primaryEmail: document.getElementById('add-primary-email').value,
+                        source:        document.getElementById('add-source').value,
+                        sheetName:     document.getElementById('add-department').value,
+                        department:    document.getElementById('add-department').value,
+                        meetingDate:   new Date(document.getElementById('add-meeting-date').value),
+                        subject:       document.getElementById('add-subject').value,
+                        particulars:   document.getElementById('add-particulars').value,
+                        owner:         document.getElementById('add-owner').value,
+                        primaryEmail:  document.getElementById('add-primary-email').value,
                         secondaryEmail:document.getElementById('add-secondary-email').value,
-                        amount:       document.getElementById('add-amount').value,
-                        vendor:       document.getElementById('add-vendor').value,
-                        implementationStartDate: document.getElementById('add-start-date').value ? new Date(document.getElementById('add-start-date').value) : null,
-                        implementationEndDate:   document.getElementById('add-end-date').value   ? new Date(document.getElementById('add-end-date').value)   : null,
+                        amount:        document.getElementById('add-amount').value,
+                        vendor:        document.getElementById('add-vendor').value,
+                        // FIX: No implementationStartDate / implementationEndDate from admin add modal
                         outcomes
                     })
                 });
@@ -1127,8 +1190,7 @@
                     currentDirectiveId = id;
                     document.getElementById('update-ref').textContent     = `Reference: ${d.ref || 'N/A'}`;
                     document.getElementById('update-subject').textContent = d.subject;
-                    if (d.implementationStartDate) document.getElementById('update-start-date').valueAsDate = new Date(d.implementationStartDate);
-                    if (d.implementationEndDate)   document.getElementById('update-end-date').valueAsDate   = new Date(d.implementationEndDate);
+                    // FIX: No date fields to populate
                     document.getElementById('update-impl-status').value = d.implementationStatus || DS.NOT_IMPL;
 
                     const container = document.getElementById('update-outcomes-container');
@@ -1145,8 +1207,8 @@
                                         <div>
                                             <label class="stat-label block mb-1">Status</label>
                                             <select data-outcome="${idx}" class="outcome-status form-input">
-                                                <option value="${DS.NOT_IMPL}"  ${outcome.status === DS.NOT_IMPL  ? 'selected' : ''}>Not Implemented</option>
-                                                <option value="${DS.BEING_IMPL}"${outcome.status === DS.BEING_IMPL? 'selected' : ''}>Being Implemented</option>
+                                                <option value="${DS.NOT_IMPL}"   ${outcome.status === DS.NOT_IMPL  ? 'selected' : ''}>Not Implemented</option>
+                                                <option value="${DS.BEING_IMPL}" ${outcome.status === DS.BEING_IMPL? 'selected' : ''}>Being Implemented</option>
                                                 <option value="${DS.IMPLEMENTED}"${outcome.status === DS.IMPLEMENTED?'selected':''}>Implemented</option>
                                                 <option value="${DS.NO_RESPONSE}"${outcome.status === DS.NO_RESPONSE?'selected':''}>No Response</option>
                                             </select>
@@ -1184,10 +1246,9 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         outcomes,
-                        implementationStartDate: document.getElementById('update-start-date').value ? new Date(document.getElementById('update-start-date').value).toISOString() : null,
-                        implementationEndDate:   document.getElementById('update-end-date').value   ? new Date(document.getElementById('update-end-date').value).toISOString()   : null,
-                        implementationStatus:    document.getElementById('update-impl-status').value,
-                        additionalComments:      document.getElementById('update-comments').value
+                        // FIX: No implementationStartDate / implementationEndDate from admin update modal
+                        implementationStatus: document.getElementById('update-impl-status').value,
+                        additionalComments:   document.getElementById('update-comments').value
                     })
                 });
                 const result = await response.json();
@@ -1208,7 +1269,6 @@
                 const d        = currentRequestDirective;
                 const reminders = d.reminders || 0;
 
-                // Populate modal — IDs match HTML above
                 document.getElementById('modal-directive-ref').textContent = `Ref: ${d.ref || 'N/A'}`;
                 document.getElementById('modal-owner').textContent         = d.owner || 'Unassigned';
 
@@ -1234,14 +1294,13 @@
                 const reminderInfo = document.getElementById('reminder-info');
                 if (maxRem) { reminderInfo.innerHTML = ''; reminderInfo.classList.add('hidden'); }
                 else if (reminders === 2) {
-                    reminderInfo.innerHTML   = '⚠️ This will be the <strong>FINAL</strong> reminder (3/3)';
-                    reminderInfo.className   = 'text-sm mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-700';
+                    reminderInfo.innerHTML = '⚠️ This will be the <strong>FINAL</strong> reminder (3/3)';
+                    reminderInfo.className = 'text-sm mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-700';
                 } else {
-                    reminderInfo.innerHTML   = `✅ This will be reminder <strong>${reminders + 1}/3</strong>`;
-                    reminderInfo.className   = 'text-sm mb-4 p-3 bg-green-50 rounded-lg border border-green-200 text-green-700';
+                    reminderInfo.innerHTML = `✅ This will be reminder <strong>${reminders + 1}/3</strong>`;
+                    reminderInfo.className = 'text-sm mb-4 p-3 bg-green-50 rounded-lg border border-green-200 text-green-700';
                 }
 
-                // Populate decisions with checkboxes
                 document.getElementById('outcome-checkboxes').innerHTML = d.outcomes.map((outcome, idx) => `
                     <label class="flex items-start p-3 bg-gray-50 rounded-lg hover:bg-green-50 cursor-pointer transition-colors">
                         <input type="checkbox" id="outcome-cb-${idx}" value="${idx}" checked class="outcome-checkbox mt-1 w-4 h-4 text-green-600 rounded">
@@ -1327,72 +1386,31 @@
                 <div style="margin-bottom:20px;padding:16px;background:white;border-radius:8px;border:1px solid #e5e7eb;border-left:4px solid ${statusColor};">
                     <div style="font-weight:700;color:#1B5E20;margin-bottom:8px;font-size:13px;">Decision ${idx + 1}</div>
                     <div style="color:#374151;font-size:13px;line-height:1.5;margin-bottom:12px;">${outcome.text}</div>
-                    <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px;">
-                        <span style="font-size:11px;color:#6b7280;">Current Status:</span>
-                        <span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:${statusColor};color:white;">${outcome.status}</span>
-                    </div>
-                    <div style="background:#f9fafb;padding:12px;border-radius:6px;border:1px dashed #d1d5db;">
-                        <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:8px;text-transform:uppercase;">Update Status</div>
-                        <select disabled style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;background:white;margin-bottom:8px;">
-                            <option>Not Implemented</option><option>Being Implemented</option><option>Implemented</option><option>No Response</option>
-                        </select>
-                        <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;text-transform:uppercase;">Challenges / Notes</div>
-                        <textarea disabled style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;height:50px;" placeholder="Any challenges or updates..."></textarea>
-                    </div>
+                    <span style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:${statusColor}20;color:${statusColor};">${outcome.status}</span>
                 </div>`;
             }).join('');
 
-            const emailHtml = `
+            document.getElementById('email-preview-content').innerHTML = `
             <div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;background:white;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
                 <div style="padding:24px;background:linear-gradient(135deg,#E8F5E9 0%,#C8E6C9 100%);border-bottom:3px solid #1B5E20;">
-                    <h2 style="color:#1B5E20;font-size:18px;font-weight:700;margin:0 0 8px 0;text-transform:uppercase;">
-                        REQUEST FOR STATUS OF COMPLIANCE WITH ${srcLabel} DECISIONS
-                    </h2>
+                    <h2 style="color:#1B5E20;font-size:18px;font-weight:700;margin:0 0 8px 0;text-transform:uppercase;">REQUEST FOR STATUS OF COMPLIANCE WITH ${srcLabel} DECISIONS</h2>
                     <p style="color:#2E7D32;font-size:12px;margin:0;font-weight:500;">Central Bank of Nigeria – Corporate Secretariat</p>
                 </div>
                 <div style="padding:20px 24px;background:#f9fafb;border-bottom:1px solid #e5e7eb;">
                     <table style="width:100%;font-size:13px;color:#374151;">
                         <tr><td style="padding:6px 0;width:50%;"><strong>To:</strong> ${d.owner}</td><td><strong>From:</strong> Secretary to the Board</td></tr>
-                        <tr><td style="padding:6px 0;"><strong>Ref:</strong> ${d.ref || 'N/A'}</td><td><strong>Date:</strong> ${dateStr}</td></tr>
+                        <tr><td style="padding:6px 0;"><strong>Meeting Ref:</strong> ${d.ref || 'N/A'}</td><td><strong>Date:</strong> ${dateStr}</td></tr>
                         ${d.amount ? `<tr><td style="padding:6px 0;"><strong>Amount:</strong> ${d.amount}</td><td><strong>Vendor:</strong> ${d.vendor || '—'}</td></tr>` : ''}
                     </table>
                 </div>
-                <div style="padding:20px 24px;background:white;border-bottom:1px solid #e5e7eb;">
-                    <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Subject</div>
-                    <div style="font-weight:700;color:#111827;font-size:14px;">${d.subject}</div>
-                </div>
-                ${d.particulars ? `
-                <div style="padding:20px 24px;background:#f9fafb;border-bottom:1px solid #e5e7eb;">
-                    <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:8px;">Directive Details</div>
-                    <div style="color:#374151;font-size:13px;line-height:1.6;">${d.particulars}</div>
-                </div>` : ''}
                 <div style="padding:16px 24px;background:#E8F5E9;border-bottom:1px solid #C8E6C9;">
                     <div style="font-size:14px;font-weight:700;color:#1B5E20;">📋 Decisions Requiring Update (${selectedIndices.length} of ${d.outcomes.length})</div>
-                    <p style="font-size:12px;color:#2E7D32;margin:6px 0 0 0;">Please update the status for each decision below:</p>
                 </div>
                 <div style="padding:20px 24px;background:#fafafa;">${outcomesHtml}</div>
-                <div style="padding:20px 24px;background:white;border-top:1px solid #e5e7eb;">
-                    <div style="font-size:13px;font-weight:700;color:#1B5E20;margin-bottom:12px;">📅 Implementation Timeline</div>
-                    <div style="display:flex;gap:16px;">
-                        <div style="flex:1;"><div style="font-size:11px;color:#6b7280;margin-bottom:4px;">Start Date</div><input disabled type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" placeholder="${d.implementationStartDate ? formatDate(d.implementationStartDate) : 'Select date'}"></div>
-                        <div style="flex:1;"><div style="font-size:11px;color:#6b7280;margin-bottom:4px;">End Date</div><input disabled type="text" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" placeholder="${d.implementationEndDate ? formatDate(d.implementationEndDate) : 'Select date'}"></div>
-                    </div>
-                </div>
-                <div style="padding:20px 24px;background:#f9fafb;border-top:1px solid #e5e7eb;">
-                    <div style="font-size:13px;font-weight:700;color:#1B5E20;margin-bottom:12px;">📎 Supporting Documents</div>
-                    <div style="border:2px dashed #d1d5db;border-radius:8px;padding:24px;text-align:center;background:white;">
-                        <div style="font-size:12px;color:#6b7280;">Upload supporting documents (PDF, DOC, XLS, images)</div>
-                    </div>
-                </div>
                 <div style="padding:24px;background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);text-align:center;">
                     <div style="display:inline-block;background:white;color:#1B5E20;font-weight:700;padding:14px 32px;border-radius:8px;font-size:14px;">📝 Submit Update to Secretariat</div>
                 </div>
-                <div style="padding:16px 24px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;">
-                    <p style="color:#6b7280;font-size:11px;margin:0;">Automated message – CBN Directives Management System</p>
-                </div>
             </div>`;
-
-            document.getElementById('email-preview-content').innerHTML = emailHtml;
             document.getElementById('email-preview-modal').classList.add('active');
         }
 
@@ -1445,14 +1463,14 @@
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        meetingDate:   document.getElementById('edit-meeting-date').value  ? new Date(document.getElementById('edit-meeting-date').value).toISOString()  : null,
-                        owner:         document.getElementById('edit-owner').value,
-                        primaryEmail:  document.getElementById('edit-primary-email').value,
-                        secondaryEmail:document.getElementById('edit-secondary-email').value,
-                        subject:       document.getElementById('edit-subject').value,
-                        particulars:   document.getElementById('edit-particulars').value,
-                        amount:        document.getElementById('edit-amount').value,
-                        vendor:        document.getElementById('edit-vendor').value
+                        meetingDate:    document.getElementById('edit-meeting-date').value ? new Date(document.getElementById('edit-meeting-date').value).toISOString() : null,
+                        owner:          document.getElementById('edit-owner').value,
+                        primaryEmail:   document.getElementById('edit-primary-email').value,
+                        secondaryEmail: document.getElementById('edit-secondary-email').value,
+                        subject:        document.getElementById('edit-subject').value,
+                        particulars:    document.getElementById('edit-particulars').value,
+                        amount:         document.getElementById('edit-amount').value,
+                        vendor:         document.getElementById('edit-vendor').value
                     })
                 });
                 const result = await response.json();
@@ -1466,11 +1484,11 @@
             showLoading();
             try {
                 await loadReminderSettings();
-                document.getElementById('auto-reminders-enabled').checked    = reminderSettings.enabled;
-                document.getElementById('status-on-track').checked           = reminderSettings.statusSettings?.['On Track']       !== false;
-                document.getElementById('status-at-risk').checked            = reminderSettings.statusSettings?.['At Risk']        !== false;
-                document.getElementById('status-high-risk').checked          = reminderSettings.statusSettings?.['High Risk']      !== false;
-                document.getElementById('status-needs-timeline').checked     = reminderSettings.statusSettings?.['Needs Timeline'] !== false;
+                document.getElementById('auto-reminders-enabled').checked        = reminderSettings.enabled;
+                document.getElementById('status-on-track').checked               = reminderSettings.statusSettings?.['On Track']       !== false;
+                document.getElementById('status-at-risk').checked                = reminderSettings.statusSettings?.['At Risk']        !== false;
+                document.getElementById('status-high-risk').checked              = reminderSettings.statusSettings?.['High Risk']      !== false;
+                document.getElementById('status-needs-timeline').checked         = reminderSettings.statusSettings?.['Needs Timeline'] !== false;
                 document.getElementById('reminder-modal').classList.add('active');
             } catch (error) { alert('Error: ' + error.message); }
             finally { showLoading(false); }
@@ -1504,9 +1522,9 @@
         function closeAllPanels()    { document.getElementById('backdrop').classList.remove('active'); document.querySelectorAll('.slide-panel').forEach(p => p.classList.remove('active')); }
         function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); }
         function openFilters()       { openPanel('filter-panel'); }
-        function openUpdateFromPanel()         { closePanel('detail-panel'); openUpdateModal(currentDirectiveId); }
-        function openEditFromPanel()           { closePanel('detail-panel'); openEditModal(currentDirectiveId); }
-        function openRequestUpdateFromPanel()  { closePanel('detail-panel'); openRequestUpdateModal(currentDirectiveId); }
+        function openUpdateFromPanel()        { closePanel('detail-panel'); openUpdateModal(currentDirectiveId); }
+        function openEditFromPanel()          { closePanel('detail-panel'); openEditModal(currentDirectiveId); }
+        function openRequestUpdateFromPanel() { closePanel('detail-panel'); openRequestUpdateModal(currentDirectiveId); }
 
         // ── Column toggle ────────────────────────────────────────────────────────
         function toggleColumns() {
@@ -1519,12 +1537,13 @@
 
         // ── Source switch / filters / export ─────────────────────────────────────
         function resetFilters() {
-            document.getElementById('search').value          = '';
-            document.getElementById('filter-owner').value   = 'All';
-            document.getElementById('filter-impl').value    = 'All';
-            document.getElementById('filter-monitor').value = 'All';
-            document.getElementById('filter-responsive').value = 'All';
-            document.getElementById('sort-by').value        = 'newest';
+            document.getElementById('search').value               = '';
+            document.getElementById('filter-department').value   = 'All';
+            document.getElementById('filter-owner').value        = 'All';
+            document.getElementById('filter-impl').value         = 'All';
+            document.getElementById('filter-monitor').value      = 'All';
+            document.getElementById('filter-responsive').value   = 'All';
+            document.getElementById('sort-by').value             = 'newest';
             applyFilters();
         }
 
@@ -1538,7 +1557,7 @@
         function exportToExcel() {
             try {
                 const exportData = filteredData.map(d => ({
-                    'Ref No':          d.ref || 'N/A',
+                    'Meeting Ref':     d.ref || 'N/A',
                     'Meeting Date':    formatDate(d.meetingDate),
                     'Subject':         d.subject,
                     'Particulars':     d.particulars,
@@ -1549,7 +1568,6 @@
                     'Vendor':          d.vendor || '',
                     'Decision Status': getActualDecisionStatus(d),
                     'Monitoring':      d.monitoringStatus,
-                    'Timeline':        d.implementationEndDate ? formatDate(d.implementationEndDate) : 'Not Set',
                     'Reminders':       d.reminders || 0,
                     'Comments':        d.additionalComments || ''
                 }));

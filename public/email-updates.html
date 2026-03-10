@@ -1,218 +1,1194 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Management - CBN Directives</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        * { font-family: 'Inter', sans-serif; }
-        
-        .owner-card {
-            transition: all 0.2s ease;
-            border-left: 4px solid transparent;
-        }
-        
-        .owner-card.has-email {
-            border-left-color: #10b981;
-        }
-        
-        .owner-card.no-email {
-            border-left-color: #f59e0b;
-        }
-        
-        .owner-card:hover {
-            transform: translateX(4px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
-        
-        .save-btn {
-            transition: all 0.2s ease;
-        }
-        
-        .save-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings – CBN Directives Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Epilogue:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --forest: #0D3318;
+  --green-9: #1B5E20;
+  --green-7: #2E7D32;
+  --green-5: #4CAF50;
+  --green-2: #C8E6C9;
+  --green-1: #E8F5E9;
+  --green-0: #F1F8F2;
+  --ink: #0A0F0D;
+  --ink-2: #2D3830;
+  --ink-3: #5A6860;
+  --ink-4: #8FA89A;
+  --line: #E2EAE5;
+  --line-2: #CDD9D2;
+  --white: #FFFFFF;
+  --bg: #F4F7F5;
+  --red: #C62828;
+  --amber: #B45309;
+  --blue: #1D4ED8;
+  --shadow-sm: 0 1px 3px rgba(13,51,24,.07), 0 1px 2px rgba(13,51,24,.04);
+  --shadow: 0 4px 16px rgba(13,51,24,.08), 0 1px 4px rgba(13,51,24,.04);
+  --shadow-lg: 0 12px 40px rgba(13,51,24,.12), 0 4px 12px rgba(13,51,24,.06);
+}
+
+body { font-family: 'Epilogue', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+
+/* ── NAV ──────────────────────────────────────────────────── */
+.nav {
+  background: var(--white);
+  border-bottom: 1px solid var(--line);
+  height: 58px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 36px;
+  position: sticky; top: 0; z-index: 100;
+}
+.nav-brand { display: flex; align-items: center; gap: 12px; }
+.brand-gem {
+  width: 32px; height: 32px;
+  background: var(--forest);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+}
+.brand-gem svg { width: 15px; height: 15px; color: var(--green-2); }
+.brand-text { font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 700; color: var(--ink); }
+.brand-sub { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.back-btn {
+  font-size: 12px; font-weight: 600; color: var(--ink-3);
+  text-decoration: none; display: flex; align-items: center; gap: 5px;
+  padding: 7px 13px; border: 1px solid var(--line); border-radius: 7px;
+  transition: .15s;
+}
+.back-btn:hover { color: var(--green-9); background: var(--green-1); border-color: var(--green-2); }
+
+/* ── PAGE ─────────────────────────────────────────────────── */
+.wrap { max-width: 1040px; margin: 0 auto; padding: 36px 24px; }
+.page-heading { margin-bottom: 28px; }
+.page-title { font-family: 'Sora', sans-serif; font-size: 22px; font-weight: 800; color: var(--ink); }
+.page-sub { font-size: 13px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; }
+
+/* ── TABS ─────────────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 2px;
+  background: var(--line);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 22px;
+  width: fit-content;
+}
+.tab-btn {
+  padding: 8px 20px; border-radius: 7px;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; border: none; background: none;
+  color: var(--ink-3); transition: .15s;
+  display: flex; align-items: center; gap: 6px;
+}
+.tab-btn:hover { background: rgba(255,255,255,.5); color: var(--ink); }
+.tab-btn.active {
+  background: var(--white);
+  color: var(--green-9);
+  box-shadow: var(--shadow-sm);
+}
+.tab-badge {
+  background: var(--green-9); color: var(--white);
+  font-size: 9px; font-weight: 800;
+  padding: 2px 6px; border-radius: 8px;
+  min-width: 18px; text-align: center;
+}
+.tab-pane { display: none; }
+.tab-pane.active { display: block; animation: slideUp .2s ease; }
+@keyframes slideUp { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+
+/* ── CARD ─────────────────────────────────────────────────── */
+.card { background: var(--white); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-sm); overflow: hidden; }
+.card-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.card-header-left .ch-title { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 700; color: var(--ink); }
+.card-header-left .ch-sub { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+.card-header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ── BUTTONS ─────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 8px;
+  font-size: 13px; font-weight: 600; font-family: inherit;
+  cursor: pointer; border: none; transition: .15s; white-space: nowrap;
+}
+.btn-primary { background: var(--green-9); color: var(--white); }
+.btn-primary:hover { background: var(--forest); }
+.btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+.btn-ghost { background: none; border: 1px solid var(--line); color: var(--ink-2); }
+.btn-ghost:hover { background: var(--bg); border-color: var(--line-2); }
+.btn-danger-ghost { background: none; border: 1px solid #FECACA; color: var(--red); }
+.btn-danger-ghost:hover { background: #FEF2F2; }
+.btn-sm { padding: 5px 11px; font-size: 11px; border-radius: 6px; }
+.btn-xs { padding: 4px 9px; font-size: 11px; border-radius: 5px; }
+
+/* ── SEARCH ──────────────────────────────────────────────── */
+.search-box {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 12px;
+}
+.search-box input {
+  border: none; background: none; outline: none;
+  font-size: 13px; color: var(--ink); font-family: inherit;
+  width: 210px;
+}
+.search-box svg { color: var(--ink-4); flex-shrink: 0; }
+
+/* ── TABLE ───────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead { background: linear-gradient(135deg, var(--forest) 0%, var(--green-7) 100%); }
+thead th {
+  padding: 12px 16px; text-align: left;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .7px;
+  color: rgba(255,255,255,.85); white-space: nowrap;
+}
+tbody tr { border-bottom: 1px solid var(--line); transition: background .1s; }
+tbody tr:last-child:not(.exp-row) { border-bottom: none; }
+tbody tr:hover:not(.exp-row):not(.empty-tr) { background: var(--green-0); }
+td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: middle; }
+.cell-name { display: flex; align-items: center; gap: 11px; }
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; color: var(--white); flex-shrink: 0;
+}
+.av-green { background: linear-gradient(135deg, var(--green-9), var(--green-5)); }
+.av-grey  { background: linear-gradient(135deg, #5A6860, #8FA89A); }
+.name-main { font-weight: 600; font-size: 13px; line-height: 1.3; }
+.name-sub  { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.act-group { display: flex; gap: 5px; flex-wrap: wrap; }
+.act-btn {
+  background: none; border: 1px solid var(--line);
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 600; font-family: inherit;
+  cursor: pointer; color: var(--ink-2); transition: .12s; white-space: nowrap;
+}
+.act-btn:hover { background: var(--green-1); border-color: var(--green-2); color: var(--green-9); }
+.act-btn.danger { color: var(--red); }
+.act-btn.danger:hover { background: #FEF2F2; border-color: #FECACA; }
+.empty-tr td { padding: 56px 24px; text-align: center; }
+.empty-icon { font-size: 44px; margin-bottom: 14px; }
+.empty-title { font-family: 'Sora', sans-serif; font-size: 16px; font-weight: 700; color: var(--ink-2); margin-bottom: 6px; }
+.empty-desc { font-size: 13px; color: var(--ink-3); }
+
+/* ── BADGES ──────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 700;
+}
+.badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+.b-active   { background: #ECFDF5; color: #065F46; } .b-active::before   { background: #34D399; }
+.b-inactive { background: #FEF2F2; color: #991B1B; } .b-inactive::before { background: #F87171; }
+.b-pending  { background: #FFFBEB; color: #92400E; } .b-pending::before  { background: #FCD34D; animation: blink 1.5s infinite; }
+.b-email    { background: #EFF6FF; color: #1E40AF; } .b-email::before    { background: #60A5FA; }
+.b-noemail  { background: #FFF7ED; color: #9A3412; } .b-noemail::before  { background: #FB923C; }
+.b-noname   { background: #FFF7ED; color: #92400E; border: 1px dashed #FCD34D; } .b-noname::before { background: #FCD34D; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+/* ── EXPAND ROW ──────────────────────────────────────────── */
+.exp-row { display: none; background: var(--green-0); }
+.exp-row.open { display: table-row; }
+.exp-row td { padding: 0; border-bottom: 2px solid var(--green-2); }
+.exp-inner { padding: 22px 22px 22px 64px; }
+.exp-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 16px; margin-bottom: 18px;
+}
+@media (max-width: 640px) { .exp-grid { grid-template-columns: 1fr; } }
+.field-label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+  color: var(--ink-3); margin-bottom: 7px; display: block;
+}
+.field-input {
+  width: 100%; padding: 9px 13px;
+  border: 1.5px solid var(--line); border-radius: 8px;
+  font-size: 13px; font-family: inherit; color: var(--ink);
+  background: var(--white); outline: none; transition: .15s;
+}
+.field-input:focus { border-color: var(--green-5); background: var(--green-0); }
+.field-hint { font-size: 11px; color: var(--ink-4); margin-top: 5px; }
+
+/* Tag input */
+.tag-area {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  padding: 7px 10px; border: 1.5px solid var(--line);
+  border-radius: 8px; cursor: text; min-height: 44px;
+  background: var(--white); transition: .15s;
+}
+.tag-area:focus-within { border-color: var(--green-5); background: var(--green-0); }
+.etag {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--green-1); color: var(--green-9);
+  border: 1px solid var(--green-2);
+  padding: 2px 8px; border-radius: 14px; font-size: 11px; font-weight: 600;
+}
+.etag-x { background: none; border: none; cursor: pointer; color: var(--green-5); font-size: 14px; line-height: 1; padding: 0; }
+.etag-x:hover { color: var(--red); }
+.tag-input {
+  border: none; outline: none; font-size: 13px; font-family: inherit;
+  min-width: 140px; flex: 1; background: transparent; color: var(--ink);
+}
+
+/* Linked users inside expand */
+.linked-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line-2); }
+.linked-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--ink-3); margin-bottom: 10px; }
+.user-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--white); border: 1px solid var(--line);
+  padding: 4px 10px; border-radius: 18px;
+  font-size: 12px; font-weight: 500; margin: 3px;
+}
+.user-chip-av {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--green-9); color: var(--white);
+  font-size: 9px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.exp-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 14px; border-top: 1px solid var(--line-2); margin-top: 8px;
+}
+.exp-note { font-size: 12px; color: var(--ink-4); }
+
+/* count pill */
+.cpill {
+  display: inline-block;
+  background: var(--bg); border: 1px solid var(--line);
+  padding: 2px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 700; color: var(--ink-3);
+}
+.cpill.has-users { background: var(--green-1); border-color: var(--green-2); color: var(--green-9); }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal-bg { position: absolute; inset: 0; background: rgba(10,15,13,.5); backdrop-filter: blur(4px); }
+.modal {
+  position: relative; z-index: 1;
+  background: var(--white); border-radius: 16px;
+  width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: popIn .25s cubic-bezier(.4,0,.2,1);
+}
+@keyframes popIn { from { opacity:0; transform:scale(.95); } to { opacity:1; transform:scale(1); } }
+.modal-head {
+  padding: 22px 24px; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; background: var(--white); z-index: 2;
+  border-radius: 16px 16px 0 0;
+}
+.modal-title { font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 700; color: var(--ink); }
+.modal-close { background: none; border: none; cursor: pointer; color: var(--ink-3); padding: 2px; display: flex; }
+.modal-body { padding: 22px 24px; }
+.modal-foot {
+  padding: 18px 24px; border-top: 1px solid var(--line);
+  display: flex; gap: 10px; justify-content: flex-end;
+}
+.mfield { margin-bottom: 18px; }
+.mfield label {
+  display: block; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+  color: var(--ink-3); margin-bottom: 8px;
+}
+.mfield input, .mfield select {
+  width: 100%; padding: 10px 13px;
+  border: 1.5px solid var(--line); border-radius: 8px;
+  font-size: 14px; font-family: inherit; color: var(--ink);
+  outline: none; transition: .15s; background: var(--white);
+}
+.mfield input:focus, .mfield select:focus { border-color: var(--green-5); background: var(--green-0); }
+.mfield .mhint { font-size: 11px; color: var(--ink-4); margin-top: 5px; line-height: 1.5; }
+.mfield input:disabled { opacity: .5; cursor: not-allowed; background: var(--bg); }
+.mfield input.incomplete { border-color: #FCD34D; background: #FFFBEB; }
+.incomplete-banner {
+  background: #FFFBEB; border: 1px solid #FCD34D;
+  border-radius: 8px; padding: 12px 14px; margin-bottom: 18px;
+  font-size: 13px; color: #92400E; line-height: 1.5;
+}
+
+/* Confirm danger */
+.danger-note {
+  background: #FEF2F2; border: 1px solid #FCA5A5;
+  border-radius: 8px; padding: 12px; margin-top: 12px;
+  font-size: 13px; color: #991B1B; line-height: 1.5;
+}
+
+/* TOAST */
+#toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  padding: 12px 18px; border-radius: 10px;
+  font-size: 13px; font-weight: 600; color: var(--white);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(60px); opacity: 0;
+  transition: .3s cubic-bezier(.4,0,.2,1);
+  max-width: 320px; pointer-events: none;
+}
+#toast.visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
+#toast.ok   { background: var(--green-7); }
+#toast.err  { background: var(--red); }
+#toast.warn { background: var(--amber); }
+</style>
 </head>
-<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-    <div class="max-w-4xl mx-auto py-8 px-4">
-        
-        <!-- Header -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900 mb-2">📧 Email Management</h1>
-                    <p class="text-gray-600">Assign email addresses to process owners</p>
-                </div>
-                <a href="/" class="px-5 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors">
-                    ← Back
-                </a>
-            </div>
-        </div>
+<body>
 
-        <!-- Search -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-6">
-            <input 
-                type="text" 
-                id="searchOwner" 
-                placeholder="🔍 Search process owners..." 
-                class="w-full px-5 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900 font-medium"
-            >
-        </div>
-
-        <!-- Loading -->
-        <div id="loading" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-16 text-center">
-            <div class="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
-            <p class="text-gray-600 font-medium">Loading process owners...</p>
-        </div>
-
-        <!-- Process Owners List -->
-        <div id="ownersContainer" class="hidden space-y-4"></div>
-
-        <!-- No Results -->
-        <div id="noResults" class="hidden bg-white rounded-2xl shadow-sm border border-gray-200 p-16 text-center">
-            <div class="text-6xl mb-4">🔍</div>
-            <p class="text-gray-600 font-medium text-lg">No process owners found</p>
-        </div>
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="brand-gem">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
     </div>
+    <div>
+      <div class="brand-text">Platform Settings</div>
+      <div class="brand-sub">CBN Directives — Corporate Secretariat</div>
+    </div>
+  </div>
+  <a href="/index.html" class="back-btn">
+    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+    </svg>
+    Back to Dashboard
+  </a>
+</nav>
 
-    <!-- Success Toast -->
-    <div id="successToast" class="hidden fixed bottom-6 right-6 bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl animate-slide-up">
-        <div class="flex items-center">
-            <svg class="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+<div class="wrap">
+  <div class="page-heading">
+    <h1 class="page-title">Settings &amp; User Management</h1>
+    <p class="page-sub">
+      Business units are the departments that own directives. Each unit has a responsible person,
+      a contact email for reminders, and login users who can submit updates.
+    </p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('bu', this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+      </svg>
+      Business Units
+      <span class="tab-badge" id="tc-bu">—</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('users', this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+      </svg>
+      Login Users
+      <span class="tab-badge" id="tc-users">—</span>
+    </button>
+  </div>
+
+  <!-- ═══ TAB: BUSINESS UNITS ══════════════════════════════════ -->
+  <div id="pane-bu" class="tab-pane active">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-left">
+          <div class="ch-title">Business Units</div>
+          <div class="ch-sub">
+            These come from your directive data. Click any row to expand and fill in the responsible person's name,
+            contact email, and CC addresses. Roles without names are flagged below.
+          </div>
+        </div>
+        <div class="card-header-right">
+          <div class="search-box">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
-            <span id="successMessage" class="font-semibold"></span>
+            <input type="text" id="bu-search" placeholder="Search business units…" oninput="filterBU(this.value)">
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="loadAll()">↻ Refresh</button>
         </div>
+      </div>
+      <div class="tbl-wrap">
+        <table id="bu-table">
+          <thead>
+            <tr>
+              <th style="width:32px;"></th>
+              <th>Business Unit (Role / Dept)</th>
+              <th>Responsible Person</th>
+              <th>Email</th>
+              <th>Login Users</th>
+              <th>Directives</th>
+            </tr>
+          </thead>
+          <tbody id="bu-tbody">
+            <tr class="empty-tr">
+              <td colspan="6">
+                <div class="empty-icon">⏳</div>
+                <div class="empty-title">Loading business units…</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
+  </div>
 
-    <script>
-        let ownersData = [];
+  <!-- ═══ TAB: USERS ═══════════════════════════════════════════ -->
+  <div id="pane-users" class="tab-pane">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-left">
+          <div class="ch-title">Login Users</div>
+          <div class="ch-sub">Users who can sign in to the Business Unit Portal and submit directive updates</div>
+        </div>
+        <div class="card-header-right">
+          <div class="search-box">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="text" id="user-search" placeholder="Search name or email…" oninput="filterUsers(this.value)">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openAddUser()">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Add User
+          </button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Business Unit</th>
+              <th>Position</th>
+              <th>Status</th>
+              <th>Last Login</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr class="empty-tr">
+              <td colspan="6">
+                <div class="empty-icon">⏳</div>
+                <div class="empty-title">Loading users…</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div><!-- /wrap -->
 
-        async function loadOwners() {
-            try {
-                const response = await fetch('/api/process-owners-with-directives');
-                const data = await response.json();
-                
-                if (!data.success) throw new Error(data.error);
-                
-                ownersData = data.data;
-                displayOwners(ownersData);
-                
-                document.getElementById('loading').classList.add('hidden');
-                document.getElementById('ownersContainer').classList.remove('hidden');
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error loading data: ' + error.message);
-            }
-        }
+<!-- ═══ MODAL: ADD USER ══════════════════════════════════════ -->
+<div class="modal-overlay" id="m-add-user">
+  <div class="modal-bg" onclick="closeModal('m-add-user')"></div>
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Add Login User</div>
+      <button class="modal-close" onclick="closeModal('m-add-user')">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="mfield">
+        <label>Full Name *</label>
+        <input type="text" id="nu-name" placeholder="e.g. Adaeze Okonkwo">
+      </div>
+      <div class="mfield">
+        <label>Email Address *</label>
+        <input type="email" id="nu-email" placeholder="user@cbn.gov.ng">
+        <div class="mhint">A password setup link will be sent to this address.</div>
+      </div>
+      <div class="mfield">
+        <label>Business Unit *</label>
+        <select id="nu-bu">
+          <option value="">— Select business unit —</option>
+        </select>
+        <div class="mhint">The business unit this user belongs to and can submit updates for.</div>
+      </div>
+      <div class="mfield">
+        <label>Position / Title</label>
+        <input type="text" id="nu-pos" placeholder="e.g. Deputy Director">
+      </div>
+      <div class="mfield">
+        <label>Phone (optional)</label>
+        <input type="text" id="nu-phone" placeholder="+234 800 000 0000">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('m-add-user')">Cancel</button>
+      <button class="btn btn-primary" id="btn-create-user" onclick="createUser()">
+        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        Send Setup Email
+      </button>
+    </div>
+  </div>
+</div>
 
-        function displayOwners(owners) {
-            const container = document.getElementById('ownersContainer');
-            
-            if (owners.length === 0) {
-                container.classList.add('hidden');
-                document.getElementById('noResults').classList.remove('hidden');
-                return;
-            }
-            
-            container.classList.remove('hidden');
-            document.getElementById('noResults').classList.add('hidden');
-            
-            container.innerHTML = owners.map(owner => {
-                const hasEmail = owner.primaryEmail && owner.primaryEmail.trim() !== '';
-                const cardClass = hasEmail ? 'has-email' : 'no-email';
-                const statusIcon = hasEmail ? '✅' : '⚠️';
-                
-                return `
-                    <div class="owner-card ${cardClass} bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="flex items-center gap-3">
-                                <div class="text-2xl">${statusIcon}</div>
-                                <div>
-                                    <h3 class="text-xl font-bold text-gray-900">${owner.name}</h3>
-                                    <p class="text-sm text-gray-500">${owner.directiveCount} directive${owner.directiveCount !== 1 ? 's' : ''}</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="flex gap-3">
-                            <input 
-                                type="email" 
-                                id="email-${owner.name}"
-                                value="${owner.primaryEmail || ''}"
-                                placeholder="Enter email address"
-                                class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium"
-                            >
-                            <button 
-                                onclick="saveEmail('${owner.name}')" 
-                                class="save-btn px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700"
-                            >
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
+<!-- ═══ MODAL: EDIT USER ═════════════════════════════════════ -->
+<div class="modal-overlay" id="m-edit-user">
+  <div class="modal-bg" onclick="closeModal('m-edit-user')"></div>
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Edit User</div>
+      <button class="modal-close" onclick="closeModal('m-edit-user')">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="eu-id">
+      <div class="mfield">
+        <label>Full Name *</label>
+        <input type="text" id="eu-name">
+      </div>
+      <div class="mfield">
+        <label>Email</label>
+        <input type="email" id="eu-email" disabled>
+        <div class="mhint">Email cannot be changed after account creation.</div>
+      </div>
+      <div class="mfield">
+        <label>Business Unit</label>
+        <select id="eu-bu"></select>
+      </div>
+      <div class="mfield">
+        <label>Position / Title</label>
+        <input type="text" id="eu-pos">
+      </div>
+      <div class="mfield">
+        <label>Phone</label>
+        <input type="text" id="eu-phone">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('m-edit-user')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveUser()">Save Changes</button>
+    </div>
+  </div>
+</div>
 
-        async function saveEmail(ownerName) {
-            const emailInput = document.getElementById(`email-${ownerName}`);
-            const email = emailInput.value.trim();
-            
-            try {
-                const response = await fetch('/api/update-owner-emails', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        owner: ownerName,
-                        primaryEmail: email,
-                        secondaryEmail: ''
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (!data.success) throw new Error(data.error);
-                
-                showToast(`✅ Email saved for ${ownerName}`);
-                
-                // Update local data
-                const owner = ownersData.find(o => o.name === ownerName);
-                if (owner) {
-                    owner.primaryEmail = email;
-                    displayOwners(filterOwners());
-                }
-                
-            } catch (error) {
-                alert('❌ Error: ' + error.message);
-            }
-        }
+<!-- ═══ MODAL: CONFIRM ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="m-confirm">
+  <div class="modal-bg" onclick="closeModal('m-confirm')"></div>
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-head">
+      <div class="modal-title" id="confirm-title">Confirm</div>
+      <button class="modal-close" onclick="closeModal('m-confirm')">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-msg" style="font-size:14px;color:var(--ink-2);line-height:1.6;"></p>
+      <div id="confirm-danger" class="danger-note" style="display:none;">
+        ⚠️ This action is permanent and cannot be undone.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('m-confirm')">Cancel</button>
+      <button id="confirm-ok" class="btn" style="background:var(--red);color:#fff;">Confirm</button>
+    </div>
+  </div>
+</div>
 
-        function filterOwners() {
-            const searchTerm = document.getElementById('searchOwner').value.toLowerCase();
-            return ownersData.filter(owner => 
-                owner.name.toLowerCase().includes(searchTerm)
-            );
-        }
+<div id="toast"></div>
 
-        function showToast(message) {
-            const toast = document.getElementById('successToast');
-            document.getElementById('successMessage').textContent = message;
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 3000);
-        }
+<script>
+const API = window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api';
 
-        // Search functionality
-        document.getElementById('searchOwner').addEventListener('input', () => {
-            displayOwners(filterOwners());
-        });
+let allBU    = [];   // merged from process-owners-with-directives + departments metadata
+let allUsers = [];   // ProcessOwner accounts
+const tags   = {};   // CC tag sets, keyed by BU name
 
-        // Load on page load
-        loadOwners();
-    </script>
+/* ─── INIT ───────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', loadAll);
+
+async function loadAll() {
+  await Promise.all([loadBU(), loadUsers()]);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUSINESS UNITS TAB
+   Sources:
+   - /api/process-owners-with-directives  → unique owner names + email + directive counts
+   - /api/departments                     → stored metadata: personName, position, code
+   These are merged by name. "Department" = "Business Unit" = directive owner.
+═══════════════════════════════════════════════════════════════ */
+
+async function loadBU() {
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch(`${API}/process-owners-with-directives`),
+      fetch(`${API}/departments`)
+    ]);
+    const [j1, j2] = await Promise.all([r1.json(), r2.json()]);
+    if (!j1.success) throw new Error(j1.error);
+
+    const metas = j2.success ? j2.data : [];
+
+    allBU = j1.data.map(owner => {
+      const m = metas.find(d => d.name === owner.name) || {};
+      return {
+        name:           owner.name,
+        personName:     m.personName || '',
+        position:       m.position   || '',
+        code:           m.code       || '',
+        primaryEmail:   owner.primaryEmail   || '',
+        inCopy:         owner.inCopy         || [],
+        secondaryEmail: owner.secondaryEmail || '',
+        directiveCount: owner.directiveCount || 0,
+        metaId:         m._id || null
+      };
+    });
+
+    document.getElementById('tc-bu').textContent = allBU.length;
+    renderBU(allBU);
+    populateBUDropdowns();
+  } catch (e) {
+    toast('Could not load business units: ' + e.message, 'err');
+  }
+}
+
+function renderBU(data) {
+  // Attach linked users
+  const enriched = data.map(bu => ({
+    ...bu,
+    users: allUsers.filter(u => u.department === bu.name)
+  }));
+
+  const tbody = document.getElementById('bu-tbody');
+  if (!enriched.length) {
+    tbody.innerHTML = `<tr class="empty-tr"><td colspan="6">
+      <div class="empty-icon">🏢</div>
+      <div class="empty-title">No business units found</div>
+      <div class="empty-desc">Business units come from your directives data.</div>
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = enriched.map(bu => {
+    const hasEmail  = !!bu.primaryEmail?.trim();
+    const hasName   = !!bu.personName?.trim();
+    const expId     = 'exp_' + safeid(bu.name);
+    const userCount = bu.users.length;
+
+    const emailBadge  = hasEmail
+      ? `<span class="badge b-email">✓ Configured</span>`
+      : `<span class="badge b-noemail">Not set</span>`;
+
+    const personCell = hasName
+      ? `<div class="name-main">${esc(bu.personName)}</div>
+         <div class="name-sub">${esc(bu.position || '')}</div>`
+      : `<span class="badge b-noname">Name missing — click to add</span>`;
+
+    const usersChips = bu.users.length
+      ? bu.users.map(u => `
+          <span class="user-chip">
+            <span class="user-chip-av">${initials(u.name)}</span>
+            <span>${esc(u.name)}<span style="color:var(--ink-4);font-size:10px;margin-left:4px;">${u.email}</span></span>
+          </span>`).join('')
+      : `<span style="font-size:12px;color:var(--ink-4);font-style:italic;">
+           No login users yet — add a user and assign this business unit.
+         </span>`;
+
+    return `
+    <!-- DATA ROW -->
+    <tr onclick="toggleExpand('${esc2(bu.name)}', '${expId}')" style="cursor:pointer;">
+      <td style="padding:14px 8px 14px 16px;">
+        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+             id="arr_${expId}" style="color:var(--ink-4);transition:transform .2s;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </td>
+      <td>
+        <div class="name-main">${esc(bu.name)}</div>
+        <div class="name-sub">${bu.directiveCount} directive${bu.directiveCount !== 1 ? 's' : ''}</div>
+      </td>
+      <td>${personCell}</td>
+      <td>${emailBadge}</td>
+      <td>
+        <span class="cpill ${userCount > 0 ? 'has-users' : ''}">
+          ${userCount} user${userCount !== 1 ? 's' : ''}
+        </span>
+      </td>
+      <td><span style="font-size:13px;font-weight:700;color:var(--green-9);">${bu.directiveCount}</span></td>
+    </tr>
+
+    <!-- EXPAND ROW -->
+    <tr class="exp-row" id="${expId}">
+      <td colspan="6">
+        <div class="exp-inner">
+          <div class="exp-grid">
+            <!-- Person Name -->
+            <div>
+              <span class="field-label">Responsible Person's Name</span>
+              <input type="text" class="field-input" id="pn_${expId}"
+                value="${esc2(bu.personName)}"
+                placeholder="e.g. Dr. Amaka Osei ${!hasName ? '← Add name here' : ''}">
+              <div class="field-hint">The actual person responsible for this business unit</div>
+            </div>
+            <!-- Position -->
+            <div>
+              <span class="field-label">Position / Title</span>
+              <input type="text" class="field-input" id="pp_${expId}"
+                value="${esc2(bu.position)}"
+                placeholder="e.g. Director, Financial Policy">
+            </div>
+            <!-- Primary Email -->
+            <div>
+              <span class="field-label">Primary Email (for reminders)</span>
+              <input type="email" class="field-input" id="pe_${expId}"
+                value="${esc2(bu.primaryEmail)}"
+                placeholder="director@cbn.gov.ng">
+            </div>
+            <!-- CC emails -->
+            <div>
+              <span class="field-label">In Copy (CC) — press Enter or , to add</span>
+              <div class="tag-area" id="ta_${expId}" onclick="focusTagInput('${esc2(bu.name)}')">
+                <input type="text" class="tag-input"
+                  id="ti_${esc2(bu.name)}"
+                  placeholder="cc@cbn.gov.ng"
+                  onkeydown="tagKeydown(event, '${esc2(bu.name)}')"
+                  onblur="tagBlur(event, '${esc2(bu.name)}')">
+              </div>
+              <div class="field-hint" id="th_${esc2(bu.name)}">
+                ${bu.inCopy.length ? bu.inCopy.length + ' address' + (bu.inCopy.length > 1 ? 'es' : '') + ' in copy' : 'No CC emails yet'}
+              </div>
+            </div>
+          </div>
+
+          <!-- Linked users section -->
+          <div class="linked-section">
+            <div class="linked-title">Login Users for this Business Unit (${userCount})</div>
+            <div id="lu_${expId}">${usersChips}</div>
+          </div>
+
+          <div class="exp-footer">
+            <div class="exp-note">Saving updates the email config across all directives for this business unit.</div>
+            <button class="btn btn-primary btn-sm" onclick="saveBU('${esc2(bu.name)}', '${expId}')">
+              Save Changes
+            </button>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Initialise tag inputs after render
+  enriched.forEach(bu => {
+    tags[bu.name] = new Set();
+    const cc = [...(bu.inCopy || [])];
+    if (bu.secondaryEmail && !cc.includes(bu.secondaryEmail)) cc.unshift(bu.secondaryEmail);
+    cc.forEach(e => addTag(bu.name, e, false));
+  });
+}
+
+function filterBU(q) {
+  const lq = q.toLowerCase();
+  renderBU(allBU.filter(b =>
+    b.name.toLowerCase().includes(lq) ||
+    (b.personName || '').toLowerCase().includes(lq)
+  ));
+}
+
+function toggleExpand(name, expId) {
+  const row = document.getElementById(expId);
+  if (!row) return;
+  const arr  = document.getElementById('arr_' + expId);
+  const open = row.classList.contains('open');
+
+  // Close all
+  document.querySelectorAll('.exp-row.open').forEach(r => {
+    r.classList.remove('open');
+    const a = document.getElementById('arr_' + r.id);
+    if (a) a.style.transform = '';
+  });
+
+  if (!open) {
+    row.classList.add('open');
+    if (arr) arr.style.transform = 'rotate(90deg)';
+    setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+  }
+}
+
+async function saveBU(name, expId) {
+  const personName   = document.getElementById('pn_' + expId)?.value.trim() || '';
+  const position     = document.getElementById('pp_' + expId)?.value.trim() || '';
+  const primaryEmail = document.getElementById('pe_' + expId)?.value.trim() || '';
+  ensureTags(name);
+  const inCopy = Array.from(tags[name] || new Set());
+
+  try {
+    // Save email config across all directives for this BU
+    const r1 = await fetch(`${API}/update-owner-emails`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ owner: name, primaryEmail, inCopy, secondaryEmail: inCopy[0] || '' })
+    });
+    const j1 = await r1.json();
+    if (!j1.success) throw new Error(j1.error);
+
+    // Save personName + position metadata (graceful — upsert endpoint from server patch)
+    await fetch(`${API}/departments/upsert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, personName, position })
+    }).catch(() => {});  // Graceful: if server not patched yet, still works
+
+    toast('✅ Saved — ' + name, 'ok');
+
+    // Update local state
+    const bu = allBU.find(b => b.name === name);
+    if (bu) { bu.primaryEmail = primaryEmail; bu.inCopy = inCopy; bu.personName = personName; bu.position = position; }
+
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   USERS TAB
+═══════════════════════════════════════════════════════════════ */
+
+async function loadUsers() {
+  try {
+    const r = await fetch(`${API}/process-owners/accounts`);
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error);
+    allUsers = j.data;
+    document.getElementById('tc-users').textContent = allUsers.length;
+    renderUsers(allUsers);
+    populateBUDropdowns();
+  } catch (e) {
+    toast('Could not load users: ' + e.message, 'err');
+  }
+}
+
+function renderUsers(data) {
+  const tbody = document.getElementById('users-tbody');
+  if (!data.length) {
+    tbody.innerHTML = `<tr class="empty-tr"><td colspan="6">
+      <div class="empty-icon">👤</div>
+      <div class="empty-title">No login users yet</div>
+      <div class="empty-desc">Add a user and assign them to a business unit so they can submit directive updates.</div>
+    </td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map(u => {
+    const ini     = initials(u.name);
+    const pending = !u.hasPassword;
+    const badge   = pending
+      ? `<span class="badge b-pending">Setup Pending</span>`
+      : u.isActive
+        ? `<span class="badge b-active">Active</span>`
+        : `<span class="badge b-inactive">Inactive</span>`;
+    const lastLogin = u.lastLogin
+      ? `<span style="font-size:12px;color:var(--ink-3);">${fmtDate(u.lastLogin)}</span>`
+      : `<span style="font-size:12px;color:var(--ink-4);font-style:italic;">Never</span>`;
+    const buCell = u.department
+      ? `<span style="font-size:12px;color:var(--ink-2);">${esc(u.department)}</span>`
+      : `<span style="font-size:12px;color:var(--ink-4);font-style:italic;">Not assigned</span>`;
+
+    return `<tr>
+      <td>
+        <div class="cell-name">
+          <div class="avatar av-green">${ini}</div>
+          <div>
+            <div class="name-main">${esc(u.name)}</div>
+            <div class="name-sub">${u.email}</div>
+          </div>
+        </div>
+      </td>
+      <td>${buCell}</td>
+      <td><span style="font-size:12px;color:var(--ink-2);">${esc(u.position || '—')}</span></td>
+      <td>${badge}</td>
+      <td>${lastLogin}</td>
+      <td>
+        <div class="act-group">
+          <button class="act-btn" onclick="openEditUser('${u._id}')">Edit</button>
+          ${pending ? `<button class="act-btn" onclick="resendSetup('${u._id}','${esc2(u.name)}')">Resend Link</button>` : ''}
+          <button class="act-btn" onclick="toggleActive('${u._id}','${esc2(u.name)}',${u.isActive})">
+            ${u.isActive ? 'Deactivate' : 'Activate'}
+          </button>
+          <button class="act-btn danger" onclick="deleteUser('${u._id}','${esc2(u.name)}')">Delete</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterUsers(q) {
+  const lq = q.toLowerCase();
+  renderUsers(allUsers.filter(u =>
+    (u.name  || '').toLowerCase().includes(lq) ||
+    (u.email || '').toLowerCase().includes(lq)
+  ));
+}
+
+function populateBUDropdowns() {
+  const names = allBU.map(b => b.name);
+  ['nu-bu', 'eu-bu'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Select business unit —</option>';
+    names.forEach(n => {
+      const o = document.createElement('option');
+      o.value = n; o.textContent = n;
+      if (n === cur) o.selected = true;
+      sel.appendChild(o);
+    });
+  });
+}
+
+function openAddUser() {
+  ['nu-name', 'nu-email', 'nu-pos', 'nu-phone'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('nu-bu').value = '';
+  populateBUDropdowns();
+  openModal('m-add-user');
+  setTimeout(() => document.getElementById('nu-name').focus(), 120);
+}
+
+async function createUser() {
+  const name     = document.getElementById('nu-name').value.trim();
+  const email    = document.getElementById('nu-email').value.trim();
+  const bu       = document.getElementById('nu-bu').value;
+  const position = document.getElementById('nu-pos').value.trim();
+  const phone    = document.getElementById('nu-phone').value.trim();
+
+  if (!name || !email) { toast('Name and email are required', 'err'); return; }
+
+  const btn = document.getElementById('btn-create-user');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await fetch(`${API}/process-owners/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, department: bu, position, phone })
+    });
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error);
+    toast(`✅ ${name} added — setup email sent`, 'ok');
+    closeModal('m-add-user');
+    await Promise.all([loadUsers(), loadBU()]);
+  } catch (e) { toast(e.message, 'err'); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>Send Setup Email`;
+  }
+}
+
+function openEditUser(id) {
+  const u = allUsers.find(x => x._id === id);
+  if (!u) return;
+  document.getElementById('eu-id').value    = id;
+  document.getElementById('eu-name').value  = u.name     || '';
+  document.getElementById('eu-email').value = u.email    || '';
+  document.getElementById('eu-pos').value   = u.position || '';
+  document.getElementById('eu-phone').value = u.phone    || '';
+  populateBUDropdowns();
+  document.getElementById('eu-bu').value = u.department || '';
+  openModal('m-edit-user');
+}
+
+async function saveUser() {
+  const id         = document.getElementById('eu-id').value;
+  const name       = document.getElementById('eu-name').value.trim();
+  const department = document.getElementById('eu-bu').value;
+  const position   = document.getElementById('eu-pos').value.trim();
+  const phone      = document.getElementById('eu-phone').value.trim();
+  if (!name) { toast('Name is required', 'err'); return; }
+  try {
+    const r = await fetch(`${API}/process-owners/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, department, position, phone })
+    });
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error);
+    toast('✅ User updated', 'ok');
+    closeModal('m-edit-user');
+    await Promise.all([loadUsers(), loadBU()]);
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+function toggleActive(id, name, current) {
+  confirm2(
+    `${current ? 'Deactivate' : 'Activate'} "${name}"?`,
+    `This user will ${current ? 'no longer be able to' : 'be able to'} log in to the Business Unit Portal.`,
+    false,
+    async () => {
+      const r = await fetch(`${API}/process-owners/${id}/toggle-active`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }
+      });
+      const j = await r.json();
+      if (j.success) {
+        toast(`✅ ${name} ${j.isActive ? 'activated' : 'deactivated'}`, 'ok');
+        await Promise.all([loadUsers(), loadBU()]);
+      } else toast(j.error, 'err');
+    }
+  );
+}
+
+async function resendSetup(id, name) {
+  try {
+    const r = await fetch(`${API}/process-owners/${id}/resend-setup`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }
+    });
+    const j = await r.json();
+    if (j.success) toast(`✅ Setup email resent to ${name}`, 'ok');
+    else toast(j.error, 'err');
+  } catch (e) { toast('Connection error', 'err'); }
+}
+
+function deleteUser(id, name) {
+  confirm2(
+    `Delete "${name}"?`,
+    `Their account will be permanently removed. They will no longer be able to log in.`,
+    true,
+    async () => {
+      const r = await fetch(`${API}/process-owners/${id}`, {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' }
+      });
+      const j = await r.json();
+      if (j.success) {
+        toast(`🗑️ ${name} deleted`, 'ok');
+        await Promise.all([loadUsers(), loadBU()]);
+      } else toast(j.error, 'err');
+    }
+  );
+}
+
+/* ─── TAG INPUT LOGIC ────────────────────────────────────────── */
+function ensureTags(name) { if (!tags[name]) tags[name] = new Set(); }
+
+function addTag(name, email, save = false) {
+  email = (email || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) return false;
+  ensureTags(name);
+  if (tags[name].has(email)) return false;
+  tags[name].add(email);
+  renderTagsFor(name);
+  if (save) updateTagHint(name);
+  return true;
+}
+
+function removeTag(name, email) {
+  ensureTags(name);
+  tags[name].delete(email);
+  renderTagsFor(name);
+  updateTagHint(name);
+}
+
+function renderTagsFor(name) {
+  const inp = document.getElementById('ti_' + name);
+  if (!inp) return;
+  const wrap = inp.parentElement;
+  Array.from(wrap.querySelectorAll('.etag')).forEach(t => t.remove());
+  ensureTags(name);
+  tags[name].forEach(email => {
+    const t = document.createElement('span');
+    t.className = 'etag';
+    t.innerHTML = `${esc(email)} <button type="button" class="etag-x" onclick="removeTag('${esc2(name)}','${esc2(email)}')">×</button>`;
+    wrap.insertBefore(t, inp);
+  });
+}
+
+function updateTagHint(name) {
+  ensureTags(name);
+  const count = tags[name].size;
+  const el = document.getElementById('th_' + name);
+  if (el) el.textContent = count
+    ? count + ' address' + (count > 1 ? 'es' : '') + ' in copy'
+    : 'No CC emails yet';
+}
+
+function focusTagInput(name) {
+  document.getElementById('ti_' + name)?.focus();
+}
+
+function tagKeydown(e, name) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.replace(/,/g, '').trim();
+    if (val) { addTag(name, val, true); e.target.value = ''; }
+  } else if (e.key === 'Backspace' && !e.target.value) {
+    ensureTags(name);
+    const arr = Array.from(tags[name]);
+    if (arr.length) removeTag(name, arr[arr.length - 1]);
+  }
+}
+
+function tagBlur(e, name) {
+  const val = e.target.value.trim();
+  if (val && val.includes('@')) { addTag(name, val, true); e.target.value = ''; }
+}
+
+/* ─── UI HELPERS ─────────────────────────────────────────────── */
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('pane-' + name).classList.add('active');
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function confirm2(title, msg, isDanger, cb) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent   = msg;
+  document.getElementById('confirm-danger').style.display = isDanger ? 'block' : 'none';
+  const btn = document.getElementById('confirm-ok');
+  btn.onclick = async () => { closeModal('m-confirm'); await cb(); };
+  openModal('m-confirm');
+}
+
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'visible ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('visible'), 3500);
+}
+
+function initials(name) {
+  return (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function safeid(str) {
+  return (str || '').replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+function esc(str) {
+  const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML;
+}
+
+function esc2(str) {
+  return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+function fmtDate(d) {
+  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+</script>
 </body>
 </html>

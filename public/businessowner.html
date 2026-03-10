@@ -1,905 +1,543 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Business Unit Dashboard - CBN Directives</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <style>
-        * { 
-            font-family: 'Inter', sans-serif;
-            scroll-behavior: smooth;
-        }
-        
-        /* CBN Professional Green Palette */
-        :root {
-            --cbn-forest: #1B5E20;
-            --cbn-dark-green: #2E7D32;
-            --cbn-green: #388E3C;
-            --cbn-medium-green: #4CAF50;
-            --cbn-light-green: #66BB6A;
-            --cbn-pale-green: #E8F5E9;
-            --cbn-cream: #F5F5F5;
-            --cbn-white: #FFFFFF;
-            --cbn-text: #1a1a1a;
-            --cbn-text-light: #666666;
-            --cbn-border: #E0E0E0;
-        }
-        
-        body {
-            background: var(--cbn-cream);
-            color: var(--cbn-text);
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, var(--cbn-forest) 0%, var(--cbn-dark-green) 100%);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(27, 94, 32, 0.2);
-        }
-        
-        .btn-secondary {
-            background: white;
-            color: var(--cbn-forest);
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
-            border: 1px solid var(--cbn-border);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .btn-secondary:hover {
-            background: var(--cbn-pale-green);
-        }
-        
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            border: 1px solid var(--cbn-border);
-        }
-        
-        .stat-card {
-            background: white;
-            border: 1px solid var(--cbn-border);
-            border-radius: 10px;
-            padding: 16px;
-            transition: all 0.3s ease;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(27, 94, 32, 0.08);
-        }
-        
-        .stat-number {
-            font-size: 32px;
-            font-weight: 700;
-            color: var(--cbn-forest);
-            line-height: 1;
-        }
-        
-        .stat-label {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--cbn-text-light);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 8px;
-        }
-        
-        .badge {
-            display: inline-flex;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-        }
-        
-        /* Updated status badges to match new schema */
-        .badge-implemented   { background: #E8F5E9; color: #2E7D32; }
-        .badge-implementing  { background: #E3F2FD; color: #1565C0; }
-        .badge-not-impl      { background: #FFF3E0; color: #E65100; }
-        .badge-no-response   { background: #FFEBEE; color: #C62828; }
-        /* Keep old names as aliases so nothing breaks */
-        .badge-completed     { background: #E8F5E9; color: #2E7D32; }
-        .badge-delayed       { background: #FFF3E0; color: #E65100; }
-        .badge-not-started   { background: #F5F5F5; color: #757575; }
-        
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #E0E0E0;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--cbn-medium-green) 0%, var(--cbn-forest) 100%);
-            transition: width 0.3s ease;
-        }
-        
-        .modal {
-            position: fixed;
-            inset: 0;
-            z-index: 2000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .modal.active {
-            display: flex;
-        }
-        
-        .modal-backdrop {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(3px);
-        }
-        
-        .modal-content {
-            background: white;
-            border-radius: 16px;
-            max-width: 900px;
-            width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-            animation: modalPop 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            z-index: 2001;
-        }
-        
-        @keyframes modalPop {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-        }
-        
-        .form-input {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--cbn-border);
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.2s ease;
-        }
-        
-        .form-input:focus {
-            outline: none;
-            border-color: var(--cbn-medium-green);
-            background: var(--cbn-pale-green);
-        }
-        
-        textarea.form-input {
-            resize: vertical;
-            min-height: 60px;
-        }
-        
-        .outcome-card {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 12px;
-        }
-        
-        .outcome-card.selected {
-            background: var(--cbn-pale-green);
-            border-color: var(--cbn-medium-green);
-        }
-        
-        .file-upload-area {
-            border: 2px dashed var(--cbn-border);
-            border-radius: 8px;
-            padding: 24px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .file-upload-area:hover {
-            border-color: var(--cbn-medium-green);
-            background: var(--cbn-pale-green);
-        }
-        
-        .hidden { display: none !important; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Business Unit Portal – CBN Directives</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --g900:#0F3D20;--g800:#1B5E20;--g700:#2E7D32;--g600:#388E3C;
+  --g400:#66BB6A;--g100:#E8F5E9;--g50:#F1F8F2;
+  --ink:#0D1117;--ink2:#374151;--ink3:#6B7280;--ink4:#9CA3AF;
+  --border:#E5E7EB;--white:#FFFFFF;--bg:#F8FAFB;
+  --danger:#DC2626;--warn:#D97706;--info:#2563EB;
+  --r:10px;--shadow:0 1px 3px rgba(0,0,0,.07),0 4px 12px rgba(0,0,0,.04);
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+
+/* ── Header ── */
+.header{background:linear-gradient(135deg,var(--g900) 0%,var(--g800) 50%,var(--g700) 100%);color:#fff;padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.hbrand{display:flex;align-items:center;gap:12px}
+.hbrand-icon{width:36px;height:36px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.hbrand-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:700;color:#fff}
+.hbrand-sub{font-size:11px;color:rgba(255,255,255,.6);margin-top:1px}
+.huser{display:flex;align-items:center;gap:14px}
+.huser-info{text-align:right}
+.huser-name{font-size:13px;font-weight:600;color:#fff}
+.huser-email{font-size:11px;color:rgba(255,255,255,.6)}
+.btn-logout{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#fff;transition:.15s;display:flex;align-items:center;gap:6px}
+.btn-logout:hover{background:rgba(255,255,255,.2)}
+
+/* ── Stats banner ── */
+.stats-band{background:var(--white);border-bottom:1px solid var(--border)}
+.stats-inner{max-width:1100px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:repeat(5,1fr);gap:0}
+.stat{padding:20px 16px;text-align:center;border-right:1px solid var(--border)}
+.stat:last-child{border-right:none}
+.stat-n{font-family:'Sora',sans-serif;font-size:28px;font-weight:700;line-height:1}
+.stat-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-top:6px}
+
+/* ── Page ── */
+.page{max-width:1100px;margin:0 auto;padding:28px 24px}
+
+/* ── Filters ── */
+.filters{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.filters select,.filters input{padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;color:var(--ink);background:var(--white);outline:none;transition:.15s}
+.filters input{flex:1;min-width:220px}
+.filters select:focus,.filters input:focus{border-color:var(--g400)}
+
+/* ── Directive card ── */
+.dir-card{background:var(--white);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;box-shadow:var(--shadow);overflow:hidden;transition:box-shadow .2s}
+.dir-card:hover{box-shadow:0 4px 16px rgba(15,61,32,.1)}
+.dir-card-head{padding:20px 24px 0}
+.dir-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.ref-pill{font-size:11px;font-family:monospace;font-weight:700;background:var(--bg);border:1px solid var(--border);padding:3px 8px;border-radius:6px;color:var(--ink2)}
+.dir-title{font-family:'Sora',sans-serif;font-size:16px;font-weight:700;color:var(--ink);margin-bottom:6px;line-height:1.3}
+.dir-particulars{font-size:13px;color:var(--ink3);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ── Progress ── */
+.prog-row{padding:16px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--g50)}
+.prog-label{display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:8px}
+.prog-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--g600) 0%,var(--g900) 100%);transition:width .5s}
+
+/* ── Decision mini stats ── */
+.dec-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)}
+.dec-cell{background:var(--white);padding:14px 16px;text-align:center}
+.dec-n{font-family:'Sora',sans-serif;font-size:22px;font-weight:700;line-height:1}
+.dec-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:4px}
+
+/* ── Card footer ── */
+.dir-card-foot{padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-info{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--ink3)}
+.card-info span{display:flex;align-items:center;gap:4px}
+.btn-update{background:var(--g800);color:#fff;border:none;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;transition:.15s}
+.btn-update:hover{background:var(--g900)}
+
+/* ── Badge ── */
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:16px;font-size:10px;font-weight:700;letter-spacing:.2px}
+.b-impl{background:#ECFDF5;color:#065F46}.b-being{background:#EFF6FF;color:#1E40AF}.b-not{background:#FFF7ED;color:#9A3412}.b-resp{background:#FEF2F2;color:#991B1B}
+
+/* ── Empty state ── */
+.empty{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:64px 24px;text-align:center;color:var(--ink3)}
+.empty-icon{font-size:56px;margin-bottom:16px}
+.empty-title{font-family:'Sora',sans-serif;font-size:20px;font-weight:700;color:var(--ink2);margin-bottom:8px}
+.empty-desc{font-size:14px;line-height:1.6}
+
+/* ── Modal ── */
+.overlay{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
+.overlay.open{display:flex}
+.overlay-bg{position:absolute;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px)}
+.modal{position:relative;z-index:1;background:var(--white);border-radius:16px;width:100%;max-width:740px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:pop .3s cubic-bezier(.4,0,.2,1)}
+@keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+.modal-head{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:var(--white);z-index:2;border-radius:16px 16px 0 0}
+.modal-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:700;color:var(--ink)}
+.modal-ref{font-size:12px;color:var(--ink3);margin-top:3px;font-family:monospace}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--ink3);padding:4px}
+.modal-section{padding:20px 24px;border-bottom:1px solid var(--border)}
+.modal-section:last-child{border-bottom:none}
+.section-title{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.modal-foot{padding:18px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--white);border-radius:0 0 16px 16px}
+
+/* ── Form ── */
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.frow{grid-template-columns:1fr}}
+.fgroup{margin-bottom:14px}
+.flabel{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink3);margin-bottom:6px;display:block}
+.finput,.fselect,.ftextarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;color:var(--ink);outline:none;transition:.15s;background:var(--white)}
+.finput:focus,.fselect:focus,.ftextarea:focus{border-color:var(--g400);background:var(--g50)}
+.ftextarea{resize:vertical;min-height:60px}
+
+/* ── Decision update cards ── */
+.dec-card{border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;transition:.15s}
+.dec-card.selected{border-color:var(--g400);background:var(--g50)}
+.dec-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;cursor:pointer}
+.dec-num{width:26px;height:26px;border-radius:6px;background:var(--g800);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.dec-text{font-size:13px;color:var(--ink2);line-height:1.5;flex:1}
+.toggle-all{background:none;border:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--g700);text-decoration:underline}
+
+/* ── File upload ── */
+.upload-zone{border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:.15s}
+.upload-zone:hover{border-color:var(--g400);background:var(--g50)}
+.file-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;margin-top:8px;font-size:12px}
+
+/* ── Btn secondary ── */
+.btn-sec{background:var(--white);border:1px solid var(--border);padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink2);transition:.15s}
+.btn-sec:hover{background:var(--bg)}
+
+.hidden{display:none!important}
+</style>
 </head>
 <body>
 
-    <!-- Header -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-8 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-green-700 to-green-600 flex items-center justify-center">
-                        <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-                            <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                        </svg>
-                    </div>
-                    <div>
-                        <h1 class="text-lg font-bold text-gray-900">Business Unit Portal</h1>
-                        <p class="text-xs text-gray-500">Central Bank of Nigeria – Corporate Secretariat</p>
-                    </div>
-                </div>
-                
-                <div class="flex items-center gap-4">
-                    <div class="text-right">
-                        <p class="text-sm font-semibold text-gray-900" id="user-name">Loading...</p>
-                        <p class="text-xs text-gray-500" id="user-email">Loading...</p>
-                    </div>
-                    <button onclick="logout()" class="btn-secondary">
-                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                        </svg>
-                        Logout
-                    </button>
-                </div>
-            </div>
-        </div>
-    </header>
+<!-- Header -->
+<header class="header">
+  <div class="hbrand">
+    <div class="hbrand-icon">
+      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </div>
+    <div>
+      <div class="hbrand-name">Business Unit Portal</div>
+      <div class="hbrand-sub">CBN Directives – Corporate Secretariat</div>
+    </div>
+  </div>
+  <div class="huser">
+    <div class="huser-info">
+      <div class="huser-name" id="user-name">Loading…</div>
+      <div class="huser-email" id="user-email"></div>
+    </div>
+    <button class="btn-logout" onclick="logout()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+      Sign Out
+    </button>
+  </div>
+</header>
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-8 py-8">
-        
-        <!-- Stats — updated labels to match new decision statuses -->
-        <div class="grid grid-cols-5 gap-4 mb-6">
-            <div class="stat-card">
-                <div class="stat-number" id="stat-total">0</div>
-                <div class="stat-label">Total Decisions</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number text-green-600" id="stat-implemented">0</div>
-                <div class="stat-label">Implemented</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number text-blue-600" id="stat-implementing">0</div>
-                <div class="stat-label">Being Implemented</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number text-orange-600" id="stat-not-implemented">0</div>
-                <div class="stat-label">Not Implemented</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number text-red-700" id="stat-no-response">0</div>
-                <div class="stat-label">No Response</div>
-            </div>
-        </div>
+<!-- Stats band -->
+<div class="stats-band">
+  <div class="stats-inner">
+    <div class="stat"><div class="stat-n" id="s-total" style="color:var(--g800)">—</div><div class="stat-l">Total Decisions</div></div>
+    <div class="stat"><div class="stat-n" id="s-impl" style="color:#065F46">—</div><div class="stat-l">Implemented</div></div>
+    <div class="stat"><div class="stat-n" id="s-being" style="color:#1E40AF">—</div><div class="stat-l">Being Impl.</div></div>
+    <div class="stat"><div class="stat-n" id="s-not" style="color:#9A3412">—</div><div class="stat-l">Not Impl.</div></div>
+    <div class="stat"><div class="stat-n" id="s-resp" style="color:#991B1B">—</div><div class="stat-l">No Response</div></div>
+  </div>
+</div>
 
-        <!-- Filters -->
-        <div class="card mb-6">
-            <div class="flex flex-col sm:flex-row gap-4">
-                <select id="filter-status" class="form-input" onchange="renderDirectives()">
-                    <option value="all">All Status</option>
-                    <option value="not-implemented">Not Implemented</option>
-                    <option value="implementing">Being Implemented</option>
-                    <option value="no-response">No Response</option>
-                    <option value="partial">Partial Implementation</option>
-                    <option value="implemented">Fully Implemented</option>
-                </select>
-                <input type="text" id="search" placeholder="Search directives..." class="flex-1 form-input" oninput="renderDirectives()">
-            </div>
-        </div>
+<!-- Page -->
+<div class="page">
 
-        <!-- Directives List -->
-        <div id="directives-list" class="space-y-4">
-            <!-- Populated by JS -->
-        </div>
+  <!-- Filters -->
+  <div class="filters">
+    <select id="f-status" onchange="render()">
+      <option value="all">All Directives</option>
+      <option value="not-impl">Not Implemented</option>
+      <option value="being">Being Implemented</option>
+      <option value="no-resp">No Response</option>
+      <option value="partial">Partial Implementation</option>
+      <option value="full">Fully Implemented</option>
+    </select>
+    <input type="text" id="f-search" placeholder="Search subject, reference…" oninput="render()">
+  </div>
 
-        <!-- Empty State -->
-        <div id="empty-state" class="hidden card text-center py-12">
-            <div class="text-6xl mb-4">📋</div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">No Directives Found</h3>
-            <p class="text-gray-500">You currently have no directives assigned to your email address.</p>
-            <p class="text-sm text-gray-400 mt-2">Contact the Corporate Secretariat if you believe this is an error.</p>
-        </div>
-    </main>
+  <!-- Directives list -->
+  <div id="dir-list"></div>
 
-    <!-- Update Modal — unchanged structure, updated status option labels -->
-    <div id="update-modal" class="modal">
-        <div class="modal-backdrop" onclick="closeUpdateModal()"></div>
-        <div class="modal-content">
-            <div class="sticky top-0 bg-white border-b border-gray-200 p-6 z-10 rounded-t-2xl">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h2 class="text-xl font-bold text-gray-900">Submit Status Update</h2>
-                        <p class="text-sm text-gray-500 mt-1" id="modal-ref">Reference: N/A</p>
-                    </div>
-                    <button onclick="closeUpdateModal()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            
-            <form id="update-form" class="p-6">
-                <input type="hidden" id="directive-id">
-                
-                <!-- Directive Info -->
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Subject</div>
-                    <div class="font-medium text-gray-900" id="modal-subject"></div>
-                    <div class="text-xs text-gray-600 mt-2" id="modal-particulars"></div>
-                </div>
+</div>
 
-                <!-- Decisions Selection (was Outcomes) -->
-                <div class="mb-6">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="font-semibold text-gray-900">Select Decisions to Update</h3>
-                        <button type="button" onclick="toggleAllOutcomes()" class="text-sm text-green-600 hover:text-green-700 font-medium">
-                            Toggle All
-                        </button>
-                    </div>
-                    <div id="outcomes-selection" class="space-y-2 max-h-60 overflow-y-auto mb-2">
-                        <!-- Populated by JS -->
-                    </div>
-                    <p class="text-xs text-gray-500" id="selection-count">0 of 0 decisions selected</p>
-                </div>
-
-                <!-- Decision Updates (hidden until decisions selected) -->
-                <div id="outcomes-updates" class="mb-6 hidden">
-                    <h3 class="font-semibold text-gray-900 mb-4">Update Selected Decisions</h3>
-                    <div id="outcomes-container" class="space-y-4">
-                        <!-- Populated based on selection -->
-                    </div>
-                </div>
-
-                <!-- Timeline -->
-                <div class="mb-6">
-                    <h3 class="font-semibold text-gray-900 mb-4">Implementation Timeline</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                            <input type="date" id="start-date" class="form-input">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                            <input type="date" id="end-date" class="form-input">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- File Upload -->
-                <div class="mb-6">
-                    <h3 class="font-semibold text-gray-900 mb-4">Supporting Documents</h3>
-                    <div class="file-upload-area" onclick="document.getElementById('file-input').click()">
-                        <svg class="w-12 h-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                        </svg>
-                        <p class="text-sm text-gray-600 mb-1">Click to upload documents</p>
-                        <p class="text-xs text-gray-400">PDF, DOC, XLS, Images (Max 10MB)</p>
-                    </div>
-                    <input type="file" id="file-input" multiple class="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onchange="handleFileSelect(event)">
-                    <div id="file-list" class="mt-3 space-y-2"></div>
-                </div>
-
-                <!-- Additional Comments -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Additional Comments</label>
-                    <textarea id="comments" rows="3" class="form-input" placeholder="Any additional updates or notes..."></textarea>
-                </div>
-
-                <!-- Submit -->
-                <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
-                    <button type="submit" class="flex-1 btn-primary">
-                        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        Submit Update to Secretariat
-                    </button>
-                    <button type="button" onclick="closeUpdateModal()" class="btn-secondary px-8">
-                        Cancel
-                    </button>
-                </div>
-            </form>
-        </div>
+<!-- ═══ UPDATE MODAL ════════════════════════════════════════════ -->
+<div class="overlay" id="update-modal">
+  <div class="overlay-bg" onclick="closeModal()"></div>
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Submit Status Update</div>
+        <div class="modal-ref" id="m-ref">—</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
     </div>
 
-    <script>
-        const API_BASE = window.location.hostname === 'localhost' 
-            ? 'http://localhost:3001/api'
-            : '/api';
+    <!-- Subject context -->
+    <div class="modal-section" style="background:var(--g50)">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink3);margin-bottom:4px">Subject</div>
+      <div style="font-size:14px;font-weight:600;color:var(--ink)" id="m-subject"></div>
+      <div style="font-size:12px;color:var(--ink3);margin-top:4px;line-height:1.5" id="m-particulars"></div>
+    </div>
 
-        // Decision status constants — matches server.js schema
-        const DS = {
-            IMPLEMENTED: 'Implemented',
-            BEING_IMPL:  'Being Implemented',
-            NOT_IMPL:    'Not Implemented',
-            NO_RESPONSE: 'No Response'
-        };
+    <!-- Decision selection -->
+    <div class="modal-section">
+      <div class="section-title">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        Select Decisions to Update
+        <button class="toggle-all" onclick="toggleAll()">Toggle All</button>
+      </div>
+      <div id="dec-select" class="space-y-2" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
+      <div style="font-size:12px;color:var(--ink3);margin-top:8px" id="sel-count">0 of 0 selected</div>
+    </div>
 
-        let allDirectives  = [];
-        let filteredDirectives = [];
-        let currentDirective  = null;
-        let selectedFiles     = [];
+    <!-- Decision update forms -->
+    <div class="modal-section hidden" id="dec-updates">
+      <div class="section-title">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        Update Selected Decisions
+      </div>
+      <div id="dec-forms"></div>
+    </div>
 
-        // ── Auth check — now expects 'businessOwner' ────────────────────────────
-        if (sessionStorage.getItem('isLoggedIn') !== 'true' ||
-            sessionStorage.getItem('userType')   !== 'businessOwner') {
-            window.location.href = '/login.html';
-        }
+    <!-- Timeline -->
+    <div class="modal-section">
+      <div class="section-title">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        Implementation Timeline
+      </div>
+      <div class="frow">
+        <div class="fgroup">
+          <label class="flabel">Start Date</label>
+          <input type="date" id="m-start" class="finput">
+        </div>
+        <div class="fgroup">
+          <label class="flabel">End Date</label>
+          <input type="date" id="m-end" class="finput">
+        </div>
+      </div>
+    </div>
 
-        // Load user info from session
-        const userName  = sessionStorage.getItem('userName');
-        const userEmail = sessionStorage.getItem('userEmail');
-        document.getElementById('user-name').textContent  = userName  || 'Business Unit';
-        document.getElementById('user-email').textContent = userEmail || '';
+    <!-- Documents -->
+    <div class="modal-section">
+      <div class="section-title">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+        Supporting Documents
+      </div>
+      <div class="upload-zone" onclick="document.getElementById('file-inp').click()">
+        <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin:0 auto 8px;color:var(--ink4)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+        <div style="font-size:13px;font-weight:600;color:var(--ink2)">Click to upload files</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px">PDF, DOC, XLS, Images — max 10MB each</div>
+      </div>
+      <input type="file" id="file-inp" multiple class="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onchange="handleFiles(event)">
+      <div id="file-list"></div>
+    </div>
 
-        // ── Load directives ──────────────────────────────────────────────────────
-        async function loadDirectives() {
-            try {
-                const response = await fetch(`${API_BASE}/directives`);
-                const result   = await response.json();
+    <!-- Comments -->
+    <div class="modal-section">
+      <div class="section-title">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        Additional Comments
+      </div>
+      <textarea id="m-comments" class="ftextarea" rows="3" placeholder="Any additional notes or context for the Secretariat…"></textarea>
+    </div>
 
-                if (result.success) {
-                    // Filter directives assigned to this business unit
-                    allDirectives = result.data.filter(d => {
-                        const emailMatch = (
-                            (d.primaryEmail   && d.primaryEmail.toLowerCase()   === userEmail.toLowerCase()) ||
-                            (d.secondaryEmail && d.secondaryEmail.toLowerCase() === userEmail.toLowerCase()) ||
-                            (d.inCopy         && d.inCopy.some(e => e.toLowerCase() === userEmail.toLowerCase()))
-                        );
-                        return d.owner === userName || emailMatch;
-                    });
+    <div class="modal-foot">
+      <button class="btn-sec" onclick="closeModal()">Cancel</button>
+      <button class="btn-update" onclick="submitUpdate()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Submit to Secretariat
+      </button>
+    </div>
+  </div>
+</div>
 
-                    if (allDirectives.length === 0) {
-                        document.getElementById('empty-state').classList.remove('hidden');
-                        document.getElementById('directives-list').classList.add('hidden');
-                        return;
-                    }
+<script>
+const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'/api';
+const DS={IMPL:'Implemented',BEING:'Being Implemented',NOT:'Not Implemented',RESP:'No Response'};
 
-                    document.getElementById('empty-state').classList.add('hidden');
-                    document.getElementById('directives-list').classList.remove('hidden');
+let allDirs=[],currentDir=null,selFiles=[];
 
-                    updateStats();
-                    renderDirectives();
-                } else {
-                    console.error('Failed to load directives');
-                }
-            } catch (error) {
-                console.error('Error loading directives:', error);
-                alert('Error loading directives. Please refresh the page.');
-            }
-        }
+// Auth
+if(sessionStorage.getItem('isLoggedIn')!=='true'||sessionStorage.getItem('userType')!=='businessOwner'){
+  window.location.href='/login.html';
+}
+const uName=sessionStorage.getItem('userName')||'Business Unit';
+const uEmail=sessionStorage.getItem('userEmail')||'';
+document.getElementById('user-name').textContent=uName;
+document.getElementById('user-email').textContent=uEmail;
 
-        // ── Stats — updated to new status values ─────────────────────────────────
-        function updateStats() {
-            let totalDecisions  = 0;
-            let implemented     = 0;
-            let implementing    = 0;
-            let notImplemented  = 0;
-            let noResponse      = 0;
+// Load
+async function load(){
+  try{
+    const r=await fetch(`${API}/directives`);
+    const j=await r.json();
+    if(!j.success)throw new Error(j.error);
+    allDirs=j.data.filter(d=>{
+      const em=uEmail.toLowerCase();
+      return d.owner===uName||
+        (d.primaryEmail&&d.primaryEmail.toLowerCase()===em)||
+        (d.secondaryEmail&&d.secondaryEmail.toLowerCase()===em)||
+        (d.inCopy&&d.inCopy.some(e=>e.toLowerCase()===em));
+    });
+    calcStats();render();
+  }catch(e){
+    document.getElementById('dir-list').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Could not load directives</div><div class="empty-desc">${e.message}</div></div>`;
+  }
+}
 
-            allDirectives.forEach(d => {
-                if (d.outcomes && d.outcomes.length > 0) {
-                    d.outcomes.forEach(o => {
-                        totalDecisions++;
-                        switch (o.status) {
-                            case DS.IMPLEMENTED: implemented++;   break;
-                            case DS.BEING_IMPL:  implementing++;  break;
-                            case DS.NOT_IMPL:    notImplemented++; break;
-                            case DS.NO_RESPONSE: noResponse++;    break;
-                            // Legacy values — map for backwards compat with older records
-                            case 'Completed':         implemented++;   break;
-                            case 'Being Implemented': implementing++;  break;
-                            case 'Not Started':       notImplemented++; break;
-                            case 'Delayed':           noResponse++;    break;
-                        }
-                    });
-                }
-            });
+function calcStats(){
+  let tot=0,impl=0,being=0,not=0,resp=0;
+  allDirs.forEach(d=>(d.outcomes||[]).forEach(o=>{
+    tot++;
+    if(o.status===DS.IMPL||o.status==='Completed')impl++;
+    else if(o.status===DS.BEING||o.status==='Being Implemented')being++;
+    else if(o.status===DS.RESP||o.status==='Delayed')resp++;
+    else not++;
+  }));
+  document.getElementById('s-total').textContent=tot;
+  document.getElementById('s-impl').textContent=impl;
+  document.getElementById('s-being').textContent=being;
+  document.getElementById('s-not').textContent=not;
+  document.getElementById('s-resp').textContent=resp;
+}
 
-            document.getElementById('stat-total').textContent          = totalDecisions;
-            document.getElementById('stat-implemented').textContent    = implemented;
-            document.getElementById('stat-implementing').textContent   = implementing;
-            document.getElementById('stat-not-implemented').textContent= notImplemented;
-            document.getElementById('stat-no-response').textContent    = noResponse;
-        }
+function stats(d){
+  const ocs=d.outcomes||[];
+  const tot=ocs.length;
+  const impl=ocs.filter(o=>o.status===DS.IMPL||o.status==='Completed').length;
+  const being=ocs.filter(o=>o.status===DS.BEING||o.status==='Being Implemented').length;
+  const not=ocs.filter(o=>o.status===DS.NOT||o.status==='Not Started').length;
+  const resp=ocs.filter(o=>o.status===DS.RESP||o.status==='Delayed').length;
+  const rate=tot>0?Math.round(impl/tot*100):0;
+  return{tot,impl,being,not,resp,rate};
+}
 
-        // ── Render directives list ────────────────────────────────────────────────
-        function renderDirectives() {
-            const filter = document.getElementById('filter-status').value;
-            const search = document.getElementById('search').value.toLowerCase();
+function render(){
+  const filter=document.getElementById('f-status').value;
+  const q=document.getElementById('f-search').value.toLowerCase();
+  let data=allDirs.filter(d=>{
+    if(q&&!(d.subject||'').toLowerCase().includes(q)&&!(d.ref||'').toLowerCase().includes(q))return false;
+    if(filter==='all')return true;
+    const s=stats(d);
+    if(filter==='full')return s.rate===100&&s.tot>0;
+    if(filter==='partial')return s.impl>0&&s.rate<100;
+    if(filter==='being')return s.being>0;
+    if(filter==='no-resp')return s.resp>0;
+    if(filter==='not-impl')return s.not===s.tot&&s.tot>0;
+    return true;
+  });
 
-            filteredDirectives = allDirectives.filter(d => {
-                // Search filter
-                if (search) {
-                    const matchesSearch =
-                        (d.subject     && d.subject.toLowerCase().includes(search))     ||
-                        (d.ref         && d.ref.toLowerCase().includes(search))         ||
-                        (d.particulars && d.particulars.toLowerCase().includes(search));
-                    if (!matchesSearch) return false;
-                }
+  if(!data.length){
+    document.getElementById('dir-list').innerHTML=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">${allDirs.length?'No directives match your filters':'No Directives Found'}</div><div class="empty-desc">${allDirs.length?'Try adjusting the filters above.':'You currently have no directives assigned to your account.<br>Contact the Corporate Secretariat if you believe this is an error.'}</div></div>`;
+    return;
+  }
 
-                // Status filter
-                if (filter !== 'all') {
-                    const stats = getDirectiveStats(d);
-                    switch (filter) {
-                        case 'implemented':
-                            return stats.implemented === stats.total && stats.total > 0;
-                        case 'partial':
-                            return stats.implemented > 0 && stats.implemented < stats.total;
-                        case 'implementing':
-                            return stats.implementing > 0;
-                        case 'no-response':
-                            return stats.noResponse > 0;
-                        case 'not-implemented':
-                            return stats.notImplemented === stats.total && stats.total > 0;
-                        default:
-                            return true;
-                    }
-                }
-                return true;
-            });
+  document.getElementById('dir-list').innerHTML=data.map(d=>{
+    const s=stats(d);
+    const tagHtml=s.rate===100&&s.tot>0
+      ?`<span class="badge b-impl">Fully Implemented</span>`
+      :s.impl>0?`<span class="badge b-being">Partial</span>`:'';
+    return `<div class="dir-card">
+      <div class="dir-card-head">
+        <div class="dir-meta">
+          <span class="ref-pill">${d.ref||'N/A'}</span>
+          ${tagHtml}
+          ${d.amount?`<span class="badge" style="background:var(--bg);color:var(--ink2);border:1px solid var(--border)">₦ ${esc(d.amount)}</span>`:''}
+          ${d.vendor?`<span class="badge" style="background:var(--bg);color:var(--ink2);border:1px solid var(--border)">${esc(d.vendor)}</span>`:''}
+        </div>
+        <div class="dir-title">${esc(d.subject)}</div>
+        ${d.particulars?`<div class="dir-particulars">${esc(d.particulars)}</div>`:''}
+      </div>
+      <div class="prog-row" style="margin-top:14px">
+        <div class="prog-label">
+          <span>Implementation Progress</span>
+          <span style="color:var(--g800);font-weight:700">${s.rate}%</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:${s.rate}%"></div></div>
+      </div>
+      <div class="dec-stats">
+        <div class="dec-cell"><div class="dec-n" style="color:#065F46">${s.impl}</div><div class="dec-l" style="color:#065F46">Implemented</div></div>
+        <div class="dec-cell"><div class="dec-n" style="color:#1E40AF">${s.being}</div><div class="dec-l" style="color:#1E40AF">Being Impl.</div></div>
+        <div class="dec-cell"><div class="dec-n" style="color:#9A3412">${s.not}</div><div class="dec-l" style="color:#9A3412">Not Impl.</div></div>
+        <div class="dec-cell"><div class="dec-n" style="color:#991B1B">${s.resp}</div><div class="dec-l" style="color:#991B1B">No Response</div></div>
+      </div>
+      <div class="dir-card-foot">
+        <div class="card-info">
+          ${d.implementationEndDate?`<span>📅 Deadline: ${fmtDate(d.implementationEndDate)}</span>`:'<span style="color:var(--ink4)">No deadline set</span>'}
+          <span>📎 ${s.tot} decision${s.tot!==1?'s':''}</span>
+        </div>
+        <button class="btn-update" onclick="openModal('${d._id}')">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          Submit Update
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-            const html = filteredDirectives.length > 0 ? filteredDirectives.map(d => {
-                const stats = getDirectiveStats(d);
-                const completionLabel =
-                    stats.implemented === stats.total && stats.total > 0 ? 'Fully Implemented' :
-                    stats.implemented > 0 ? 'Partial Implementation' : '';
+// Modal
+function openModal(id){
+  currentDir=allDirs.find(d=>d._id===id);
+  if(!currentDir)return;
+  selFiles=[];
+  document.getElementById('file-list').innerHTML='';
+  document.getElementById('m-ref').textContent=`Meeting Ref: ${currentDir.ref||'N/A'}`;
+  document.getElementById('m-subject').textContent=currentDir.subject||'';
+  document.getElementById('m-particulars').textContent=(currentDir.particulars||'').substring(0,200)+((currentDir.particulars||'').length>200?'…':'');
+  document.getElementById('m-comments').value='';
+  if(currentDir.implementationStartDate)document.getElementById('m-start').value=new Date(currentDir.implementationStartDate).toISOString().split('T')[0];
+  else document.getElementById('m-start').value='';
+  if(currentDir.implementationEndDate)document.getElementById('m-end').value=new Date(currentDir.implementationEndDate).toISOString().split('T')[0];
+  else document.getElementById('m-end').value='';
+  renderDecSelect();
+  document.getElementById('update-modal').classList.add('open');
+}
 
-                return `
-                <div class="card hover:shadow-lg transition-shadow">
-                    <div class="flex items-start justify-between mb-4">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-2 flex-wrap">
-                                <span class="text-sm font-mono text-gray-500">${d.ref || 'N/A'}</span>
-                                ${completionLabel ? `<span class="badge ${stats.implemented === stats.total ? 'badge-implemented' : 'badge-implementing'}">${completionLabel}</span>` : ''}
-                                ${d.amount ? `<span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">₦ ${escapeHtml(d.amount)}</span>` : ''}
-                                ${d.vendor ? `<span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">${escapeHtml(d.vendor)}</span>` : ''}
-                            </div>
-                            <h3 class="text-lg font-semibold text-gray-900 mb-2">${escapeHtml(d.subject)}</h3>
-                            <p class="text-sm text-gray-600 line-clamp-2">${escapeHtml(d.particulars || '')}</p>
-                        </div>
-                    </div>
+function closeModal(){
+  document.getElementById('update-modal').classList.remove('open');
+  currentDir=null;selFiles=[];
+}
 
-                    <!-- Progress Bar -->
-                    <div class="mb-4">
-                        <div class="flex items-center justify-between text-xs mb-2">
-                            <span class="font-medium text-gray-700">Implementation Progress</span>
-                            <span class="font-semibold text-green-600">${stats.implementationRate}%</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${stats.implementationRate}%"></div>
-                        </div>
-                    </div>
+function renderDecSelect(){
+  const ocs=currentDir.outcomes||[];
+  document.getElementById('dec-select').innerHTML=ocs.map((o,i)=>{
+    const bc={[DS.IMPL]:'b-impl',[DS.BEING]:'b-being',[DS.NOT]:'b-not',[DS.RESP]:'b-resp','Completed':'b-impl','Not Started':'b-not','Delayed':'b-resp','Being Implemented':'b-being'}[o.status]||'b-not';
+    return `<label class="dec-card" id="dc-${i}" style="cursor:pointer">
+      <div class="dec-card-head">
+        <input type="checkbox" value="${i}" class="dec-cb" style="margin-top:3px;width:15px;height:15px;accent-color:var(--g700)" checked onchange="onDecChange()">
+        <div class="dec-num">${i+1}</div>
+        <div class="dec-text">${esc(o.text)}</div>
+        <span class="badge ${bc}" style="flex-shrink:0">${o.status}</span>
+      </div>
+    </label>`;
+  }).join('');
+  onDecChange();
+}
 
-                    <!-- Decision Status Summary — updated labels -->
-                    <div class="grid grid-cols-4 gap-2 mb-4 text-center">
-                        <div class="bg-green-50 rounded-lg p-2">
-                            <div class="text-lg font-bold text-green-600">${stats.implemented}</div>
-                            <div class="text-xs text-green-700">Implemented</div>
-                        </div>
-                        <div class="bg-blue-50 rounded-lg p-2">
-                            <div class="text-lg font-bold text-blue-600">${stats.implementing}</div>
-                            <div class="text-xs text-blue-700">Being Impl.</div>
-                        </div>
-                        <div class="bg-orange-50 rounded-lg p-2">
-                            <div class="text-lg font-bold text-orange-600">${stats.notImplemented}</div>
-                            <div class="text-xs text-orange-700">Not Impl.</div>
-                        </div>
-                        <div class="bg-red-50 rounded-lg p-2">
-                            <div class="text-lg font-bold text-red-600">${stats.noResponse}</div>
-                            <div class="text-xs text-red-700">No Response</div>
-                        </div>
-                    </div>
+function onDecChange(){
+  const cbs=document.querySelectorAll('.dec-cb');
+  const sel=Array.from(cbs).filter(c=>c.checked);
+  document.getElementById('sel-count').textContent=`${sel.length} of ${cbs.length} selected`;
+  document.querySelectorAll('.dec-card').forEach((card,i)=>{
+    card.classList.toggle('selected',cbs[i]?.checked);
+  });
+  const indices=sel.map(c=>parseInt(c.value));
+  if(indices.length){
+    document.getElementById('dec-updates').classList.remove('hidden');
+    renderDecForms(indices);
+  }else{
+    document.getElementById('dec-updates').classList.add('hidden');
+  }
+}
 
-                    <!-- Timeline -->
-                    ${d.implementationEndDate ? `
-                    <div class="text-xs text-gray-500 mb-4">
-                        <span class="font-medium">Deadline:</span> ${formatDate(d.implementationEndDate)}
-                    </div>` : ''}
+function toggleAll(){
+  const cbs=document.querySelectorAll('.dec-cb');
+  const allC=Array.from(cbs).every(c=>c.checked);
+  cbs.forEach(c=>c.checked=!allC);
+  onDecChange();
+}
 
-                    <!-- Actions -->
-                    <div class="pt-4 border-t border-gray-200">
-                        <button onclick="openUpdateModal('${d._id}')" class="btn-primary w-full">
-                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                            </svg>
-                            Submit Status Update
-                        </button>
-                    </div>
-                </div>`;
-            }).join('') : '<div class="card text-center py-12 text-gray-500">No directives match your filters</div>';
+function renderDecForms(indices){
+  const ocs=currentDir.outcomes||[];
+  document.getElementById('dec-forms').innerHTML=indices.map(i=>{
+    const o=ocs[i];
+    const opts=[DS.NOT,DS.BEING,DS.IMPL,DS.RESP].map(s=>`<option value="${s}" ${(o.status===s||(s===DS.IMPL&&o.status==='Completed')||(s===DS.NOT&&o.status==='Not Started')||(s===DS.RESP&&o.status==='Delayed'))?'selected':''}>${s}</option>`).join('');
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;background:var(--white)">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--g700);margin-bottom:8px">Decision ${i+1}</div>
+      <div style="font-size:13px;color:var(--ink2);line-height:1.5;margin-bottom:12px">${esc(o.text)}</div>
+      <div class="frow">
+        <div class="fgroup">
+          <label class="flabel">New Status</label>
+          <select name="s-${i}" class="fselect">${opts}</select>
+        </div>
+        <div class="fgroup">
+          <label class="flabel">Challenges / Notes</label>
+          <textarea name="c-${i}" class="ftextarea" rows="2" placeholder="Any challenges or progress notes…">${esc(o.challenges||'')}</textarea>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-            document.getElementById('directives-list').innerHTML = html;
-        }
+function handleFiles(e){
+  selFiles=[...selFiles,...Array.from(e.target.files)];
+  document.getElementById('file-list').innerHTML=selFiles.map((f,i)=>`
+    <div class="file-item">
+      <span>${esc(f.name)} <span style="color:var(--ink4)">(${fmtSize(f.size)})</span></span>
+      <button style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px" onclick="removeFile(${i})">×</button>
+    </div>`).join('');
+}
+function removeFile(i){selFiles.splice(i,1);handleFiles({target:{files:[]}});}
+function fmtSize(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
 
-        // ── Stats helper — updated to new status values ───────────────────────────
-        function getDirectiveStats(directive) {
-            if (!directive.outcomes || directive.outcomes.length === 0) {
-                return { total:0, implemented:0, implementing:0, notImplemented:0, noResponse:0, implementationRate:0 };
-            }
-            const total         = directive.outcomes.length;
-            const implemented   = directive.outcomes.filter(o =>
-                o.status === DS.IMPLEMENTED || o.status === 'Completed').length;
-            const implementing  = directive.outcomes.filter(o =>
-                o.status === DS.BEING_IMPL  || o.status === 'Being Implemented').length;
-            const notImplemented= directive.outcomes.filter(o =>
-                o.status === DS.NOT_IMPL    || o.status === 'Not Started').length;
-            const noResponse    = directive.outcomes.filter(o =>
-                o.status === DS.NO_RESPONSE || o.status === 'Delayed').length;
-            const implementationRate = Math.round((implemented / total) * 100);
+async function submitUpdate(){
+  const selIdx=Array.from(document.querySelectorAll('.dec-cb:checked')).map(c=>parseInt(c.value));
+  if(!selIdx.length){alert('Please select at least one decision to update.');return;}
+  const ocs=(currentDir.outcomes||[]).map((o,i)=>{
+    if(selIdx.includes(i)){
+      const sEl=document.querySelector(`[name="s-${i}"]`);
+      const cEl=document.querySelector(`[name="c-${i}"]`);
+      return{text:o.text,status:sEl?sEl.value:o.status,challenges:cEl?cEl.value:o.challenges||''};
+    }
+    return o;
+  });
+  try{
+    let resp;
+    if(selFiles.length){
+      const fd=new FormData();
+      fd.append('outcomes',JSON.stringify(ocs));
+      fd.append('implementationStartDate',document.getElementById('m-start').value||'');
+      fd.append('implementationEndDate',document.getElementById('m-end').value||'');
+      fd.append('completionNote',document.getElementById('m-comments').value);
+      selFiles.forEach(f=>fd.append('files',f));
+      resp=await fetch(`${API}/submit-update/${currentDir._id}`,{method:'POST',body:fd});
+    }else{
+      resp=await fetch(`${API}/directives/${currentDir._id}`,{
+        method:'PUT',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({outcomes:ocs,implementationStartDate:document.getElementById('m-start').value||null,implementationEndDate:document.getElementById('m-end').value||null,additionalComments:document.getElementById('m-comments').value})
+      });
+    }
+    const j=await resp.json();
+    if(j.success){
+      alert('✅ Update submitted successfully. The Corporate Secretariat has been notified.');
+      closeModal();load();
+    }else throw new Error(j.error||'Submission failed');
+  }catch(e){alert('❌ Error: '+e.message);}
+}
 
-            return { total, implemented, implementing, notImplemented, noResponse, implementationRate };
-        }
+function logout(){sessionStorage.clear();window.location.href='/login.html';}
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function fmtDate(d){return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}
 
-        // ── Open update modal ────────────────────────────────────────────────────
-        function openUpdateModal(directiveId) {
-            currentDirective = allDirectives.find(d => d._id === directiveId);
-            if (!currentDirective) return;
-
-            selectedFiles = [];
-            document.getElementById('file-list').innerHTML = '';
-            document.getElementById('directive-id').value  = directiveId;
-            document.getElementById('modal-ref').textContent     = `Reference: ${currentDirective.ref || 'N/A'}`;
-            document.getElementById('modal-subject').textContent = currentDirective.subject;
-            document.getElementById('modal-particulars').textContent = currentDirective.particulars || '';
-
-            if (currentDirective.implementationStartDate)
-                document.getElementById('start-date').value = new Date(currentDirective.implementationStartDate).toISOString().split('T')[0];
-            if (currentDirective.implementationEndDate)
-                document.getElementById('end-date').value   = new Date(currentDirective.implementationEndDate).toISOString().split('T')[0];
-
-            // Render decision checkboxes
-            const decisionsHtml = (currentDirective.outcomes || []).map((outcome, idx) => {
-                const badgeCls = getStatusBadgeClass(outcome.status);
-                return `
-                <label class="flex items-start p-3 bg-white rounded-lg border border-gray-200 hover:border-green-500 cursor-pointer transition-all outcome-checkbox-label">
-                    <input type="checkbox" value="${idx}" class="outcome-checkbox mt-1 w-4 h-4 text-green-600 rounded" checked onchange="updateOutcomeSelection()">
-                    <div class="ml-3 flex-1">
-                        <div class="text-sm font-medium text-gray-900">${idx + 1}. ${escapeHtml(outcome.text)}</div>
-                        <span class="inline-block mt-1 badge ${badgeCls}">${outcome.status}</span>
-                    </div>
-                </label>`;
-            }).join('');
-
-            document.getElementById('outcomes-selection').innerHTML = decisionsHtml;
-            updateOutcomeSelection();
-            document.getElementById('update-modal').classList.add('active');
-        }
-
-        function closeUpdateModal() {
-            document.getElementById('update-modal').classList.remove('active');
-            document.getElementById('update-form').reset();
-            currentDirective = null;
-            selectedFiles    = [];
-        }
-
-        function toggleAllOutcomes() {
-            const checkboxes = document.querySelectorAll('.outcome-checkbox');
-            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-            checkboxes.forEach(cb => cb.checked = !allChecked);
-            updateOutcomeSelection();
-        }
-
-        function updateOutcomeSelection() {
-            const checkboxes      = document.querySelectorAll('.outcome-checkbox');
-            const selectedIndices = Array.from(checkboxes).filter(cb => cb.checked).map(cb => parseInt(cb.value));
-            const total    = checkboxes.length;
-            const selected = selectedIndices.length;
-
-            document.getElementById('selection-count').textContent = `${selected} of ${total} decisions selected`;
-
-            // Update label styling
-            document.querySelectorAll('.outcome-checkbox-label').forEach((label, idx) => {
-                if (selectedIndices.includes(idx)) {
-                    label.classList.add('border-green-500', 'bg-green-50');
-                } else {
-                    label.classList.remove('border-green-500', 'bg-green-50');
-                }
-            });
-
-            // Render update forms for selected decisions
-            if (selected > 0) {
-                document.getElementById('outcomes-updates').classList.remove('hidden');
-
-                const updatesHtml = selectedIndices.map(idx => {
-                    const outcome = currentDirective.outcomes[idx];
-                    // Build status options with new values, pre-select current
-                    const opts = [
-                        { val: DS.NOT_IMPL,    label: 'Not Implemented' },
-                        { val: DS.BEING_IMPL,  label: 'Being Implemented' },
-                        { val: DS.IMPLEMENTED, label: 'Implemented' },
-                        { val: DS.NO_RESPONSE, label: 'No Response' }
-                    ].map(o => {
-                        // Match current status including legacy values
-                        const isCurrent = outcome.status === o.val ||
-                            (o.val === DS.IMPLEMENTED && outcome.status === 'Completed') ||
-                            (o.val === DS.NOT_IMPL    && outcome.status === 'Not Started') ||
-                            (o.val === DS.NO_RESPONSE && outcome.status === 'Delayed');
-                        return `<option value="${o.val}" ${isCurrent ? 'selected' : ''}>${o.label}</option>`;
-                    }).join('');
-
-                    return `
-                    <div class="outcome-card">
-                        <div class="font-semibold text-sm text-green-700 mb-2">Decision ${idx + 1}</div>
-                        <div class="text-sm text-gray-700 mb-4">${escapeHtml(outcome.text)}</div>
-                        <div class="grid gap-3">
-                            <div>
-                                <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Update Status</label>
-                                <select name="outcome-status-${idx}" class="form-input">${opts}</select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Challenges / Notes</label>
-                                <textarea name="outcome-challenges-${idx}" rows="2" class="form-input"
-                                    placeholder="Describe any challenges or progress notes...">${escapeHtml(outcome.challenges || '')}</textarea>
-                            </div>
-                        </div>
-                    </div>`;
-                }).join('');
-
-                document.getElementById('outcomes-container').innerHTML = updatesHtml;
-            } else {
-                document.getElementById('outcomes-updates').classList.add('hidden');
-            }
-        }
-
-        // ── File handling ────────────────────────────────────────────────────────
-        function handleFileSelect(event) {
-            const files = Array.from(event.target.files);
-            selectedFiles = [...selectedFiles, ...files];
-
-            const fileListHtml = selectedFiles.map((file, idx) => `
-                <div class="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
-                    <div class="flex items-center gap-2">
-                        <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd"/>
-                        </svg>
-                        <span class="text-sm text-gray-700">${file.name}</span>
-                        <span class="text-xs text-gray-400">(${formatFileSize(file.size)})</span>
-                    </div>
-                    <button type="button" onclick="removeFile(${idx})" class="text-red-600 hover:text-red-800">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>`).join('');
-
-            document.getElementById('file-list').innerHTML = fileListHtml;
-        }
-
-        function removeFile(index) {
-            selectedFiles.splice(index, 1);
-            // Re-render file list (trigger with empty files)
-            const fakeEvent = { target: { files: [] } };
-            handleFileSelect(fakeEvent);
-        }
-
-        function formatFileSize(bytes) {
-            if (bytes < 1024)       return bytes + ' B';
-            if (bytes < 1024*1024)  return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / (1024*1024)).toFixed(1) + ' MB';
-        }
-
-        // ── Form submission ──────────────────────────────────────────────────────
-        document.getElementById('update-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            const selectedIndices = Array.from(document.querySelectorAll('.outcome-checkbox:checked'))
-                .map(cb => parseInt(cb.value));
-
-            if (!selectedIndices.length) {
-                alert('Please select at least one decision to update');
-                return;
-            }
-
-            // Collect outcomes — preserve all, only update selected ones
-            const outcomes = currentDirective.outcomes.map((outcome, idx) => {
-                if (selectedIndices.includes(idx)) {
-                    const statusEl     = document.querySelector(`[name="outcome-status-${idx}"]`);
-                    const challengesEl = document.querySelector(`[name="outcome-challenges-${idx}"]`);
-                    return {
-                        text:       outcome.text,
-                        status:     statusEl     ? statusEl.value     : outcome.status,
-                        challenges: challengesEl ? challengesEl.value : (outcome.challenges || '')
-                    };
-                }
-                return outcome; // unchanged
-            });
-
-            const updateData = {
-                outcomes,
-                implementationStartDate: document.getElementById('start-date').value || null,
-                implementationEndDate:   document.getElementById('end-date').value   || null,
-                completionNote:  document.getElementById('comments').value,
-                updateSource:    'self-initiated'
-            };
-
-            try {
-                // If there are files, use FormData; otherwise JSON
-                let response;
-                if (selectedFiles.length > 0) {
-                    const fd = new FormData();
-                    fd.append('outcomes',                  JSON.stringify(outcomes));
-                    fd.append('implementationStartDate',   updateData.implementationStartDate || '');
-                    fd.append('implementationEndDate',     updateData.implementationEndDate   || '');
-                    fd.append('completionNote',            updateData.completionNote);
-                    fd.append('updateSource',              'self-initiated');
-                    selectedFiles.forEach(f => fd.append('files', f));
-                    response = await fetch(`${API_BASE}/submit-update/${currentDirective._id}`, {
-                        method: 'POST', body: fd
-                    });
-                } else {
-                    response = await fetch(`${API_BASE}/directives/${currentDirective._id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updateData)
-                    });
-                }
-
-                const result = await response.json();
-                if (result.success) {
-                    alert('✅ Update submitted successfully! The Corporate Secretariat has been notified.');
-                    closeUpdateModal();
-                    loadDirectives();
-                } else {
-                    alert('❌ Error: ' + (result.error || 'Submission failed'));
-                }
-            } catch (error) {
-                console.error('Submission error:', error);
-                alert('❌ Error submitting update. Please try again.');
-            }
-        });
-
-        // ── Helpers ──────────────────────────────────────────────────────────────
-        function logout() {
-            sessionStorage.clear();
-            window.location.href = '/login.html';
-        }
-
-        function formatDate(date) {
-            if (!date) return 'N/A';
-            return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // getStatusBadgeClass — updated to new status values, backwards compat kept
-        function getStatusBadgeClass(status) {
-            const map = {
-                [DS.IMPLEMENTED]: 'badge-implemented',
-                [DS.BEING_IMPL]:  'badge-implementing',
-                [DS.NOT_IMPL]:    'badge-not-impl',
-                [DS.NO_RESPONSE]: 'badge-no-response',
-                // Legacy values
-                'Completed':         'badge-implemented',
-                'Being Implemented': 'badge-implementing',
-                'Not Started':       'badge-not-impl',
-                'Delayed':           'badge-no-response'
-            };
-            return map[status] || 'badge-not-impl';
-        }
-
-        // Load on page load
-        loadDirectives();
-    </script>
+load();
+</script>
 </body>
 </html>

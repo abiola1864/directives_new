@@ -254,11 +254,16 @@ const SubmissionToken = mongoose.model('SubmissionToken', new mongoose.Schema({
 
 // ─── Department (max 3 business units) ───────────────────────
 const Department = mongoose.model('Department', new mongoose.Schema({
-  name:      { type: String, required: true, unique: true, trim: true },
-  code:      { type: String, trim: true },
-  isActive:  { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now }
+  name:       { type: String, required: true, unique: true, trim: true },
+  code:       { type: String, trim: true },
+  // NEW: stores the actual responsible person's name and title
+  personName: { type: String, default: '' },
+  position:   { type: String, default: '' },
+  isActive:   { type: Boolean, default: true },
+  createdAt:  { type: Date, default: Date.now }
 }));
+
+
 
 // ─── OTP for 2FA ─────────────────────────────────────────────
 const OtpSchema = new mongoose.Schema({
@@ -336,7 +341,7 @@ function setupEmail() {
   console.log('🔑 SendGrid key starts with:', process.env.SENDGRID_API_KEY.substring(0, 6));
   console.log('📧 Sender email:', process.env.EMAIL_USER);
 
-  
+
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
   emailTransporter = {
     sendMail: async opts => {
@@ -801,11 +806,25 @@ function extractProcessOwner(ownerText) {
     .replace(/\s+/g, ' ')
     .trim();
 
+  // ── Strip role prefixes so BU name is just the department ──
+  cleaned = cleaned
+    .replace(/^Director,?\s*/i, '')
+    .replace(/^Deputy Governor,?\s*/i, '')
+    .replace(/^Governor,?\s*/i, '')
+    .replace(/^Executive Director,?\s*/i, '')
+    .replace(/^Deputy Director,?\s*/i, '')
+    .replace(/^Head,?\s*/i, '')
+    .replace(/^Chief,?\s*/i, '')
+    .trim();
+  // ───────────────────────────────────────────────────────────
+
   if (!cleaned || cleaned.length < 3 || /^\d/.test(cleaned) || /^[\d,.\s₦$N]+$/.test(cleaned))
     return 'Unassigned';
 
   return cleaned;
 }
+
+
 
 // ─── Main sheet reader ────────────────────────────────────────
 async function fetchSheetData(sheetName) {
@@ -1097,14 +1116,43 @@ app.get('/api/departments', async (req, res) => {
 
 app.post('/api/departments', async (req, res) => {
   try {
-    const count = await Department.countDocuments({ isActive: true });
-    if (count >= 3)
-      return res.status(400).json({ success: false, error: 'Maximum of 3 business units allowed. Deactivate one before adding a new one.' });
     const dept = new Department(req.body);
     await dept.save();
     res.json({ success: true, data: dept });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
+
+
+
+
+app.post('/api/departments/upsert', async (req, res) => {
+  try {
+    const { name, personName, position, code } = req.body;
+    if (!name) return res.status(400).json({ success: false, error: 'Name required' });
+
+    const dept = await Department.findOneAndUpdate(
+      { name },
+      {
+        $set: {
+          personName: personName || '',
+          position:   position   || '',
+          code:       code       || '',
+          isActive:   true
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    res.json({ success: true, data: dept });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+
+
+
 
 app.patch('/api/departments/:id', async (req, res) => {
   try {
@@ -2099,17 +2147,37 @@ app.post('/api/process-owners/signup', async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
+
 app.post('/api/process-owners/create', async (req, res) => {
   try {
     const { name, email, department, position, phone } = req.body;
     if (!name || !email) return res.status(400).json({ success: false, error: 'Name and email required' });
-    const exists = await ProcessOwner.findOne({ email: email.toLowerCase() });
-    if (exists) return res.status(400).json({ success: false, error: 'Account already exists' });
+
+    const emailLower = email.toLowerCase();
+
+    // ── NEW: enforce max 3 login users per business unit ──────────
+    if (department) {
+      const usersInBU = await ProcessOwner.countDocuments({
+        department,
+        isActive: true
+      });
+      if (usersInBU >= 3) {
+        return res.status(400).json({
+          success: false,
+          error: `Maximum of 3 login users allowed per business unit. "${department}" already has ${usersInBU} active user(s). Deactivate one before adding a new user.`,
+          limitReached: true
+        });
+      }
+    }
+    // ─────────────────────────────────────────────────────────────
+
+    const existing = await ProcessOwner.findOne({ email: emailLower });
+    if (existing) return res.status(400).json({ success: false, error: 'Account already exists', accountExists: true });
 
     const setupToken   = crypto.randomBytes(32).toString('hex');
     const setupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const po = new ProcessOwner({
-      name, email: email.toLowerCase(), department, position, phone,
+      name, email: emailLower, department, position, phone,
       passwordSetupToken: setupToken, passwordSetupExpires: setupExpires,
       createdBy: req.body.adminUsername || 'admin', isActive: true
     });
@@ -2120,42 +2188,16 @@ app.post('/api/process-owners/create', async (req, res) => {
 
     if (emailTransporter) {
       await emailTransporter.sendMail({
-        to:      email,
+        to: email,
         subject: '🔐 Set Up Your CBN Directives Platform Password',
-        html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:white;
-                    border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
-          <div style="padding:32px 24px;background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);
-                      color:white;text-align:center;">
-            <h1 style="margin:0;font-size:24px;">Welcome to CBN Directives Platform</h1>
-            <p style="margin:8px 0 0;opacity:.9;font-size:14px;">Business Unit Portal Access</p>
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:white;border-radius:12px;border:1px solid #e5e7eb;">
+          <h2 style="color:#1B5E20;">Welcome to CBN Directives Platform</h2>
+          <p>Dear <strong>${name}</strong>,</p>
+          <p>An account has been created for you. Please set up your password:</p>
+          <div style="text-align:center;margin:32px 0;">
+            <a href="${setupUrl}" style="background:linear-gradient(135deg,#1B5E20,#2E7D32);color:white;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;">🔐 Set Up Password</a>
           </div>
-          <div style="padding:32px 24px;">
-            <p>Dear <strong>${name}</strong>,</p>
-            <p style="line-height:1.6;">An account has been created for you on the <strong>CBN Directives Management Platform</strong>. Please set up your password to activate it.</p>
-            <div style="background:#f9fafb;padding:16px;border-radius:8px;margin:24px 0;border-left:4px solid #1B5E20;">
-              <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">YOUR LOGIN EMAIL</div>
-              <div style="font-size:16px;font-weight:600;color:#1B5E20;">${email}</div>
-            </div>
-            <div style="text-align:center;margin:32px 0;">
-              <a href="${setupUrl}"
-                 style="background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);color:white;
-                        text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:14px;">
-                🔐 Set Up Your Password
-              </a>
-            </div>
-            <p style="font-size:11px;color:#9ca3af;word-break:break-all;">${setupUrl}</p>
-            <div style="background:#FEF3C7;padding:12px;border-radius:8px;margin:24px 0;">
-              <div style="font-size:12px;color:#92400E;">
-                ⏰ <strong>Important:</strong> This link expires in 7 days.
-              </div>
-            </div>
-          </div>
-          <div style="padding:16px 24px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;">
-            <p style="margin:0;font-size:11px;color:#6b7280;">
-              Central Bank of Nigeria – Directives Management System
-            </p>
-          </div>
+          <p style="font-size:11px;color:#9ca3af;">Link expires in 7 days. ${setupUrl}</p>
         </div>`
       }).catch(e => console.error('Setup email failed:', e.message));
     }
@@ -2163,6 +2205,9 @@ app.post('/api/process-owners/create', async (req, res) => {
     res.json({ success: true, message: 'Account created', processOwner: { id: po._id, name: po.name, email: po.email }, setupUrl });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
+
+
+
 
 app.get('/api/process-owners/validate-setup-token/:token', async (req, res) => {
   try {
@@ -2295,10 +2340,22 @@ app.post('/api/process-owners/reset-password', async (req, res) => {
 // List all
 app.get('/api/process-owners/accounts', async (req, res) => {
   try {
-    const data = await ProcessOwner.find().select('-password -passwordSetupToken -passwordResetToken').sort({ name: 1 });
+    const users = await ProcessOwner.find()
+      .select('-passwordSetupToken -passwordResetToken') // keep password hash for check
+      .sort({ name: 1 });
+
+    const data = users.map(u => {
+      const obj = u.toObject();
+      obj.hasPassword = !!obj.password;  // safe computed field
+      delete obj.password;               // never send hash to browser
+      return obj;
+    });
+
     res.json({ success: true, data, total: data.length });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
+
+
 
 // Get one — ORIGINAL route path kept to avoid breaking frontend
 app.get('/api/process-owners/:id', async (req, res) => {
@@ -2310,27 +2367,35 @@ app.get('/api/process-owners/:id', async (req, res) => {
 });
 
 // Update — ORIGINAL route path kept
+
 app.patch('/api/process-owners/:id', async (req, res) => {
   try {
-    const { name, email, department, position, phone } = req.body;
+    const { name, email, department, position, phone } = req.body;  // Added: phone
     const po = await ProcessOwner.findById(req.params.id);
     if (!po) return res.status(404).json({ success: false, error: 'Not found' });
 
     if (email && email !== po.email) {
-      const dup = await ProcessOwner.findOne({ email: email.toLowerCase(), _id: { $ne: req.params.id } });
+      const dup = await ProcessOwner.findOne({
+        email: email.toLowerCase(), _id: { $ne: req.params.id }
+      });
       if (dup) return res.status(400).json({ success: false, error: 'Email already in use' });
     }
 
-    if (name)                  po.name       = name;
-    if (email)                 po.email      = email.toLowerCase();
+    if (name)                     po.name       = name;
+    if (email)                    po.email      = email.toLowerCase();
     if (department !== undefined) po.department = department;
     if (position   !== undefined) po.position   = position;
-    if (phone      !== undefined) po.phone      = phone;
+    if (phone      !== undefined) po.phone      = phone;  // NEW LINE
     await po.save();
 
     res.json({ success: true, data: { id: po._id, name: po.name, email: po.email } });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
+
+
+
 
 // Toggle active — ORIGINAL route path kept
 app.patch('/api/process-owners/:id/toggle-active', async (req, res) => {
@@ -2494,14 +2559,27 @@ const AdminUser = mongoose.model('AdminUser', AdminUserSchema);
 
 // Simple token-based session store (in-memory; survives restarts only)
 // For production swap this for Redis or signed JWTs
-const adminSessions = new Map(); // token → { adminId, role, email }
+// ── Persistent admin sessions (survives server restarts) ──────
+const AdminSessionSchema = new mongoose.Schema({
+  token:     { type: String, required: true, unique: true },
+  adminId:   { type: String, required: true },
+  role:      String,
+  email:     String,
+  name:      String,
+  createdAt: { type: Date, default: Date.now, expires: 28800 } // 8-hour TTL
+});
+const AdminSession = mongoose.model('AdminSession', AdminSessionSchema);
 
 function requireAdmin(req, res, next) {
   const token = req.headers['x-admin-token'];
-  if (!token || !adminSessions.has(token))
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
-  req.adminSession = adminSessions.get(token);
-  next();
+  if (!token) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  AdminSession.findOne({ token })
+    .then(session => {
+      if (!session) return res.status(401).json({ success: false, error: 'Session expired. Please log in again.' });
+      req.adminSession = { adminId: session.adminId, role: session.role, email: session.email, name: session.name };
+      next();
+    })
+    .catch(e => res.status(500).json({ success: false, error: e.message }));
 }
 
 function requireSuperAdmin(req, res, next) {
@@ -2511,6 +2589,8 @@ function requireSuperAdmin(req, res, next) {
     next();
   });
 }
+
+
 
 
 // ════════════════════════════════════════════════════════════
@@ -2596,14 +2676,15 @@ app.post('/api/auth/admin/verify-otp', async (req, res) => {
     await admin.save();
 
     // Issue session token
+// Issue persistent session token stored in MongoDB
     const token = crypto.randomBytes(32).toString('hex');
-    adminSessions.set(token, {
+    await AdminSession.create({
+      token,
       adminId: admin._id.toString(),
       role:    admin.role,
       email:   admin.email,
       name:    admin.name
     });
-
     // Auto-expire session after 8 hours
     setTimeout(() => adminSessions.delete(token), 8 * 60 * 60 * 1000);
 
@@ -2744,11 +2825,15 @@ app.post('/api/auth/admin/reset-password', async (req, res) => {
 });
 
 // Logout (invalidate session token)
-app.post('/api/auth/admin/logout', (req, res) => {
+app.post('/api/auth/admin/logout', async (req, res) => {
   const token = req.headers['x-admin-token'];
-  if (token) adminSessions.delete(token);
+  if (token) await AdminSession.deleteOne({ token }).catch(() => {});
   res.json({ success: true, message: 'Logged out' });
 });
+
+
+
+
 
 // Verify session (for frontend auth check)
 app.get('/api/auth/admin/me', requireAdmin, async (req, res) => {
@@ -2771,13 +2856,23 @@ app.get('/api/auth/admin/me', requireAdmin, async (req, res) => {
 app.get('/api/admin-users', requireAdmin, async (req, res) => {
   try {
     const admins = await AdminUser.find()
-      .select('-password -passwordSetupToken -passwordResetToken')
+      .select('-passwordSetupToken -passwordResetToken') // keep password hash for check
       .sort({ createdAt: -1 });
-    res.json({ success: true, data: admins, total: admins.length });
+
+    const data = admins.map(a => {
+      const obj = a.toObject();
+      obj.hasPassword = !!obj.password; // computed field the frontend uses
+      delete obj.password;              // never send the hash to the browser
+      return obj;
+    });
+
+    res.json({ success: true, data, total: data.length });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
+
+
 
 // Create admin (super_admin only)
 app.post('/api/admin-users', requireSuperAdmin, async (req, res) => {
@@ -2955,9 +3050,8 @@ app.patch('/api/admin-users/:id/toggle-active', requireSuperAdmin, async (req, r
     await admin.save();
 
     // Invalidate any active sessions for this admin
-    for (const [token, session] of adminSessions.entries()) {
-      if (session.adminId === admin._id.toString()) adminSessions.delete(token);
-    }
+   await AdminSession.deleteMany({ adminId: admin._id.toString() }).catch(() => {});
+
 
     res.json({
       success:  true,
@@ -3050,9 +3144,8 @@ app.delete('/api/admin-users/:id', requireSuperAdmin, async (req, res) => {
     }
 
     // Invalidate sessions
-    for (const [token, session] of adminSessions.entries()) {
-      if (session.adminId === admin._id.toString()) adminSessions.delete(token);
-    }
+  await AdminSession.deleteMany({ adminId: admin._id.toString() }).catch(() => {});
+
 
     await AdminUser.findByIdAndDelete(req.params.id);
     console.log(`⚠️  Admin deleted: ${admin.email} by ${req.adminSession.email}`);

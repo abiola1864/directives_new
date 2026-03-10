@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Management – CBN Directives</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --forest:    #1B5E20;
+      --dark:      #2E7D32;
+      --mid:       #388E3C;
+      --light:     #4CAF50;
+      --pale:      #E8F5E9;
+      --cream:     #F7F7F5;
+      --white:     #FFFFFF;
+      --ink:       #111111;
+      --ink2:      #444444;
+      --ink3:      #888888;
+      --border:    #E0E0E0;
+      --danger:    #C62828;
+      --warn:      #E65100;
+      --info:      #1565C0;
+      --radius:    10px;
+      --shadow:    0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04);
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+    .logo-ring {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--forest), var(--dark));
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-ring svg { width: 18px; height: 18px; color: white; }
+    .topbar-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+    .topbar-sub   { font-size: 12px; color: var(--ink3); margin-top: 1px; }
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .admin-pill {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--pale); border-radius: 20px; padding: 6px 14px;
+      font-size: 13px; font-weight: 500; color: var(--forest);
+    }
+    .role-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--light);
+    }
+    .btn-ghost {
+      background: none; border: 1px solid var(--border);
+      padding: 8px 16px; border-radius: 8px;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      color: var(--ink2); transition: .15s;
+    }
+    .btn-ghost:hover { background: var(--cream); }
+
+    /* ── Layout ── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+
+    .page-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 32px;
+    }
+    .page-title { font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1.2; }
+    .page-desc  { font-size: 14px; color: var(--ink3); margin-top: 6px; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--forest), var(--dark));
+      color: white; border: none; padding: 11px 22px;
+      border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: .15s; white-space: nowrap;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    /* ── Stats row ── */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+    .stat {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+    }
+    .stat-n { font-size: 30px; font-weight: 700; color: var(--forest); line-height: 1; }
+    .stat-l { font-size: 11px; font-weight: 600; color: var(--ink3); text-transform: uppercase; letter-spacing: .5px; margin-top: 8px; }
+
+    /* ── Table card ── */
+    .table-card {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
+    }
+    .table-toolbar {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .search-wrap {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--cream); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px; flex: 1; max-width: 320px;
+    }
+    .search-wrap input {
+      border: none; background: none; outline: none;
+      font-size: 13px; color: var(--ink); width: 100%;
+      font-family: inherit;
+    }
+    .search-wrap svg { color: var(--ink3); flex-shrink: 0; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: linear-gradient(135deg, var(--forest), var(--dark)); }
+    thead th {
+      padding: 14px 16px; text-align: left;
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .5px; color: white;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--pale); }
+    td { padding: 16px; font-size: 13px; color: var(--ink); vertical-align: middle; }
+
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--forest), var(--mid));
+      color: white; font-size: 14px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .name-cell { display: flex; align-items: center; gap: 12px; }
+    .name-main  { font-weight: 600; font-size: 13px; }
+    .name-email { font-size: 12px; color: var(--ink3); margin-top: 2px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; letter-spacing: .2px;
+    }
+    .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+    .badge-super  { background: #EDE7F6; color: #4527A0; }
+    .badge-super::before  { background: #7E57C2; }
+    .badge-admin  { background: #E3F2FD; color: #1565C0; }
+    .badge-admin::before  { background: #42A5F5; }
+    .badge-viewer { background: #F5F5F5; color: #616161; }
+    .badge-viewer::before { background: #9E9E9E; }
+    .badge-active   { background: #E8F5E9; color: #2E7D32; }
+    .badge-active::before { background: #66BB6A; }
+    .badge-inactive { background: #FFEBEE; color: #C62828; }
+    .badge-inactive::before { background: #EF9A9A; }
+    .badge-pending  { background: #FFF8E1; color: #F57F17; }
+    .badge-pending::before { background: #FFD54F; }
+    .badge-locked   { background: #FFEBEE; color: #B71C1C; animation: pulse 2s infinite; }
+    .badge-locked::before { background: #EF5350; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+    /* ── Actions ── */
+    .actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .btn-action {
+      background: none; border: 1px solid var(--border);
+      padding: 5px 10px; border-radius: 6px;
+      font-size: 11px; font-weight: 500; cursor: pointer;
+      color: var(--ink2); transition: .12s;
+    }
+    .btn-action:hover { background: var(--pale); border-color: var(--light); color: var(--forest); }
+    .btn-action.danger { color: var(--danger); }
+    .btn-action.danger:hover { background: #FFEBEE; border-color: #EF9A9A; }
+    .btn-action:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Empty state ── */
+    .empty {
+      padding: 64px 24px; text-align: center; color: var(--ink3);
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-title { font-size: 18px; font-weight: 600; color: var(--ink2); margin-bottom: 8px; }
+
+    /* ── Modal ── */
+    .modal-wrap {
+      position: fixed; inset: 0; z-index: 1000;
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal-wrap.open { display: flex; }
+    .modal-bg {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,.45); backdrop-filter: blur(3px);
+    }
+    .modal {
+      position: relative; z-index: 1;
+      background: var(--white); border-radius: 16px;
+      width: 100%; max-width: 520px; max-height: 90vh;
+      overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+      animation: pop .25s cubic-bezier(.4,0,.2,1);
+    }
+    @keyframes pop { from{opacity:0;transform:scale(.96)} to{opacity:1;transform:scale(1)} }
+    .modal-head {
+      padding: 24px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; background: white; z-index: 2;
+      border-radius: 16px 16px 0 0;
+    }
+    .modal-title { font-size: 18px; font-weight: 700; }
+    .modal-close {
+      background: none; border: none; cursor: pointer; padding: 4px;
+      color: var(--ink3); line-height: 1;
+    }
+    .modal-body   { padding: 24px; }
+    .modal-footer {
+      padding: 20px 24px; border-top: 1px solid var(--border);
+      display: flex; gap: 10px; justify-content: flex-end;
+    }
+
+    /* ── Form ── */
+    .field { margin-bottom: 20px; }
+    .field label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: var(--ink2); text-transform: uppercase; letter-spacing: .4px;
+      margin-bottom: 8px;
+    }
+    .field input, .field select {
+      width: 100%; padding: 10px 14px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 14px; font-family: inherit; color: var(--ink);
+      background: white; transition: .15s; outline: none;
+    }
+    .field input:focus, .field select:focus {
+      border-color: var(--light); background: var(--pale);
+    }
+    .field-hint { font-size: 11px; color: var(--ink3); margin-top: 6px; }
+
+    .role-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+    .role-card {
+      border: 2px solid var(--border); border-radius: 10px;
+      padding: 14px; cursor: pointer; transition: .15s; text-align: center;
+    }
+    .role-card:hover { border-color: var(--light); background: var(--pale); }
+    .role-card.selected { border-color: var(--forest); background: var(--pale); }
+    .role-card-icon { font-size: 24px; margin-bottom: 6px; }
+    .role-card-name { font-size: 12px; font-weight: 700; color: var(--ink); }
+    .role-card-desc { font-size: 11px; color: var(--ink3); margin-top: 4px; line-height: 1.4; }
+    .role-card input[type=radio] { display: none; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      background: var(--ink); color: white;
+      padding: 12px 20px; border-radius: 10px;
+      font-size: 13px; font-weight: 500;
+      box-shadow: 0 8px 24px rgba(0,0,0,.2);
+      transform: translateY(80px); opacity: 0;
+      transition: .3s cubic-bezier(.4,0,.2,1);
+      max-width: 340px;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { background: var(--dark); }
+    #toast.error   { background: var(--danger); }
+
+    .mono { font-family: 'DM Mono', monospace; font-size: 12px; }
+
+    .last-login { font-size: 12px; color: var(--ink3); }
+    .never { font-style: italic; color: var(--ink3); opacity: .6; }
+  </style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<nav class="topbar">
+  <div class="topbar-left">
+    <div class="logo-ring">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
+    </div>
+    <div>
+      <div class="topbar-title">Admin Management</div>
+      <div class="topbar-sub">CBN Directives Platform</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="admin-pill">
+      <span class="role-dot"></span>
+      <span id="session-name">Loading…</span>
+      <span style="color:#999;font-size:11px;" id="session-role"></span>
+    </div>
+    <a href="/index.html" class="btn-ghost">← Dashboard</a>
+    <button class="btn-ghost" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<!-- Page -->
+<main class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Admin Users</h1>
+      <p class="page-desc">Manage administrator accounts and access levels for the platform.</p>
+    </div>
+    <button class="btn-primary" id="btn-add-admin" onclick="openCreateModal()">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      Add Admin
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-n" id="s-total">—</div>
+      <div class="stat-l">Total Admins</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n" id="s-super" style="color:#4527A0;">—</div>
+      <div class="stat-l">Super Admins</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n" id="s-active" style="color:#2E7D32;">—</div>
+      <div class="stat-l">Active</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n" id="s-pending" style="color:#F57F17;">—</div>
+      <div class="stat-l">Setup Pending</div>
+    </div>
+  </div>
+
+  <!-- Table card -->
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="search-wrap">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input type="text" placeholder="Search by name or email…" oninput="filterTable(this.value)" id="search-input">
+      </div>
+      <button class="btn-ghost" onclick="loadAdmins()" style="font-size:12px;">↻ Refresh</button>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table id="admin-table">
+        <thead>
+          <tr>
+            <th>Administrator</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Last Login</th>
+            <th>Created By</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="6" class="empty">
+            <div class="empty-icon">⏳</div>
+            <div class="empty-title">Loading admins…</div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══ Create Admin Modal ═══════════════════════════════════════ -->
+<div class="modal-wrap" id="create-modal">
+  <div class="modal-bg" onclick="closeModal('create-modal')"></div>
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Add New Admin</div>
+      <button class="modal-close" onclick="closeModal('create-modal')">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Full Name *</label>
+        <input type="text" id="new-name" placeholder="e.g. Adaeze Okonkwo">
+      </div>
+      <div class="field">
+        <label>Email Address *</label>
+        <input type="email" id="new-email" placeholder="admin@cbn.gov.ng">
+        <div class="field-hint">A setup link will be sent to this address.</div>
+      </div>
+      <div class="field">
+        <label>Access Role *</label>
+        <div class="role-cards">
+          <label class="role-card selected" onclick="selectRole('super_admin', this)">
+            <input type="radio" name="new-role" value="super_admin">
+            <div class="role-card-icon">👑</div>
+            <div class="role-card-name">Super Admin</div>
+            <div class="role-card-desc">Full access + manage other admins</div>
+          </label>
+          <label class="role-card" onclick="selectRole('admin', this)">
+            <input type="radio" name="new-role" value="admin">
+            <div class="role-card-icon">🛡️</div>
+            <div class="role-card-name">Admin</div>
+            <div class="role-card-desc">Full directives access, no admin management</div>
+          </label>
+          <label class="role-card" onclick="selectRole('viewer', this)">
+            <input type="radio" name="new-role" value="viewer">
+            <div class="role-card-icon">👁️</div>
+            <div class="role-card-name">Viewer</div>
+            <div class="role-card-desc">Read-only. Cannot edit or send reminders</div>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('create-modal')">Cancel</button>
+      <button class="btn-primary" id="btn-create" onclick="createAdmin()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        Send Setup Email
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Edit Admin Modal ════════════════════════════════════════ -->
+<div class="modal-wrap" id="edit-modal">
+  <div class="modal-bg" onclick="closeModal('edit-modal')"></div>
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Edit Admin</div>
+      <button class="modal-close" onclick="closeModal('edit-modal')">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+      <div class="field">
+        <label>Full Name</label>
+        <input type="text" id="edit-name">
+      </div>
+      <div class="field">
+        <label>Email Address</label>
+        <input type="email" id="edit-email" disabled
+               style="opacity:.5;cursor:not-allowed;background:#f5f5f5;">
+        <div class="field-hint">Email cannot be changed after account creation.</div>
+      </div>
+      <div class="field" id="edit-role-field">
+        <label>Role</label>
+        <select id="edit-role">
+          <option value="super_admin">👑 Super Admin</option>
+          <option value="admin">🛡️ Admin</option>
+          <option value="viewer">👁️ Viewer</option>
+        </select>
+        <div class="field-hint" id="edit-role-hint"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('edit-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+  const API = window.location.hostname === 'localhost'
+    ? 'http://localhost:3001/api'
+    : '/api';
+
+  let allAdmins      = [];
+  let sessionRole    = '';
+  let selectedRole   = 'super_admin';
+  let currentEditId  = null;
+
+  // ── Auth ─────────────────────────────────────────────────────
+  const token = sessionStorage.getItem('adminToken') || sessionStorage.getItem('authToken');
+  if (!token || sessionStorage.getItem('userType') !== 'admin') {
+    window.location.href = '/login.html';
+  }
+
+function authHeaders() {
+    const t = sessionStorage.getItem('adminToken')
+           || sessionStorage.getItem('authToken')
+           || '';
+    return {
+        'Content-Type':  'application/json',
+        'x-admin-token': t,
+        'x-user-type':   'admin'
+    };
+}
+
+
+
+async function init() {
+    try {
+        const r = await fetch(`${API}/auth/admin/me`, { headers: authHeaders() });
+        const j = await r.json();
+
+        if (j.success) {
+            sessionRole = j.admin.role;
+            document.getElementById('session-name').textContent = j.admin.name;
+            document.getElementById('session-role').textContent = roleName(sessionRole);
+            if (sessionRole !== 'super_admin') {
+                document.getElementById('btn-add-admin').style.display = 'none';
+            }
+            loadAdmins();
+            return;
+        }
+        // Session expired (server restarted) — fall back to sessionStorage check
+        fallbackInit();
+    } catch (e) {
+        fallbackInit();
+    }
+}
+
+
+function fallbackInit() {
+    if (sessionStorage.getItem('userType') !== 'admin') {
+        window.location.href = '/login.html';
+        return;
+    }
+    // Server restarted — session token lost but we know they were logged in.
+    // Show page in degraded mode. They can still view but destructive actions
+    // will fail gracefully until they log in again.
+    sessionRole = 'super_admin';
+    document.getElementById('session-name').textContent = sessionStorage.getItem('userName') || 'Admin';
+    document.getElementById('session-role').textContent = 'Super Admin';
+    loadAdmins();
+}
+
+
+
+  // ── Load ─────────────────────────────────────────────────────
+  async function loadAdmins() {
+    try {
+      const r = await fetch(`${API}/admin-users`, { headers: authHeaders() });
+      const j = await r.json();
+      if (!j.success) { toast('Failed to load admins', 'error'); return; }
+
+      allAdmins = j.data;
+      updateStats();
+      renderTable(allAdmins);
+    } catch (e) {
+      toast('Connection error', 'error');
+    }
+  }
+
+  function updateStats() {
+    document.getElementById('s-total').textContent   = allAdmins.length;
+    document.getElementById('s-super').textContent   = allAdmins.filter(a => a.role === 'super_admin').length;
+    document.getElementById('s-active').textContent  = allAdmins.filter(a => a.isActive).length;
+    document.getElementById('s-pending').textContent = allAdmins.filter(a => !a.password).length;
+  }
+
+  function renderTable(data) {
+    const tbody = document.getElementById('table-body');
+    if (!data.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="6">
+          <div class="empty">
+            <div class="empty-icon">👤</div>
+            <div class="empty-title">No admins found</div>
+          </div>
+        </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.map(a => {
+      const initials = a.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+      const setupPending = !a.hasPassword;
+      const isLocked = a.accountLockedUntil && new Date(a.accountLockedUntil) > new Date();
+      const isSelf = a.email === sessionStorage.getItem('userEmail');
+
+      // Status badge
+      let statusBadge;
+      if (isLocked)       statusBadge = `<span class="badge badge-locked">Locked</span>`;
+      else if (setupPending) statusBadge = `<span class="badge badge-pending">Setup Pending</span>`;
+      else if (a.isActive) statusBadge  = `<span class="badge badge-active">Active</span>`;
+      else                 statusBadge  = `<span class="badge badge-inactive">Inactive</span>`;
+
+      // Role badge
+      const roleBadge = {
+        super_admin: `<span class="badge badge-super">👑 Super Admin</span>`,
+        admin:       `<span class="badge badge-admin">🛡️ Admin</span>`,
+        viewer:      `<span class="badge badge-viewer">👁️ Viewer</span>`
+      }[a.role] || `<span class="badge">${a.role}</span>`;
+
+      // Actions — gated on session role
+      const isSuperAdmin = sessionRole === 'super_admin';
+      const actions = [];
+
+      actions.push(`<button class="btn-action" onclick="openEdit('${a._id}')">Edit</button>`);
+
+      if (setupPending && isSuperAdmin)
+        actions.push(`<button class="btn-action" onclick="resendSetup('${a._id}', '${escHtml(a.name)}')">Resend Setup</button>`);
+
+      if (isLocked && isSuperAdmin)
+        actions.push(`<button class="btn-action" onclick="unlockAccount('${a._id}', '${escHtml(a.name)}')">Unlock</button>`);
+
+      if (isSuperAdmin && !isSelf) {
+        const toggleLabel = a.isActive ? 'Deactivate' : 'Activate';
+        actions.push(`<button class="btn-action" onclick="toggleActive('${a._id}', '${escHtml(a.name)}', ${a.isActive})">${toggleLabel}</button>`);
+        actions.push(`<button class="btn-action danger" onclick="deleteAdmin('${a._id}', '${escHtml(a.name)}')">Delete</button>`);
+      }
+
+      const lastLogin = a.lastLogin
+        ? `<span class="last-login">${fmtDate(a.lastLogin)}</span>`
+        : `<span class="never">Never</span>`;
+
+      return `
+      <tr>
+        <td>
+          <div class="name-cell">
+            <div class="avatar">${initials}</div>
+            <div>
+              <div class="name-main">${escHtml(a.name)} ${isSelf ? '<span style="font-size:10px;color:#888;">(you)</span>' : ''}</div>
+              <div class="name-email mono">${a.email}</div>
+            </div>
+          </div>
+        </td>
+        <td>${roleBadge}</td>
+        <td>${statusBadge}</td>
+        <td>${lastLogin}</td>
+        <td><span class="name-email">${a.createdBy || '—'}</span></td>
+        <td><div class="actions">${actions.join('')}</div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function filterTable(q) {
+    const lq = q.toLowerCase();
+    renderTable(allAdmins.filter(a =>
+      a.name.toLowerCase().includes(lq) || a.email.toLowerCase().includes(lq)
+    ));
+  }
+
+  // ── Create ───────────────────────────────────────────────────
+  function openCreateModal() {
+    document.getElementById('new-name').value  = '';
+    document.getElementById('new-email').value = '';
+    selectRole('super_admin', document.querySelector('.role-card'));
+    openModal('create-modal');
+  }
+
+  function selectRole(role, el) {
+    selectedRole = role;
+    document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  async function createAdmin() {
+    const name  = document.getElementById('new-name').value.trim();
+    const email = document.getElementById('new-email').value.trim();
+    const role  = selectedRole;
+
+    if (!name || !email) { toast('Name and email are required', 'error'); return; }
+
+    const btn = document.getElementById('btn-create');
+    btn.disabled = true; btn.innerHTML = '⏳ Sending…';
+
+    try {
+      const r = await fetch(`${API}/admin-users`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ name, email, role })
+      });
+      const j = await r.json();
+
+      if (j.success) {
+        toast(`✅ ${name} added. Setup email sent.`);
+        closeModal('create-modal');
+        loadAdmins();
+      } else {
+        toast(j.error || 'Failed to create admin', 'error');
+      }
+    } catch (e) { toast('Connection error', 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg> Send Setup Email`;
+    }
+  }
+
+  // ── Edit ─────────────────────────────────────────────────────
+  function openEdit(id) {
+    const a = allAdmins.find(x => x._id === id);
+    if (!a) return;
+    currentEditId = id;
+    document.getElementById('edit-id').value    = id;
+    document.getElementById('edit-name').value  = a.name;
+    document.getElementById('edit-email').value = a.email;
+    document.getElementById('edit-role').value  = a.role;
+
+    // Non-super-admins can only change name
+    const roleField = document.getElementById('edit-role-field');
+    if (sessionRole !== 'super_admin') roleField.style.display = 'none';
+    else roleField.style.display = 'block';
+
+    openModal('edit-modal');
+  }
+
+  async function saveEdit() {
+    const id   = document.getElementById('edit-id').value;
+    const name = document.getElementById('edit-name').value.trim();
+    const role = document.getElementById('edit-role').value;
+
+    if (!name) { toast('Name is required', 'error'); return; }
+
+    try {
+      const r = await fetch(`${API}/admin-users/${id}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ name, role })
+      });
+      const j = await r.json();
+      if (j.success) { toast('✅ Admin updated'); closeModal('edit-modal'); loadAdmins(); }
+      else toast(j.error || 'Update failed', 'error');
+    } catch (e) { toast('Connection error', 'error'); }
+  }
+
+  // ── Toggle Active ─────────────────────────────────────────────
+  async function toggleActive(id, name, current) {
+    const action = current ? 'deactivate' : 'activate';
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} account for "${name}"?`)) return;
+
+    try {
+      const r = await fetch(`${API}/admin-users/${id}/toggle-active`, {
+        method: 'PATCH', headers: authHeaders()
+      });
+      const j = await r.json();
+      if (j.success) { toast(`✅ ${name} ${j.isActive ? 'activated' : 'deactivated'}`); loadAdmins(); }
+      else toast(j.error || 'Failed', 'error');
+    } catch (e) { toast('Connection error', 'error'); }
+  }
+
+  // ── Unlock ───────────────────────────────────────────────────
+  async function unlockAccount(id, name) {
+    if (!confirm(`Unlock account for "${name}"?`)) return;
+    try {
+      const r = await fetch(`${API}/admin-users/${id}/unlock`, {
+        method: 'PATCH', headers: authHeaders()
+      });
+      const j = await r.json();
+      if (j.success) { toast(`✅ ${name}'s account unlocked`); loadAdmins(); }
+      else toast(j.error, 'error');
+    } catch (e) { toast('Connection error', 'error'); }
+  }
+
+  // ── Resend Setup ─────────────────────────────────────────────
+  async function resendSetup(id, name) {
+    if (!confirm(`Resend setup email to "${name}"?`)) return;
+    try {
+      const r = await fetch(`${API}/admin-users/${id}/resend-setup`, {
+        method: 'POST', headers: authHeaders()
+      });
+      const j = await r.json();
+      if (j.success) toast(`✅ Setup email resent to ${name}`);
+      else toast(j.error, 'error');
+    } catch (e) { toast('Connection error', 'error'); }
+  }
+
+  // ── Delete ───────────────────────────────────────────────────
+  async function deleteAdmin(id, name) {
+    if (!confirm(`⚠️ Permanently delete admin account for "${name}"?\n\nThis cannot be undone.`)) return;
+    try {
+      const r = await fetch(`${API}/admin-users/${id}`, {
+        method: 'DELETE', headers: authHeaders()
+      });
+      const j = await r.json();
+      if (j.success) { toast(`🗑️ ${name}'s account deleted`); loadAdmins(); }
+      else toast(j.error, 'error');
+    } catch (e) { toast('Connection error', 'error'); }
+  }
+
+  // ── Logout ───────────────────────────────────────────────────
+  async function logout() {
+    await fetch(`${API}/auth/admin/logout`, { method: 'POST', headers: authHeaders() }).catch(() => {});
+    sessionStorage.clear();
+    window.location.href = '/login.html';
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────
+  function openModal(id)  { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  function toast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent  = msg;
+    el.className    = `show ${type}`;
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 3500);
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+      + ' ' + new Date(d).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+  }
+
+  function roleName(r) {
+    return { super_admin:'Super Admin', admin:'Admin', viewer:'Viewer' }[r] || r;
+  }
+
+  function escHtml(str) {
+    return String(str || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+  }
+
+  // Save admin token properly (handles both old and new login flow)
+  document.addEventListener('DOMContentLoaded', () => {
+    // If new flow stores token as adminToken
+    if (!sessionStorage.getItem('adminToken') && sessionStorage.getItem('authToken'))
+      sessionStorage.setItem('adminToken', sessionStorage.getItem('authToken'));
+    init();
+  });
+</script>
+</body>
+</html>
