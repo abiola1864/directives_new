@@ -690,6 +690,12 @@ function renderBU(data) {
     const hasEmail  = !!bu.primaryEmail?.trim();
     const hasName   = !!bu.personName?.trim();
     const expId     = 'exp_' + safeid(bu.name);
+    // Auto-suggest email from first linked user if BU has no email set
+const suggestedEmail = (!bu.primaryEmail?.trim() && bu.users?.length)
+  ? bu.users[0].email
+  : (bu.primaryEmail || '');
+
+
     const userCount = bu.users.length;
 
     const emailBadge  = hasEmail
@@ -758,8 +764,8 @@ function renderBU(data) {
             <div>
               <span class="field-label">Primary Email (for reminders)</span>
               <input type="email" class="field-input" id="pe_${expId}"
-                value="${esc2(bu.primaryEmail)}"
-                placeholder="director@cbn.gov.ng">
+               value="${esc2(suggestedEmail)}"
+placeholder="director@cbn.gov.ng">
             </div>
             <!-- CC emails -->
             <div>

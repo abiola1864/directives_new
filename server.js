@@ -2451,6 +2451,18 @@ app.delete('/api/process-owners/:id', async (req, res) => {
     const po = await ProcessOwner.findByIdAndDelete(req.params.id);
     if (!po) return res.status(404).json({ success: false, error: 'Not found' });
     console.log(`⚠️  Process owner deleted: ${po.email} by ${req.body.adminUsername || 'admin'}`);
+
+    // Auto-set BU primary email from this user's email if not already set
+    if (department && email) {
+      await Directive.updateMany(
+        { owner: department, $or: [{ primaryEmail: '' }, { primaryEmail: null }, { primaryEmail: { $exists: false } }] },
+        { $set: { primaryEmail: emailLower } }
+      );
+    }
+
+    res.json({ success: true, message: 'Account created', ... });
+
+    
     res.json({ success: true, message: `Account for ${po.name} (${po.email}) deleted`, deleted: { name: po.name, email: po.email, deletedAt: new Date() } });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
