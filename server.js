@@ -1,6 +1,18 @@
 'use strict';
 // ============================================================
 // CBN Directives Management Platform — server.js
+//
+// FIXES APPLIED (all active):
+//   1. Compound index {ref + sheetName} — same ref OK in multiple tabs
+//   2. Auto-ref generation: CG/JAN/833/2025/RISK-01 for no-ref tabs
+//   3. Empty REF cell = real new directive (fixes RISK, DG OPS, IAD, DG EP)
+//   4. lastValidOwner defaults to deptName, not 'Unassigned'
+//   5. Date inheritance across continuation rows (,, cells)
+//   6. "of X" owner names stripped to "X" via resolveOwner()
+//   7. Multi-line owner cells handled (takes first non-CC line)
+//   8. Stale auto/noref refs wiped before each sync
+//   9. /api/sheets/tab-names returns ALL tabs from Google Sheets
+//  10. Legacy ref_1 unique index dropped on startup
 // ============================================================
 
 require('dotenv').config();
@@ -10,7 +22,7 @@ const mongoose   = require('mongoose');
 const cors       = require('cors');
 const { google } = require('googleapis');
 const cron       = require('node-cron');
-const sgMail     = require('@sendgrid/mail');
+const { BrevoClient } = require('@getbrevo/brevo');
 const multer     = require('multer');
 const crypto     = require('crypto');
 const fs         = require('fs');
@@ -32,7 +44,19 @@ const MONGODB_URI = process.env.MONGODB_URI ||
   'mongodb+srv://oyebanjoabiola_db_user:83kDNVz6CN6sGUsv@cluster0.mkj92f1.mongodb.net/cbn_directives?retryWrites=true&w=majority';
 
 mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(()  => console.log('✅ MongoDB Connected'))
+  .then(async () => {
+    console.log('✅ MongoDB Connected');
+    // FIX 10: Drop legacy single-field unique index on ref.
+    // The old schema had ref: { unique: true } which caused duplicate-key errors
+    // when the same directive ref appeared in multiple department tabs.
+    // Replaced by compound index { ref, sheetName } defined on the schema below.
+    try {
+      await mongoose.connection.db.collection('directives').dropIndex('ref_1');
+      console.log('🔧 Dropped legacy ref_1 unique index — compound index now active');
+    } catch (e) {
+      // Index does not exist or already dropped — safe to ignore
+    }
+  })
   .catch(err => console.error('❌ MongoDB Error:', err));
 
 // ─── File Upload ─────────────────────────────────────────────
@@ -46,18 +70,21 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname}`);
   }
 });
+
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter(req, file, cb) {
-    const ok = [
-      'application/pdf', 'application/msword',
+    const allowed = [
+      'application/pdf',
+      'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'image/png', 'image/jpeg'
+      'image/png',
+      'image/jpeg'
     ];
-    cb(null, ok.includes(file.mimetype));
+    cb(null, allowed.includes(file.mimetype));
   }
 }).array('files', 5);
 
@@ -65,7 +92,6 @@ const upload = multer({
 // SCHEMAS
 // ============================================================
 
-// ─── Decision (formerly "Outcome") ───────────────────────────
 const decisionSchema = new mongoose.Schema({
   text:               { type: String, required: true },
   status: {
@@ -103,18 +129,18 @@ const directiveSchema = new mongoose.Schema({
   subject:     { type: String, required: true },
   particulars: { type: String, required: true },
 
-  // "Business Unit" in UI — kept as "owner" in DB for backward compat
+  // "Business Unit" in the UI — kept as "owner" in DB for backward compat
   owner:       { type: String, required: true },
 
-  // Department for access-control (links to Department collection)
+  // Department name (from the DEPARTMENT: cell in the sheet header)
   department:  { type: String, default: '' },
 
   // Emails
-  primaryEmail:  { type: String, default: '' },
-  inCopy:        [{ type: String }],         // Multiple CC addresses
-  secondaryEmail:{ type: String, default: '' }, // Backward compat → maps to inCopy[0]
+  primaryEmail:   { type: String, default: '' },
+  inCopy:         [{ type: String }],
+  secondaryEmail: { type: String, default: '' },
 
-  // Financial — vendor always after amount
+  // Financial
   amount: String,
   vendor: String,
 
@@ -123,12 +149,15 @@ const directiveSchema = new mongoose.Schema({
   implementationStatus:    { type: String, default: 'Not Implemented' },
   additionalComments:      { type: String, default: '' },
 
-  ref: { type: String, unique: true, sparse: true },
+  // FIX 1: ref is NOT unique by itself.
+  // Uniqueness is enforced by the compound index { ref, sheetName } below.
+  // This allows the same directive ref to appear in multiple department tabs.
+  ref: { type: String },
 
-  monitoringStatus: {
+monitoringStatus: {
     type:    String,
-    enum:    ['On Track', 'At Risk', 'High Risk', 'Completed', 'Needs Timeline'],
-    default: 'On Track'
+    enum:    ['Not Implemented', 'Being Implemented', 'Implemented', 'No Response'],
+    default: 'Not Implemented'
   },
 
   statusHistory:    [statusHistorySchema],
@@ -144,13 +173,13 @@ const directiveSchema = new mongoose.Schema({
   outcomes: [decisionSchema],
 
   attachments: [{
-    filename:    String,
-    originalName:String,
-    mimetype:    String,
-    size:        Number,
-    path:        String,
-    uploadedAt:  { type: Date, default: Date.now },
-    uploadedBy:  String
+    filename:     String,
+    originalName: String,
+    mimetype:     String,
+    size:         Number,
+    path:         String,
+    uploadedAt:   { type: Date, default: Date.now },
+    uploadedBy:   String
   }],
 
   updateHistory: [{
@@ -166,7 +195,10 @@ const directiveSchema = new mongoose.Schema({
   updatedBy: String
 });
 
-// Auto-generate ref: CG/JAN/001/2025
+// FIX 1: Compound unique index — same ref is allowed in multiple tabs
+directiveSchema.index({ ref: 1, sheetName: 1 }, { unique: true, sparse: true });
+
+// Auto-generate ref for manually-created directives only
 directiveSchema.pre('save', async function (next) {
   if (!this.ref && this.meetingDate) {
     const prefix = this.source === 'CG' ? 'CG' : 'BD';
@@ -177,51 +209,53 @@ directiveSchema.pre('save', async function (next) {
       ref: new RegExp(`^${prefix}\\/${month}\\/\\d+\\/${year}$`)
     }).select('ref');
 
-    const nums  = existing.map(d => { const m = d.ref.match(/\/(\d+)\//); return m ? +m[1] : 0; });
+    const nums  = existing.map(d => { const m = d.ref?.match(/\/(\d+)\//); return m ? +m[1] : 0; });
     const nextN = nums.length ? Math.max(...nums) + 1 : 1;
     this.ref    = `${prefix}/${month}/${String(nextN).padStart(3, '0')}/${year}`;
   }
-  // Keep secondaryEmail ↔ inCopy[0] in sync
+
+  // Keep secondaryEmail and inCopy[0] in sync
   if (this.secondaryEmail && this.inCopy && !this.inCopy.includes(this.secondaryEmail)) {
     this.inCopy.unshift(this.secondaryEmail);
   }
+
   this.updatedAt = Date.now();
   next();
 });
 
 directiveSchema.methods.updateMonitoringStatus = function (notes = '') {
-  const old     = this.monitoringStatus;
-  const allDone = this.outcomes.length > 0 && this.outcomes.every(o => o.status === 'Implemented');
+  const old = this.monitoringStatus;
+  const outcomes = this.outcomes || [];
 
-  if (allDone || this.implementationStatus === 'Implemented') {
-    this.monitoringStatus = 'Completed';
-    this.isResponsive     = true;
-  } else if (!this.implementationEndDate) {
-    this.monitoringStatus = 'Needs Timeline';
-    if (this.reminders >= 2 &&
-        (!this.lastSbuUpdate || (this.lastReminderDate && this.lastSbuUpdate < this.lastReminderDate)))
-      this.isResponsive = false;
+  let next;
+  if (outcomes.length === 0 || outcomes.every(o => o.status === 'Not Implemented')) {
+    next = 'Not Implemented';
+  } else if (outcomes.every(o => o.status === 'Implemented')) {
+    next = 'Implemented';
+  } else if (outcomes.some(o => o.status === 'No Response')) {
+    next = 'No Response';
   } else {
-    const days = Math.ceil((this.implementationEndDate - new Date()) / 86400000);
-    if      (days <= 7)                        this.monitoringStatus = 'High Risk';
-    else if (days < 30 || this.reminders >= 3) this.monitoringStatus = 'At Risk';
-    else                                       this.monitoringStatus = 'On Track';
-
-    if (this.reminders >= 3 &&
-        (!this.lastSbuUpdate || (this.lastReminderDate && this.lastSbuUpdate < this.lastReminderDate)))
-      this.isResponsive = false;
-    else if (this.lastSbuUpdate && this.lastSbuUpdate > (this.lastReminderDate || this.createdAt))
-      this.isResponsive = true;
+    next = 'Being Implemented';
   }
 
-  if (old !== this.monitoringStatus)
-    this.statusHistory.push({ status: this.monitoringStatus, changedAt: new Date(), notes: notes || `${old} → ${this.monitoringStatus}` });
+  this.monitoringStatus = next;
+  this.isResponsive     = next !== 'No Response';
+
+  if (old !== next) {
+    this.statusHistory.push({
+      status:    next,
+      changedAt: new Date(),
+      notes:     notes || `${old} → ${next}`
+    });
+  }
 
   return this.save();
 };
 
+
+
 directiveSchema.methods.isReminderDue = function () {
-  if (this.monitoringStatus === 'Completed' || this.reminders >= 3) return false;
+if (this.monitoringStatus === 'Implemented' || this.reminders >= 3) return false;
   const today = new Date();
   if (this.implementationEndDate && this.implementationStartDate) {
     const total    = Math.ceil((this.implementationEndDate - this.implementationStartDate) / 86400000);
@@ -252,24 +286,21 @@ const SubmissionToken = mongoose.model('SubmissionToken', new mongoose.Schema({
   usedAt:           Date
 }));
 
-// ─── Department (max 3 business units) ───────────────────────
+// ─── Department ───────────────────────────────────────────────
 const Department = mongoose.model('Department', new mongoose.Schema({
   name:       { type: String, required: true, unique: true, trim: true },
   code:       { type: String, trim: true },
-  // NEW: stores the actual responsible person's name and title
   personName: { type: String, default: '' },
   position:   { type: String, default: '' },
   isActive:   { type: Boolean, default: true },
   createdAt:  { type: Date, default: Date.now }
 }));
 
-
-
 // ─── OTP for 2FA ─────────────────────────────────────────────
 const OtpSchema = new mongoose.Schema({
   email:     { type: String, required: true },
   otpHash:   { type: String, required: true },
-  expiresAt: { type: Date,   required: true },
+  expiresAt: { type: Date, required: true },
   used:      { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
@@ -311,18 +342,15 @@ const ProcessOwnerSchema = new mongoose.Schema({
 
 ProcessOwnerSchema.pre('save', async function (next) {
   if (!this.isModified('password') || !this.password) return next();
-  const salt  = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+  this.password = await bcrypt.hash(this.password, await bcrypt.genSalt(10));
   next();
 });
 ProcessOwnerSchema.methods.comparePassword = async function (p) {
-  if (!this.password) return false;
-  return bcrypt.compare(p, this.password);
+  return this.password ? bcrypt.compare(p, this.password) : false;
 };
 ProcessOwnerSchema.methods.isLocked = function () {
   return !!(this.accountLockedUntil && this.accountLockedUntil > Date.now());
 };
-
 const ProcessOwner = mongoose.model('ProcessOwner', ProcessOwnerSchema);
 
 // ============================================================
@@ -332,32 +360,35 @@ const ProcessOwner = mongoose.model('ProcessOwner', ProcessOwnerSchema);
 let emailTransporter = null;
 
 function setupEmail() {
-  if (!process.env.SENDGRID_API_KEY || !process.env.EMAIL_USER) {
-    console.log('⚠️  Email not configured (SENDGRID_API_KEY / EMAIL_USER missing)');
+  if (!process.env.BREVO_API_KEY || !process.env.EMAIL_USER) {
+    console.log('⚠️  Email not configured (BREVO_API_KEY / EMAIL_USER missing)');
     return;
   }
-
-   // ADD THIS LINE temporarily:
-  console.log('🔑 SendGrid key starts with:', process.env.SENDGRID_API_KEY.substring(0, 6));
   console.log('📧 Sender email:', process.env.EMAIL_USER);
 
+  const client = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
 
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
   emailTransporter = {
     sendMail: async opts => {
       const msg = {
-        to:      opts.to,
-        from:    process.env.EMAIL_USER,
-        subject: opts.subject,
-        html:    opts.html
+        sender:      { email: process.env.EMAIL_USER },
+        to:          Array.isArray(opts.to)
+                       ? opts.to.map(e => ({ email: e }))
+                       : opts.to.split(',').map(e => ({ email: e.trim() })),
+        subject:     opts.subject,
+        htmlContent: opts.html
       };
-      if (opts.cc) msg.cc = opts.cc;
-      const res = await sgMail.send(msg);
+      if (opts.cc) {
+        msg.cc = typeof opts.cc === 'string'
+          ? opts.cc.split(',').map(e => ({ email: e.trim() })).filter(e => e.email)
+          : opts.cc.map(e => ({ email: e }));
+      }
+      const res = await client.transactionalEmails.sendTransacEmail(msg);
       console.log('✅ Email sent:', opts.to);
       return res;
     }
   };
-  console.log('✅ SendGrid configured');
+  console.log('✅ Brevo configured');
 }
 setupEmail();
 
@@ -394,7 +425,6 @@ async function sendOtp(email, name) {
       });
     } catch (mailErr) {
       console.error('⚠️  OTP email failed (OTP still valid):', mailErr.message);
-      // Don't rethrow — OTP is saved in DB, login flow continues
     }
   }
   return code;
@@ -405,22 +435,21 @@ async function sendOtp(email, name) {
 // ============================================================
 
 function getOrdinal(n) {
-  const s = ['th','st','nd','rd'], v = n % 100;
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
   return s[(v - 20) % 10] || s[v] || s[0];
 }
 
-function formatDate(d) {
+function fmtDate(d) {
   if (!d) return 'N/A';
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function generateMemoEmail(directive) {
-  const today   = new Date();
-  const dateStr = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
-  const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
+  const today     = new Date();
+  const dateStr   = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
+  const baseUrl   = process.env.BASE_URL || 'https://directives-new.onrender.com';
   const submitUrl = `${baseUrl}/submit-update/${directive._id}`;
-
-  const sourceLabel = directive.source === 'CG' ? 'Committee of Board' : 'Board of Directors';
+  const srcLabel  = directive.source === 'CG' ? 'Committee of Board' : 'Board of Directors';
 
   const decisionsHtml = (directive.outcomes || []).map((o, i) => {
     const color = {
@@ -429,6 +458,7 @@ function generateMemoEmail(directive) {
       'Implemented':      '#10b981',
       'No Response':      '#dc2626'
     }[o.status] || '#6b7280';
+
     return `
     <div style="margin-bottom:16px;padding:12px;background:white;border-radius:6px;border-left:4px solid #6366f1;">
       <div style="font-weight:700;color:#6366f1;margin-bottom:4px;font-size:12px;">Decision ${i + 1}</div>
@@ -437,9 +467,9 @@ function generateMemoEmail(directive) {
                   font-weight:700;background:${color};color:white;">
         Current Status: ${o.status}
       </div>
-      ${o.challenges      ? `<div style="margin-top:8px;font-size:11px;color:#6b7280;"><strong>Challenges:</strong> ${o.challenges}</div>` : ''}
-      ${o.completionDetails?`<div style="margin-top:8px;font-size:11px;color:#059669;"><strong>Completed:</strong> ${o.completionDetails}</div>` : ''}
-      ${o.delayReason     ? `<div style="margin-top:8px;font-size:11px;color:#dc2626;"><strong>Delay Reason:</strong> ${o.delayReason}</div>` : ''}
+      ${o.challenges       ? `<div style="margin-top:8px;font-size:11px;color:#6b7280;"><strong>Challenges:</strong> ${o.challenges}</div>` : ''}
+      ${o.completionDetails? `<div style="margin-top:8px;font-size:11px;color:#059669;"><strong>Completed:</strong> ${o.completionDetails}</div>` : ''}
+      ${o.delayReason      ? `<div style="margin-top:8px;font-size:11px;color:#dc2626;"><strong>Delay Reason:</strong> ${o.delayReason}</div>` : ''}
     </div>`;
   }).join('');
 
@@ -448,9 +478,9 @@ function generateMemoEmail(directive) {
     <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;
                 letter-spacing:.5px;margin-bottom:8px;">Implementation Timeline</div>
     <div style="color:#111827;font-size:13px;font-weight:600;">
-      ${directive.implementationStartDate ? formatDate(directive.implementationStartDate) : 'Not set'}
+      ${directive.implementationStartDate ? fmtDate(directive.implementationStartDate) : 'Not set'}
       <span style="color:#6b7280;"> → </span>
-      ${directive.implementationEndDate   ? formatDate(directive.implementationEndDate)   : 'Not set'}
+      ${directive.implementationEndDate   ? fmtDate(directive.implementationEndDate)   : 'Not set'}
     </div>
   </div>` : '';
 
@@ -462,17 +492,15 @@ function generateMemoEmail(directive) {
 <div style="max-width:700px;margin:0 auto;background:white;border:1px solid #e5e7eb;
             border-radius:8px;overflow:hidden;">
 
-  <!-- Header -->
   <div style="border-bottom:3px solid #1e40af;padding:24px;background:white;">
     <h2 style="color:#1e40af;font-size:18px;font-weight:700;margin:0 0 12px 0;text-transform:uppercase;">
-      REQUEST FOR STATUS OF COMPLIANCE WITH ${sourceLabel.toUpperCase()} DECISIONS
+      REQUEST FOR STATUS OF COMPLIANCE WITH ${srcLabel.toUpperCase()} DECISIONS
     </h2>
     <p style="color:#6b7280;font-size:13px;margin:0;">
       Central Bank of Nigeria – Corporate Secretariat
     </p>
   </div>
 
-  <!-- Memo details -->
   <div style="padding:24px;background:#f9fafb;border-bottom:1px solid #e5e7eb;">
     <table style="width:100%;font-size:13px;color:#374151;">
       <tr>
@@ -491,15 +519,13 @@ function generateMemoEmail(directive) {
     </table>
   </div>
 
-  <!-- Intro -->
   <div style="padding:20px 24px;background:white;border-bottom:1px solid #e5e7eb;">
     <p style="color:#374151;font-size:13px;line-height:1.6;margin:0;">
       The Corporate Secretariat is compiling the status of SBU compliance with
-      ${sourceLabel} decisions. Please send your submission promptly.
+      ${srcLabel} decisions. Please send your submission promptly.
     </p>
   </div>
 
-  <!-- Subject -->
   <div style="padding:20px 24px;background:#f9fafb;border-bottom:1px solid #e5e7eb;">
     <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;
                 letter-spacing:.5px;margin-bottom:8px;">Subject</div>
@@ -508,7 +534,6 @@ function generateMemoEmail(directive) {
     </div>
   </div>
 
-  <!-- Particulars -->
   ${directive.particulars ? `
   <div style="padding:20px 24px;background:white;border-bottom:1px solid #e5e7eb;">
     <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;
@@ -518,7 +543,6 @@ function generateMemoEmail(directive) {
 
   ${timelineHtml}
 
-  <!-- Decisions -->
   <div style="padding:20px 24px;background:white;border-bottom:1px solid #e5e7eb;">
     <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;
                 letter-spacing:.5px;margin-bottom:16px;">Required Decisions & Current Status</div>
@@ -527,7 +551,6 @@ function generateMemoEmail(directive) {
     </div>
   </div>
 
-  <!-- CTA -->
   <div style="padding:40px 24px;background:linear-gradient(135deg,#4f46e5 0%,#6366f1 100%);
               text-align:center;">
     <h3 style="color:white;font-size:20px;font-weight:700;margin:0 0 12px 0;">
@@ -549,18 +572,16 @@ function generateMemoEmail(directive) {
     </p>
   </div>
 
-  <!-- Action required -->
   <div style="padding:24px;background:#eff6ff;border-top:1px solid #dbeafe;">
     <p style="color:#1e40af;font-size:13px;font-weight:600;line-height:1.6;margin:0 0 8px 0;">
       <strong>Action Required:</strong> Please provide an update on the implementation
       status of the above decisions.
     </p>
     <p style="color:#1e40af;font-size:12px;line-height:1.5;margin:0;">
-      Your response helps compile the status of compliance with ${sourceLabel} decisions.
+      Your response helps compile the status of compliance with ${srcLabel} decisions.
     </p>
   </div>
 
-  <!-- Footer -->
   <div style="padding:16px 24px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
     <p style="color:#6b7280;font-size:11px;margin:0 0 4px 0;">
       Automated reminder – CBN Directives Management System
@@ -578,14 +599,13 @@ function generateMemoEmail(directive) {
 // ─── Send reminder email ──────────────────────────────────────
 async function sendReminderEmail(directive) {
   if (!emailTransporter || !directive.primaryEmail?.trim()) return false;
-
   try {
-    const allCC    = [...(directive.inCopy || [])];
-    if (directive.secondaryEmail && !allCC.includes(directive.secondaryEmail))
+    const allCC   = [...(directive.inCopy || [])];
+    if (directive.secondaryEmail && !allCC.includes(directive.secondaryEmail)) {
       allCC.push(directive.secondaryEmail);
-
-    const emailRx  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const validTo  = [directive.primaryEmail].filter(e => emailRx.test(e));
+    }
+    const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const validTo = [directive.primaryEmail].filter(e => emailRx.test(e));
     if (!validTo.length) return false;
 
     const cc = allCC.filter(e => emailRx.test(e) && !validTo.includes(e)).join(', ') || undefined;
@@ -622,40 +642,61 @@ async function getGoogleSheetsClient() {
   }
   if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY), scopes: SCOPES
+      credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY),
+      scopes:      SCOPES
     });
     return google.sheets({ version: 'v4', auth: await auth.getClient() });
   }
-  throw new Error(
-    'Google credentials not found. Set GOOGLE_CREDENTIALS_PATH, place .credentials.json in root, or set GOOGLE_SERVICE_ACCOUNT_KEY.'
-  );
+  throw new Error('Google credentials not found. Set GOOGLE_CREDENTIALS_PATH, place .credentials.json in root, or set GOOGLE_SERVICE_ACCOUNT_KEY.');
 }
 
 // ─── Date parsing ─────────────────────────────────────────────
 function parseDate(str) {
   if (!str || str === '' || str === ',,') return null;
   str = String(str).trim();
-  if (!isNaN(str)) {
+
+  // Excel serial number
+  if (!isNaN(str) && str.length > 4) {
     const d = new Date(new Date(1899, 11, 30).getTime() + parseFloat(str) * 86400000);
     if (!isNaN(d.getTime())) return d;
   }
-  const d1 = new Date(str);
-  if (!isNaN(d1.getTime())) return d1;
+
+  // "the 13th of January 2025" or "13th of January 2025" (inside meeting description)
+  const withOf = str.match(/(\d{1,2})\w*\s+of\s+([A-Za-z]+)\s+(\d{4})/);
+  if (withOf) {
+    const d = new Date(`${withOf[2]} ${withOf[1]}, ${withOf[3]}`);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // "17th January 2025" or "17 January 2025"
+  const ordinal = str.match(/(\d{1,2})\w*\s+([A-Za-z]{3,})\s+(\d{4})/);
+  if (ordinal) {
+    const d = new Date(`${ordinal[2]} ${ordinal[1]}, ${ordinal[3]}`);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // ISO / standard format
+  const iso = new Date(str);
+  if (!isNaN(iso.getTime())) return iso;
+
+  // DD/MM/YYYY or DD-MM-YYYY
   const parts = str.split(/[\/\-\.]/);
   if (parts.length === 3) {
     const d2 = new Date(+parts[2], +parts[1] - 1, +parts[0]);
     if (!isNaN(d2.getTime())) return d2;
   }
+
   return null;
 }
 
 function addDays(date, days) {
-  const d = new Date(date); d.setDate(d.getDate() + days); return d;
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
 }
 
-// ─── Status extraction ────────────────────────────────────────
 function extractStandardStatus(txt) {
-  if (!txt || !txt.trim()) return '';
+  if (!txt?.trim()) return '';
   const map = {
     'Not Started':       'Not Implemented',
     'Not Implemented':   'Not Implemented',
@@ -665,17 +706,15 @@ function extractStandardStatus(txt) {
     'Implemented':       'Implemented',
     'No Response':       'No Response'
   };
-  const c = txt.trim();
-  return map[c] || '';
+  return map[txt.trim()] || '';
 }
 
 function extractComments(txt) {
-  const known = ['Not Started','Not Implemented','Being Implemented','Delayed','Completed','Implemented','No Response'];
-  if (!txt || !txt.trim()) return '';
+  const known = ['Not Started', 'Not Implemented', 'Being Implemented', 'Delayed', 'Completed', 'Implemented', 'No Response'];
+  if (!txt?.trim()) return '';
   return known.includes(txt.trim()) ? '' : txt.trim();
 }
 
-// ─── Text helpers ─────────────────────────────────────────────
 function smartTruncate(txt, max = 300) {
   if (!txt || txt.length <= max) return txt;
   const cut  = txt.substring(0, max);
@@ -683,25 +722,54 @@ function smartTruncate(txt, max = 300) {
   return last > max * 0.7 ? cut.substring(0, last + 1) : cut + '...';
 }
 
-// ─── Smart parsing of particulars text into decisions ─────────
-// (RESTORED from original — was accidentally removed)
+// ─── FIX 2: Auto-ref generator ────────────────────────────────
+// For tabs that never had assigned ref numbers (RISK, DG OPS, IAD, DG EP etc.)
+// Produces a meaningful ref like: CG/JAN/833/2025/RISK-01
+// derived from the meeting description in the DATE cell:
+// e.g. "833rd Meeting held on Monday, the 13th of January 2025"
+function generateAutoRef(dateStr, tabName, sequence) {
+  const raw = String(dateStr || '').trim();
+
+  // Extract meeting number: "833rd" → 833
+  const meetingMatch   = raw.match(/(\d+)\w*\s+[Mm]eeting/);
+  // Extract month and year from the long date description
+  const monthYearMatch = raw.match(/(?:of\s+)?([A-Za-z]{3,})\s+(\d{4})/);
+
+  // Compact safe tab label — max 5 chars, letters and numbers only
+  const safeTab = tabName.trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')         // remove all spaces
+    .replace(/[^A-Z0-9]/g, '')   // remove special chars
+    .substring(0, 5);
+
+  const seq = String(sequence).padStart(2, '0');
+
+  if (meetingMatch && monthYearMatch) {
+    const meetNum = meetingMatch[1];
+    const month   = monthYearMatch[1].substring(0, 3).toUpperCase();
+    const year    = monthYearMatch[2];
+    return `CG/${month}/${meetNum}/${year}/${safeTab}-${seq}`;
+  }
+
+  // Fallback when the date cell has no usable meeting info (e.g. IAD which is completely empty)
+  const year = new Date().getFullYear();
+  return `CG/AUTO/${safeTab}/${year}/${seq}`;
+}
+
+// ─── Decisions parser ─────────────────────────────────────────
 function parseDecisions(particulars) {
-  if (!particulars || !particulars.trim()) {
+  if (!particulars?.trim()) {
     return [{ text: 'Implementation required', status: 'Not Implemented' }];
   }
-  let cleanText = particulars
+  const cleanText = particulars
     .replace(/^The (Committee of (Board|Governors)|Board of Directors) (at its )?(considered and )?(DECIDED|APPROVED|RECOMMENDED|RATIFIED|DIRECTED)( as follows)?:?\s*/i, '')
     .replace(/^(APPROVED|DIRECTED|RECOMMENDED|RATIFIED|DECIDED):?\s*/i, '')
     .trim();
-
-  const smart = extractSmartDecisions(cleanText);
-  return smart.slice(0, 3);
+  return extractSmartDecisions(cleanText).slice(0, 3);
 }
 
 function extractSmartDecisions(text) {
   const decisions = [];
-
-  // Try structured list patterns first (bracketed letters, roman numerals, numbers, plain letters)
   const listPatterns = [
     /(?:^|\n)\s*\(([a-z])\)\s*([^()]+?)(?=\n\s*\([a-z]\)|\n\n|$)/gi,
     /(?:^|\n)\s*\(([ivxl]+)\)\s*([^()]+?)(?=\n\s*\([ivxl]+\)|\n\n|$)/gi,
@@ -714,48 +782,38 @@ function extractSmartDecisions(text) {
     if (matches.length >= 2) {
       matches.forEach(m => {
         const t = m[2].trim();
-        if (t.length > 20) {
-          decisions.push({ text: smartTruncate(t, 300), status: 'Not Implemented', _priority: calculatePriority(t) });
-        }
+        if (t.length > 20) decisions.push({ text: smartTruncate(t, 300), status: 'Not Implemented', _p: calcPriority(t) });
       });
       if (decisions.length) break;
     }
   }
 
-  // Fall back to action-sentence extraction
-  if (!decisions.length) decisions.push(...extractActionBasedDecisions(text));
+  if (!decisions.length) decisions.push(...extractActionSentences(text));
 
-  // Fall back to semicolon / comma-and splitting
   if (!decisions.length) {
     text.split(/;\s+|,\s+and\s+|,\s+also\s+/).forEach(part => {
       const t = part.trim();
-      if (t.length > 30)
-        decisions.push({ text: smartTruncate(t, 300), status: 'Not Implemented', _priority: calculatePriority(t) });
+      if (t.length > 30) decisions.push({ text: smartTruncate(t, 300), status: 'Not Implemented', _p: calcPriority(t) });
     });
   }
 
-  // Final fallback: whole text as one decision
   if (!decisions.length) {
-    decisions.push({ text: smartTruncate(text, 300), status: 'Not Implemented', _priority: 1 });
+    decisions.push({ text: smartTruncate(text, 300), status: 'Not Implemented', _p: 1 });
   }
 
-  decisions.sort((a, b) => (b._priority || 0) - (a._priority || 0));
+  decisions.sort((a, b) => (b._p || 0) - (a._p || 0));
   return decisions.map(d => ({ text: d.text, status: d.status }));
 }
 
-function extractActionBasedDecisions(text) {
+function extractActionSentences(text) {
   const decisions = [];
-  const strongVerbs = [
-    'approve','approved','implement','establish','develop','create',
-    'procure','purchase','acquire','pay','disburse','allocate',
-    'authorize','grant','execute','complete','finalize',
-    'submit','report','provide','prepare','ensure'
-  ];
+  const strongVerbs = ['approve', 'approved', 'implement', 'establish', 'develop', 'create',
+    'procure', 'purchase', 'acquire', 'pay', 'disburse', 'allocate',
+    'authorize', 'grant', 'execute', 'complete', 'finalize',
+    'submit', 'report', 'provide', 'prepare', 'ensure'];
 
-  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-
-  sentences.forEach(sentence => {
-    const t = sentence.trim();
+  (text.match(/[^.!?]+[.!?]+/g) || [text]).forEach(sentence => {
+    const t  = sentence.trim();
     const lo = t.toLowerCase();
     let score = 0;
 
@@ -767,14 +825,13 @@ function extractActionBasedDecisions(text) {
     if (t.length > 40)                                                    score += 1;
 
     if (score >= 4) {
-      decisions.push({ text: smartTruncate(t, 300), status: 'Not Implemented', _priority: score });
+      decisions.push({ text: smartTruncate(t, 300), status: 'Not Implemented', _p: score });
     }
   });
-
   return decisions;
 }
 
-function calculatePriority(text) {
+function calcPriority(text) {
   let p = 1;
   const lo = text.toLowerCase();
   if (/\b(urgent|immediate|critical|priority)\b/i.test(lo)) p += 3;
@@ -784,225 +841,396 @@ function calculatePriority(text) {
   return p;
 }
 
-// ─── Process Owner name cleaner ───────────────────────────────
-// (RESTORED from original — was accidentally removed)
-function extractProcessOwner(ownerText) {
-  if (!ownerText || ownerText.trim() === '' || ownerText.trim() === ',,' || ownerText.trim() === "''")
-    return 'Unassigned';
+// ─── FIX 7: Process Owner extractor ──────────────────────────
+// Handles multi-line cells: "DG EP\n\nCC:\nDirector of Risk " → "DG EP"
+// "Director of Capacity Development\nCC:\nDirector of Strategy" → "Capacity Development"
+function extractProcessOwner(ownerText, deptHint) {
+  if (!ownerText) return null;
+  let raw = ownerText.toString().trim();
+  if (!raw || raw === ',,' || raw === "''" || raw === "'" || raw === '"') return null;
 
-  let cleaned = ownerText.trim()
+  if (raw.includes('\n')) {
+    const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+
+    // Only use deptHint when cell has a CC section — avoids overriding
+    // legitimate cross-dept owners on tabs like MPD, TED, RISK
+    const hasCCSection = lines.some(l =>
+      l.toLowerCase().startsWith('cc:') || l.toLowerCase().startsWith('cc ')
+    );
+
+    if (deptHint && hasCCSection) {
+      const hint = deptHint.toLowerCase();
+      for (const line of lines) {
+        const stripped = line
+          .replace(/^cc\s*:\s*/i, '')
+          .replace(/^Director(?:\s+General)?,?\s*/i, '')
+          .replace(/^Deputy Governor,?\s*/i, '')
+          .replace(/^of\s+/i, '')
+          .trim();
+        const sl = stripped.toLowerCase();
+        if (sl.includes(hint) || hint.includes(sl)) {
+          return stripped.length > 3 ? stripped : deptHint;
+        }
+      }
+    }
+
+    // Default: take first non-CC, non-empty line
+    const first = lines.find(l =>
+      !l.toLowerCase().startsWith('cc:') &&
+      !l.toLowerCase().startsWith('cc ')
+    );
+    if (first) raw = first;
+  }
+
+  if (raw.toLowerCase().includes('cc:')) raw = raw.split(/cc:/i)[0].trim();
+
+  let cleaned = raw
     .replace(/^[,'"]+|[,'"]+$/g, '')
     .replace(/[₦$N]\s*[\d,]+\.?\d*/gi, '')
     .replace(/\b\d{4,}(?:,\d{3})*(?:\.\d{2})?\b/g, '')
     .replace(/\d{4,}/g, '')
     .replace(/\d+\.\d+/g, '');
 
-  if (cleaned.includes('CC:')) cleaned = cleaned.split(/CC:/i)[0].trim();
-
   cleaned = cleaned
-    .replace(/\b(amount|total|sum|naira|kobo|million|billion)\b/gi, '')
-    .replace(/[,\.]{2,}/g, '')
-    .replace(/^[,\.\s]+|[,\.\s]+$/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  // ── Strip role prefixes so BU name is just the department ──
-  cleaned = cleaned
-    .replace(/^Director,?\s*/i, '')
+    .replace(/^Director(?:\s+General)?,?\s*/i, '')
     .replace(/^Deputy Governor,?\s*/i, '')
     .replace(/^Governor,?\s*/i, '')
     .replace(/^Executive Director,?\s*/i, '')
     .replace(/^Deputy Director,?\s*/i, '')
     .replace(/^Head,?\s*/i, '')
     .replace(/^Chief,?\s*/i, '')
+    .replace(/\b(amount|total|sum|naira|kobo|million|billion)\b/gi, '')
+    .replace(/[,\.]{2,}/g, '')
+    .replace(/^[,\.\s]+|[,\.\s]+$/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
-  // ───────────────────────────────────────────────────────────
 
-  if (!cleaned || cleaned.length < 3 || /^\d/.test(cleaned) || /^[\d,.\s₦$N]+$/.test(cleaned))
-    return 'Unassigned';
-
+  if (!cleaned || cleaned.length < 3 || /^\d/.test(cleaned) || /^[\d,.\s₦$N]+$/.test(cleaned)) return null;
   return cleaned;
 }
 
 
 
-// ─── Main sheet reader ────────────────────────────────────────
+// ─── FIX 6: Resolve final owner name ─────────────────────────
+// Strips leading "of " that appears after title-prefix stripping:
+//   "of Reserve Management"             → "Reserve Management"
+//   "of Financial Policy and Regulations" → "Financial Policy and Regulations"
+//   "DG EP"                             → "DG EP"  (unchanged)
+//   short / empty / Unassigned          → deptName (fallback)
+function resolveOwner(raw, deptName) {
+  if (!raw || raw === 'Unassigned' || raw === 'PROCESS OWNERS' || raw.length <= 3) return deptName;
+  if (/^of\s+/i.test(raw)) {
+    const withoutOf = raw.replace(/^of\s+/i, '').trim();
+    return withoutOf.length > 3 ? withoutOf : deptName;
+  }
+  return raw;
+}
+
+// ============================================================
+// MAIN SHEET READER
+// ============================================================
+
+const DEPT_NAME_MAP = {
+  'RISK':   'Risk Management',        'RESEARCH': 'Research Management',
+  'RESERVE':'Reserve Management',     'HRM':      'Human Resources Management',
+  'MPD':    'Monetary Policy',        'PSMD':     'Payments System Management',
+  'BKSD':   'Banking Services',       'BSD':      'Banking Supervision',
+  'SMD':    'Strategy & Innovation',  'DFD':      'Development Finance Institutions',
+  'COD':    'Currency Operations',    'PSSD':     'Procurement & Support Services',
+  'FMD':    'Financial Markets',      'FND':      'Finance',
+  'FPRD':   'Financial Policy & Regulation',
+  'DG OPS': 'Deputy Governor Corporate Services',
+  'DG CS':  'Deputy Governor Corporate Services',
+  'DG FSS': 'Deputy Governor Financial System Stability',
+  'DG EP':  'Deputy Governor Economic Policy',
+  'MSD 2':  'Medical Services',       'MSD':      'Medical Services',
+  'IAD':    'Internal Audit',         'ITD':      'Information Technology',
+  'LSD':    'Legal Services',         'TED':      'Trade and Exchange',
+  'BOD':    'Branch Operations',
+  'Head Records Mgt Division': 'Head Records Management Division',
+  'Head Board Affairs':        'Head Board Affairs',
+  'GVD':    'Governors Division'
+};
+
+function toMonitoringStatus(raw) {
+  if (!raw) return 'Not Implemented';
+  const t = raw.trim();
+  const valid = new Set(['Not Implemented', 'Being Implemented', 'Implemented', 'No Response']);
+  if (valid.has(t)) return t;
+  const map = {
+    'On Track':           'Being Implemented',
+    'At Risk':            'Being Implemented',
+    'High Risk':          'No Response',
+    'Completed':          'Implemented',
+    'Needs Timeline':     'Not Implemented',
+    'No response':        'No Response',
+    'Being implemented':  'Being Implemented',
+    'Implemented ':       'Implemented',
+    'Being Implemented ': 'Being Implemented'
+  };
+  return map[t] || 'Not Implemented';
+}
+
+
 async function fetchSheetData(sheetName) {
   try {
     const sheets   = await getGoogleSheetsClient();
     const metadata = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
-    const tab      = metadata.data.sheets.find(s => s.properties.title === sheetName);
-    if (!tab) { console.log(`⚠️  Tab "${sheetName}" not found`); return []; }
 
-    const tabName  = tab.properties.title;
-    console.log(`📖 Reading tab: "${tabName}"`);
+    const tab     = metadata.data.sheets.find(s => s.properties.title === sheetName);
+    if (!tab) { console.log(`⚠️  Tab "${sheetName}" not found`); return []; }
+    const tabName = tab.properties.title.trim();
+
+    console.log(`\n📖 Reading tab: "${tabName}"`);
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `'${tabName}'!A1:J1000`
+      range:         `'${tab.properties.title}'!A1:Z1000`
     });
-
     const rows = response.data.values;
-    if (!rows || rows.length < 4) {
-      console.log(`⚠️  Not enough data in "${tabName}"`); return [];
+    if (!rows || rows.length < 4) { console.log(`⚠️  Not enough data in "${tabName}"`); return []; }
+
+    let deptName = DEPT_NAME_MAP[tabName] || tabName;
+    for (let i = 0; i < Math.min(6, rows.length); i++) {
+      const cell = String((rows[i] || [])[0] || '').trim();
+      const m    = cell.match(/DEPT(?:ARTMENT)?\s*:?\s*(.+)/i);
+      if (m) { deptName = m[1].trim().replace(/\s+/g, ' '); break; }
     }
 
-    const dataRows = rows.slice(3);
-    console.log(`📊 ${dataRows.length} data rows after skipping first 3`);
+    let headerRowIdx = 4;
+    for (let i = 0; i < Math.min(12, rows.length); i++) {
+      if (rows[i]?.some(cell => String(cell || '').toUpperCase().includes('MEETING AT WHICH'))) {
+        headerRowIdx = i;
+        break;
+      }
+    }
 
-    const COL = { REF:0, DATE:1, SUBJECT:2, PARTICULARS:3, OWNER:4, AMOUNT:5, VENDOR:6, DEADLINE:7, STATUS:8, MONITOR:9 };
+    const headerRow = rows[headerRowIdx] || [];
+    const findCol   = (...keywords) => {
+      const idx = headerRow.findIndex(cell => {
+        const v = String(cell || '').toLowerCase();
+        return keywords.some(k => v.includes(k));
+      });
+      return idx >= 0 ? idx : null;
+    };
 
-    // Extract clean reference numbers, preserving sub-letters like (a),(b)
+    const COL = {
+      REF:      findCol('meeting at which', 'ref no', 'ref.') ?? 0,
+      DATE:     findCol('date')                               ?? 1,
+      SUBJECT:  findCol('subject matter', 'subject')         ?? 2,
+      PARTS:    findCol('particulars')                        ?? 3,
+      OWNER:    findCol('process owner', 'sbu', 'owner')     ?? 4,
+      AMOUNT:   findCol('amount')                             ?? 5,
+      VENDOR:   findCol('vendor')                             ?? 6,
+      DEADLINE: findCol('deadline', 'implementation date')   ?? 7,
+      STATUS:   findCol('implementation status', 'status')   ?? 8,
+      MONITOR:  findCol('monitoring')                        ?? 9,
+    };
+
+    const dataRows = rows.slice(headerRowIdx + 1);
+    console.log(`   Dept: "${deptName}" | Header @ row ${headerRowIdx + 1} | ${dataRows.length} data rows`);
+
+    const STRUCT_SIGNALS = [
+      'subject matter of approval', 'particulars', 'process owners',
+      'meeting at which', 'implementation deadline', 'implementation status',
+      'monitoring status', 'compliance with management', 'dashboard for the status',
+      'corporate secretariat', 'implemented', 'being implemented',
+      'not implemented', 'no response', 'total', 'awaiting feedback', 'key:'
+    ];
+
+    function isStructuralRow(row) {
+      if (!row || !row.length) return true;
+      const col0 = String(row[0] || '').trim().toLowerCase();
+      if (STRUCT_SIGNALS.some(s => col0 === s || col0.startsWith(s + ':') || col0.startsWith(s + ' '))) return true;
+      const hits = [row[COL.REF], row[COL.SUBJECT], row[COL.PARTS], row[COL.OWNER]].filter(cell => {
+        const v = String(cell || '').toLowerCase().trim();
+        return STRUCT_SIGNALS.some(s => v === s || v.startsWith(s));
+      }).length;
+      return hits >= 2;
+    }
+
     function extractRef(cell) {
       if (!cell) return null;
       const c = cell.toString().trim();
-      if (c.toUpperCase().includes('MEETING AT WHICH') || c === '' || c === ',,' || c === "'" || c === "''") return null;
-      const m = c.match(/(CG|BD|Board)\s*\/\s*[A-Z]{3,4}\s*\/\s*\d+\s*\/\s*\d{4}\s*(?:\/\s*\d+\s*)?(?:\([a-z]\))?/i);
-      if (m) {
-        const ref = m[0].replace(/\s+/g, '').toUpperCase();
-        return ref;
-      }
+      if (!c || c.length < 3) return null;
+      const SKIP_STARTS = ['implemented', 'being implemented', 'not implemented',
+        'no response', 'total', 'meeting at which', 'compliance', 'awaiting feedback', 'key:'];
+      if (SKIP_STARTS.some(s => c.toLowerCase().startsWith(s))) return null;
+      if (/^\d+\.\d+$/.test(c)) return null;
+      if ([',,', "''", "'", '"'].includes(c)) return null;
+      const standard = c.match(/(CG|BD)\s*\/\s*[A-Z]{2,4}\s*\/\s*[\w\s]+\/\s*\d{4}(?:\s*\/\s*[\d\w]+(?:\([a-zA-Z0-9]+\))?)?/i);
+      if (standard) return standard[0].replace(/\s*[-,]\s*$/, '').replace(/\s+/g, '').toUpperCase();
+      const emg = c.match(/(CG|BD)\s*\/\s*[A-Z]{3,4}\s*\/\s*[\w\s]+EMG[^\/]*\/\s*\d{4}(?:\s*\/\s*\d+)?/i);
+      if (emg) return emg[0].replace(/\s+/g, ' ').trim().toUpperCase();
+      const embedded = c.match(/(CG|BD)\/[A-Z]{2,4}\/[\w\s]+\/\d{4}(?:\/[\d\w]+)?/i);
+      if (embedded) return embedded[0].replace(/\s+/g, '').toUpperCase();
       return null;
     }
 
-    // Extract valid amounts (skip names/text)
     function parseAmount(cell) {
       if (!cell) return null;
       const c = cell.toString().trim();
-      if (!c || c === ',,' || c === "'") return null;
-      const hasNumbers  = /\d/.test(c);
-      const hasCurrency = /[₦$£€]|USD|GBP|EUR|Naira|billion|million/i.test(c);
+      if (!c || c === ',,' || c === "'" || c === '"') return null;
+      const hasNumbers    = /\d/.test(c);
+      const hasCurrency   = /[₦$£€]|USD|GBP|EUR|Naira|billion|million/i.test(c);
       const looksLikeName = /^[A-Z][a-z]+\s+[A-Z]/.test(c);
       if ((hasNumbers || hasCurrency) && !looksLikeName) return c;
       return null;
     }
 
-    const directiveMap = new Map();
-    let lastValidOwner = 'Unassigned';
-    let refsFound      = 0;
+    const CONT_MARKERS = new Set([',,', "''", "'", '"']);
 
-    dataRows.forEach((row, index) => {
+    const directiveMap   = new Map();
+    let lastValidOwner   = deptName;
+    let lastValidDate    = null;
+    let lastValidDateStr = '';
+    let refsFound        = 0;
+    let autoSeq          = 0;
+
+    dataRows.forEach((row) => {
       if (!row || !row.length) return;
+      if (isStructuralRow(row)) return;
 
-      const refCell = (row[COL.REF] || '').toString();
-      const ref     = extractRef(refCell);
+      const refRaw  = (row[COL.REF]    || '').toString().trim();
+      const subjVal = (row[COL.SUBJECT]|| '').toString().trim();
+      const partVal = (row[COL.PARTS]  || '').toString().trim();
+      const ref     = extractRef(refRaw);
+
+      const dateRaw = (row[COL.DATE] || '').toString().trim();
+      let meetDate  = null;
+      if (dateRaw && !CONT_MARKERS.has(dateRaw)) {
+        const parsed = parseDate(dateRaw);
+        if (parsed && !isNaN(parsed.getTime())) {
+          meetDate         = parsed;
+          lastValidDate    = parsed;
+          lastValidDateStr = dateRaw;
+        }
+      }
+      if (!meetDate) meetDate = lastValidDate || new Date();
 
       if (ref) {
         refsFound++;
-
         if (directiveMap.has(ref)) {
-          // Continuation row for existing directive — add particulars + amounts
           const g = directiveMap.get(ref);
-          const p = (row[COL.PARTICULARS] || '').toString().trim();
-          if (p && p !== ',,' && p !== "'") g.particulars.push(p);
+          if (partVal && !CONT_MARKERS.has(partVal)) g.particulars.push(partVal);
           const a = parseAmount(row[COL.AMOUNT]);
           if (a) g.amounts.push(a);
-          console.log(`   🔗 Row ${index + 4}: continuation of ${ref}`);
-
         } else {
-          // Brand-new directive
           const rawOwner = (row[COL.OWNER] || '').toString().trim();
-          const isPlaceholder = !rawOwner || rawOwner === '' || rawOwner === ',,' || rawOwner === "'";
-          let owner = lastValidOwner;
+          // Pass deptName as hint so multi-line cells prefer the dept's own line
+          const owner = CONT_MARKERS.has(rawOwner) || !rawOwner
+            ? lastValidOwner
+            : (extractProcessOwner(rawOwner, deptName) || lastValidOwner);
+          if (owner && owner !== lastValidOwner && owner !== deptName) lastValidOwner = owner;
 
-          if (!isPlaceholder) {
-            const cleaned = extractProcessOwner(rawOwner);
-            if (cleaned && cleaned !== 'Unassigned') { owner = cleaned; lastValidOwner = cleaned; }
-          }
-
-          // Parse meeting date
-          const dateCell = (row[COL.DATE] || '').toString().trim();
-          let meetDate   = new Date();
-          if (dateCell && dateCell !== ',,' && dateCell !== "'") {
-            const dm = dateCell.match(/(\d{1,2})\w*\s+of\s+([A-Za-z]+)\s+(\d{4})/);
-            if (dm) meetDate = new Date(`${dm[2]} ${dm[1]}, ${dm[3]}`);
-            else    meetDate = parseDate(dateCell) || new Date();
-          }
-
-          const amounts  = [];
+          const amounts = [];
           const a0 = parseAmount(row[COL.AMOUNT]);
           if (a0) amounts.push(a0);
 
           const g = {
-            refNo:       ref,
-            meetingDate: meetDate,
-            subject:     (row[COL.SUBJECT] || '').toString().trim(),
+            refNo:        ref,
+            meetingDate:  meetDate,
+            subject:      subjVal,
             owner,
             amounts,
-            vendor:      (row[COL.VENDOR]   || '').toString().trim(),
-            implDeadline:(row[COL.DEADLINE] || '').toString().trim(),
-            implStatus:  (row[COL.STATUS]   || '').toString().trim(),
-            monitorStatus:(row[COL.MONITOR] || '').toString().trim(),
-            particulars: []
+            vendor:        (row[COL.VENDOR]   || '').toString().trim(),
+            implDeadline:  (row[COL.DEADLINE] || '').toString().trim(),
+            implStatus:    (row[COL.STATUS]   || '').toString().trim(),
+            monitorStatus: (row[COL.MONITOR]  || '').toString().trim(),
+            particulars:   []
           };
-
-          const p0 = (row[COL.PARTICULARS] || '').toString().trim();
-          if (p0 && p0 !== ',,' && p0 !== "'") g.particulars.push(p0);
-
+          if (partVal && !CONT_MARKERS.has(partVal)) g.particulars.push(partVal);
           directiveMap.set(ref, g);
-          console.log(`\n📌 NEW: ${ref} | owner: "${owner}" | date: ${meetDate.toDateString()}`);
+          console.log(`   📌 ${ref} | owner: "${resolveOwner(owner, deptName)}" | ${meetDate.toDateString()}`);
         }
 
       } else {
-        // No REF — continuation of the last directive in map
-        const last = Array.from(directiveMap.values()).pop();
-        if (last) {
-          const p = (row[COL.PARTICULARS] || '').toString().trim();
-          if (p && p !== ',,' && p !== "'") {
-            last.particulars.push(p);
-            console.log(`   └─ Row ${index + 4}: added particular to ${last.refNo}`);
+        const refIsExplicitCont = CONT_MARKERS.has(refRaw);
+
+        const JUNK_LABELS = [
+          'subject matter of approval', 'particulars', 'process owners',
+          'implemented', 'not implemented', 'being implemented', 'no response',
+          'total', 'compliance', 'ref', 'date', 'subject', 'meeting at which',
+          'owner', 'amount', 'vendor', 'deadline', 'status', 'monitoring status'
+        ];
+        const hasRealContent = subjVal.length > 10
+          && !JUNK_LABELS.some(s => subjVal.toLowerCase().trim() === s)
+          && !JUNK_LABELS.some(s => subjVal.toLowerCase().trim().startsWith(s));
+
+        if (!refIsExplicitCont && hasRealContent) {
+          autoSeq++;
+          const autoRef = generateAutoRef(lastValidDateStr || dateRaw, tabName, autoSeq);
+
+          const rawOwner = (row[COL.OWNER] || '').toString().trim();
+          const owner = CONT_MARKERS.has(rawOwner) || !rawOwner
+            ? lastValidOwner
+            : (extractProcessOwner(rawOwner, deptName) || lastValidOwner);
+          if (owner && owner !== lastValidOwner && owner !== deptName) lastValidOwner = owner;
+
+          const amounts = [];
+          const a0 = parseAmount((row[COL.AMOUNT] || '').toString().trim());
+          if (a0) amounts.push(a0);
+
+          const g = {
+            refNo:        autoRef,
+            meetingDate:  meetDate,
+            subject:      subjVal,
+            owner,
+            amounts,
+            vendor:        (row[COL.VENDOR]   || '').toString().trim(),
+            implDeadline:  (row[COL.DEADLINE] || '').toString().trim(),
+            implStatus:    (row[COL.STATUS]   || '').toString().trim(),
+            monitorStatus: (row[COL.MONITOR]  || '').toString().trim(),
+            particulars:   []
+          };
+          if (partVal && !CONT_MARKERS.has(partVal)) g.particulars.push(partVal);
+          directiveMap.set(autoRef, g);
+          console.log(`   🔖 AUTO-REF: ${autoRef} | "${subjVal.substring(0, 50)}"`);
+
+        } else {
+          const last = Array.from(directiveMap.values()).pop();
+          if (last) {
+            if (partVal && !CONT_MARKERS.has(partVal)) last.particulars.push(partVal);
+            const a = parseAmount((row[COL.AMOUNT] || '').toString().trim());
+            if (a) last.amounts.push(a);
           }
-          const a = parseAmount(row[COL.AMOUNT]);
-          if (a) { last.amounts.push(a); console.log(`   └─💰 Amount: ${a}`); }
         }
       }
     });
 
     const groups = Array.from(directiveMap.values());
-    console.log(`\n✨ "${tabName}": ${refsFound} refs → ${groups.length} directives\n`);
+    console.log(`   ✨ ${refsFound} sheet refs + ${autoSeq} auto-refs = ${groups.length} directives`);
 
     return groups.map((g, idx) => {
-      // Build decisions from each particular row (each row = one decision)
-      let decisions = g.particulars.map(p => ({
-        text:   smartTruncate(p, 300),
-        status: 'Not Implemented'
-      }));
+      let decisions = g.particulars.map(p => ({ text: smartTruncate(p, 300), status: 'Not Implemented' }));
+      if (!decisions.length && g.subject) decisions = parseDecisions(g.subject);
+      if (!decisions.length) decisions = [{ text: g.subject || 'Implementation required', status: 'Not Implemented' }];
 
-      // If no particular rows, use smart parsing of combined text
-      if (!decisions.length && g.subject) {
-        decisions = parseDecisions(g.subject);
-      }
-
-      // Always at least one decision
-      if (!decisions.length) {
-        decisions = [{ text: g.subject || 'Implementation required', status: 'Not Implemented' }];
-      }
-
-      const combinedParticulars = g.particulars.length ? g.particulars.join('\n\n') : g.subject;
-
-      console.log(`✅ ${idx + 1}/${groups.length}: ${g.refNo} — ${decisions.length} decision(s), ${g.amounts.length} amount(s)`);
+      const owner = resolveOwner(g.owner, deptName);
+      console.log(`   ✅ ${idx + 1}/${groups.length}: ${g.refNo} | ${decisions.length} decision(s) | owner="${owner}"`);
 
       return {
-        source:               tabName.toLowerCase().includes('board') ? 'Board' : 'CG',
-        sheetName:            tabName,
-        ref:                  g.refNo,
-        meetingDate:          g.meetingDate,
-        subject:              g.subject || 'No Subject',
-        particulars:          combinedParticulars,
-        owner:                g.owner,
-        primaryEmail:         '',
-        inCopy:               [],
-        secondaryEmail:       '',
-        amount:               g.amounts.join('\n'),
-        vendor:               g.vendor || '',
+        source:      tabName.toLowerCase().startsWith('board of') ? 'Board' : 'CG',
+        sheetName:   tabName,
+        department:  deptName,
+        ref:         g.refNo,
+        meetingDate: g.meetingDate,
+        subject:     g.subject || 'No Subject',
+        particulars: g.particulars.length ? g.particulars.join('\n\n') : g.subject,
+        owner,
+        primaryEmail:   '',
+        inCopy:         [],
+        secondaryEmail: '',
+        amount:         g.amounts.join('\n'),
+        vendor:         g.vendor || '',
         implementationStartDate: null,
         implementationEndDate:   parseDate(g.implDeadline),
         implementationStatus:    extractStandardStatus(g.implStatus),
         additionalComments:      extractComments(g.implStatus),
-        monitoringStatus:        g.monitorStatus?.trim() || 'On Track',
-        outcomes:                decisions,
+        monitoringStatus:        toMonitoringStatus(g.monitorStatus),
+        outcomes:    decisions,
         statusHistory: [{
-          status:    g.monitorStatus?.trim() || 'On Track',
+          status:    toMonitoringStatus(g.monitorStatus),
           changedAt: new Date(),
           notes:     'Initial status from Google Sheet'
         }]
@@ -1015,23 +1243,31 @@ async function fetchSheetData(sheetName) {
   }
 }
 
+
+
+
+
+
 // ============================================================
 // AUTOMATED REMINDERS
 // ============================================================
 
 async function runReminders() {
-  console.log('\n📧 Running reminder check…');
-
+  console.log('\n📧 Running reminder check...');
   let settings = await ReminderSettings.findOne();
-  if (!settings) settings = await ReminderSettings.create({
-    enabled: true, statusSettings: { 'On Track': true, 'At Risk': true, 'High Risk': true }
-  });
-
+  if (!settings) {
+    settings = await ReminderSettings.create({
+      enabled: true,
+      statusSettings: { 'On Track': true, 'At Risk': true, 'High Risk': true }
+    });
+  }
   if (!settings.enabled) { console.log('⏸  Reminders disabled'); return; }
 
   const enabledStatuses = Object.keys(settings.statusSettings).filter(k => settings.statusSettings[k]);
-  const directives = await Directive.find({ monitoringStatus: { $in: enabledStatuses }, reminders: { $lt: 3 } });
-
+const directives = await Directive.find({
+  monitoringStatus: { $in: ['Not Implemented', 'Being Implemented', 'No Response'] },
+  reminders: { $lt: 3 }
+});
   let sent = 0;
   for (const d of directives) {
     if (!d.isReminderDue()) continue;
@@ -1065,12 +1301,14 @@ function departmentFilter(req, res, next) {
 // ============================================================
 
 // ─── Health ──────────────────────────────────────────────────
-app.get('/api/health', (req, res) => res.json({
-  status:    'ok',
-  mongodb:   mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-  email:     emailTransporter ? 'configured' : 'not configured',
-  timestamp: new Date().toISOString()
-}));
+app.get('/api/health', (req, res) => {
+  res.json({
+    status:    'ok',
+    mongodb:   mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    email:     emailTransporter ? 'configured' : 'not configured',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // ─── Email test ───────────────────────────────────────────────
 app.post('/api/test-email', async (req, res) => {
@@ -1079,12 +1317,10 @@ app.post('/api/test-email', async (req, res) => {
   }, 15000);
   try {
     if (!emailTransporter) { clearTimeout(timer); return res.status(500).json({ success: false, error: 'Email not configured' }); }
-    const { testEmail } = req.body;
     await emailTransporter.sendMail({
-      to:      testEmail,
+      to:      req.body.testEmail,
       subject: 'CBN Directives System – Email Configuration Test',
-      html: `
-      <div style="font-family:Arial,sans-serif;padding:24px;border:2px solid #10b981;border-radius:8px;
+      html: `<div style="font-family:Arial,sans-serif;padding:24px;border:2px solid #10b981;border-radius:8px;
                   background:#f0fdf4;max-width:600px;margin:auto;">
         <h2 style="color:#059669;margin-top:0;">✅ Email System Working!</h2>
         <p style="color:#374151;line-height:1.6;">
@@ -1094,7 +1330,7 @@ app.post('/api/test-email', async (req, res) => {
       </div>`
     });
     clearTimeout(timer);
-    res.json({ success: true, message: `Test email sent to ${testEmail}` });
+    res.json({ success: true, message: `Test email sent to ${req.body.testEmail}` });
   } catch (e) { clearTimeout(timer); res.status(500).json({ success: false, error: e.message }); }
 });
 
@@ -1103,45 +1339,37 @@ app.post('/api/preview-email/:id', async (req, res) => {
     const d = await Directive.findById(req.params.id);
     if (!d) return res.status(404).json({ success: false, error: 'Not found' });
     res.json({ success: true, html: generateMemoEmail(d) });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
-});
-
-// ─── Departments (Business Units — max 3) ────────────────────
-app.get('/api/departments', async (req, res) => {
-  try {
-    const data = await Department.find({ isActive: true }).sort({ name: 1 });
-    res.json({ success: true, data });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
-});
-
-app.post('/api/departments', async (req, res) => {
-  try {
-    const dept = new Department(req.body);
-    await dept.save();
-    res.json({ success: true, data: dept });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
+// ─── Departments ──────────────────────────────────────────────
+app.get('/api/departments', async (req, res) => {
+  try {
+    res.json({ success: true, data: await Department.find({ isActive: true }).sort({ name: 1 }) });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
 
-
+app.post('/api/departments', async (req, res) => {
+  try {
+    const d = new Department(req.body);
+    await d.save();
+    res.json({ success: true, data: d });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
 
 app.post('/api/departments/upsert', async (req, res) => {
   try {
     const { name, personName, position, code } = req.body;
     if (!name) return res.status(400).json({ success: false, error: 'Name required' });
-
     const dept = await Department.findOneAndUpdate(
       { name },
-      {
-        $set: {
-          personName: personName || '',
-          position:   position   || '',
-          code:       code       || '',
-          isActive:   true
-        }
-      },
+      { $set: { personName: personName || '', position: position || '', code: code || '', isActive: true } },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
     res.json({ success: true, data: dept });
@@ -1150,35 +1378,64 @@ app.post('/api/departments/upsert', async (req, res) => {
   }
 });
 
-
-
-
-
 app.patch('/api/departments/:id', async (req, res) => {
   try {
-    const dept = await Department.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!dept) return res.status(404).json({ success: false, error: 'Not found' });
-    res.json({ success: true, data: dept });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+    const d = await Department.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!d) return res.status(404).json({ success: false, error: 'Not found' });
+    res.json({ success: true, data: d });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.delete('/api/departments/:id', async (req, res) => {
   try {
-    const dept = await Department.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
-    if (!dept) return res.status(404).json({ success: false, error: 'Not found' });
-    res.json({ success: true, message: `${dept.name} deactivated` });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+    const d = await Department.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+    if (!d) return res.status(404).json({ success: false, error: 'Not found' });
+    res.json({ success: true, message: `${d.name} deactivated` });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── FIX 9: Google Sheets tab names (source of truth for tab bar) ──
+// Returns ALL tabs directly from Google Sheets so the frontend tab bar shows
+// every department tab including those with zero saved directives
+// (RISK, RESEARCH, DG OPS, IAD, Head Board Affairs etc.)
+app.get('/api/sheets/tab-names', async (req, res) => {
+  try {
+    const sheets   = await getGoogleSheetsClient();
+    const metadata = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+    const tabs     = metadata.data.sheets
+      .filter(s => !s.properties.hidden)
+      .map(s => s.properties.title.trim())
+      .filter(t => t.length > 0);
+    res.json({ success: true, data: tabs, source: 'google-sheets' });
+  } catch (e) {
+    // Fallback to DB-stored sheet names
+    try {
+      const dbSheets = await Directive.distinct('sheetName');
+      res.json({ success: true, data: dbSheets.filter(Boolean).sort(), source: 'database' });
+    } catch (e2) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
 });
 
 // ─── Google Sheets sync ───────────────────────────────────────
 app.post('/api/sync-sheets', async (req, res) => {
   try {
-    console.log('\n🔄 Starting Google Sheets sync…');
+    console.log('\n🔄 Starting Google Sheets sync...');
     const sheets   = await getGoogleSheetsClient();
     const metadata = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
     const allTabs  = metadata.data.sheets.filter(s => !s.properties.hidden).map(s => s.properties.title);
-
     console.log(`📊 ${allTabs.length} sheets detected`);
+
+    // Wipe stale auto/noref directives before sync so they are recreated cleanly
+    const autoDel  = await Directive.deleteMany({ ref: /\/AUTO\// });
+    const norefDel = await Directive.deleteMany({ ref: /\/NOREF\// });
+    const wiped    = autoDel.deletedCount + norefDel.deletedCount;
+    if (wiped > 0) console.log(`🗑️  Wiped ${wiped} stale auto-ref directive(s)`);
 
     let newCount = 0, updCount = 0, skipCount = 0;
     const errors = [];
@@ -1190,22 +1447,48 @@ app.post('/api/sync-sheets', async (req, res) => {
 
         for (const d of directives) {
           try {
-            const existing = await Directive.findOne({ ref: d.ref }) ||
-                             await Directive.findOne({ subject: d.subject, meetingDate: d.meetingDate, sheetName: d.sheetName });
+            // STRICT compound key match only — never fall back to subject+date
+            // because the same subject/date can appear in multiple tabs with
+            // different owners (e.g. BSD vs FPRD both have CG/JAN/833/2025/5)
+            const existing = await Directive.findOne({
+              ref:       d.ref,
+              sheetName: d.sheetName
+            });
+
             if (!existing) {
               await new Directive(d).save();
               newCount++;
             } else {
-              existing.particulars = d.particulars;
-              existing.owner       = d.owner;
-              existing.amount      = d.amount;
-              existing.vendor      = d.vendor;
-              if (!existing.implementationEndDate) existing.implementationEndDate = d.implementationEndDate;
-              if (existing.outcomes.every(o => o.status === 'Not Implemented')) existing.outcomes = d.outcomes;
+              // Update fields from sheet but NEVER overwrite emails or
+              // outcome statuses that have already been updated by the SBU
+              existing.particulars      = d.particulars;
+              existing.department       = d.department;
+              existing.amount           = d.amount;
+              existing.vendor           = d.vendor;
+              existing.monitoringStatus = d.monitoringStatus;
+
+              // Only update owner if the sheet now has a better value than
+              // what is stored — never overwrite with a worse/shorter value
+              if (d.owner && d.owner !== 'Unassigned' && d.owner.length >= (existing.owner?.length || 0)) {
+                existing.owner = d.owner;
+              }
+
+              // Only set deadline if not already set
+              if (!existing.implementationEndDate && d.implementationEndDate) {
+                existing.implementationEndDate = d.implementationEndDate;
+              }
+
+              // Only reset outcomes if none have been updated yet (all still Not Implemented)
+              if (existing.outcomes.every(o => o.status === 'Not Implemented')) {
+                existing.outcomes = d.outcomes;
+              }
+
               await existing.save();
               updCount++;
             }
-          } catch (e) { errors.push({ tab, ref: d.ref, error: e.message }); }
+          } catch (e) {
+            errors.push({ tab, ref: d.ref, error: e.message });
+          }
         }
       } catch (e) {
         console.error(`❌ Error processing "${tab}":`, e.message);
@@ -1213,11 +1496,20 @@ app.post('/api/sync-sheets', async (req, res) => {
       }
     }
 
-    console.log(`\n✨ Sync done: ${newCount} new | ${updCount} updated | ${skipCount} skipped | ${errors.length} errors\n`);
+    console.log(`\n✨ Sync done: ${newCount} new | ${updCount} updated | ${skipCount} skipped | ${errors.length} errors`);
+    if (errors.length) console.log('First 5 errors:', errors.slice(0, 5));
+
     res.json({
       success: true,
       message: `Synced ${newCount} new, updated ${updCount}`,
-      summary: { sheetsProcessed: allTabs.length, newCount, updCount, skipCount, errors: errors.length }
+      summary: {
+        sheetsProcessed: allTabs.length,
+        newCount,
+        updCount,
+        skipCount,
+        errors:       errors.length,
+        errorDetails: errors.slice(0, 10)
+      }
     });
   } catch (e) {
     console.error('❌ Sync error:', e.message);
@@ -1225,50 +1517,18 @@ app.post('/api/sync-sheets', async (req, res) => {
   }
 });
 
-// // ─── 2FA — Admin login ────────────────────────────────────────
-// app.post('/api/auth/admin/login', async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
-//     if (!email || !password) return res.status(400).json({ success: false, error: 'Email and password required' });
-//     // TODO: wire up your AdminUser model here
-//     // const admin = await AdminUser.findOne({ email: email.toLowerCase() });
-//     // if (!admin || !(await bcrypt.compare(password, admin.passwordHash)))
-//     //   return res.status(401).json({ success: false, error: 'Invalid credentials' });
-//     await sendOtp(email, 'Admin');
-//     res.json({ success: true, step: '2fa', email, message: `OTP sent to ${email}` });
-//   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
-// });
-
-
-
-
-
-// app.post('/api/auth/admin/verify-otp', async (req, res) => {
-//   try {
-//     const { email, otp } = req.body;
-//     const record = await Otp.findOne({ email: email.toLowerCase(), used: false });
-//     if (!record || new Date() > record.expiresAt)
-//       return res.status(401).json({ success: false, error: 'OTP expired or invalid' });
-//     const ok = await bcrypt.compare(String(otp), record.otpHash);
-//     if (!ok) return res.status(401).json({ success: false, error: 'Incorrect code' });
-//     record.used = true; await record.save();
-//     const token = crypto.randomBytes(32).toString('hex');
-//     res.json({ success: true, token, userType: 'admin', message: 'Login successful' });
-//   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
-// });
 
 // ─── Directives CRUD ──────────────────────────────────────────
 
 function computeMonitoring(d) {
   const allDone = d.outcomes?.length > 0 && d.outcomes.every(o => o.status === 'Implemented');
-  if (allDone || d.implementationStatus === 'Implemented') return { monitoringStatus: 'Completed', isResponsive: true };
-  if (!d.implementationEndDate) return { monitoringStatus: 'Needs Timeline', isResponsive: d.isResponsive };
-  const days = Math.ceil((new Date(d.implementationEndDate) - new Date()) / 86400000);
-  const ms   = days <= 7 ? 'High Risk' : (days < 30 || d.reminders >= 3) ? 'At Risk' : 'On Track';
-  const nr   = d.reminders >= 3 && (!d.lastSbuUpdate ||
-    (d.lastReminderDate && new Date(d.lastSbuUpdate) < new Date(d.lastReminderDate)));
-  return { monitoringStatus: ms, isResponsive: !nr };
+  if (allDone || d.implementationStatus === 'Implemented') return { monitoringStatus: 'Implemented', isResponsive: true };
+  if (d.outcomes?.some(o => o.status === 'No Response'))  return { monitoringStatus: 'No Response',  isResponsive: false };
+  if (d.outcomes?.some(o => o.status === 'Being Implemented')) return { monitoringStatus: 'Being Implemented', isResponsive: true };
+  return { monitoringStatus: 'Not Implemented', isResponsive: true };
 }
+
+
 
 app.get('/api/directives', departmentFilter, async (req, res) => {
   try {
@@ -1283,9 +1543,10 @@ app.get('/api/directives', departmentFilter, async (req, res) => {
     if (req.deptFilter) query.department = req.deptFilter;
 
     const directives = await Directive.find(query).sort({ createdAt: -1 });
-    const data = directives.map(d => ({ ...d.toObject(), ...computeMonitoring(d.toObject()) }));
-    res.json({ success: true, data });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+    res.json({ success: true, data: directives.map(d => ({ ...d.toObject(), ...computeMonitoring(d.toObject()) })) });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.get('/api/directives/eligible-for-reminder', async (req, res) => {
@@ -1294,14 +1555,23 @@ app.get('/api/directives/eligible-for-reminder', async (req, res) => {
     const all = await Directive.find(source ? { source } : {});
     const eligible = all.filter(d => {
       if (d.monitoringStatus === 'Completed' || d.reminders >= 3) return false;
-      if (d.lastSbuUpdate) {
-        const days = Math.ceil((new Date() - new Date(d.lastSbuUpdate)) / 86400000);
-        if (days < 7) return false;
-      }
+      if (d.lastSbuUpdate && Math.ceil((new Date() - new Date(d.lastSbuUpdate)) / 86400000) < 7) return false;
       return !d.outcomes?.length || d.outcomes.some(o => o.status !== 'Implemented');
     });
     res.json({ success: true, data: eligible, total: eligible.length });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Must be ABOVE /:id
+app.get('/api/directives/sheet-names', async (req, res) => {
+  try {
+    const sheets = await Directive.distinct('sheetName');
+    res.json({ success: true, data: sheets.filter(s => s).sort() });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.get('/api/directives/:id', async (req, res) => {
@@ -1310,7 +1580,9 @@ app.get('/api/directives/:id', async (req, res) => {
     if (!d) return res.status(404).json({ success: false, error: 'Not found' });
     const obj = d.toObject();
     res.json({ success: true, data: { ...obj, ...computeMonitoring(obj) } });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.post('/api/directives', async (req, res) => {
@@ -1318,7 +1590,9 @@ app.post('/api/directives', async (req, res) => {
     const d = new Directive(req.body);
     await d.save();
     res.json({ success: true, data: d });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.put('/api/directives/:id', async (req, res) => {
@@ -1328,9 +1602,9 @@ app.put('/api/directives/:id', async (req, res) => {
 
     const {
       outcomes, implementationStatus, completionNote, additionalComments,
-      implementationStartDate, implementationEndDate,
-      meetingDate, owner, subject, particulars, amount, vendor,
-      sheetName, department, primaryEmail, secondaryEmail, inCopy
+      implementationStartDate, implementationEndDate, meetingDate, owner,
+      subject, particulars, amount, vendor, sheetName, department,
+      primaryEmail, secondaryEmail, inCopy
     } = req.body;
 
     const emailChanged = (
@@ -1339,33 +1613,31 @@ app.put('/api/directives/:id', async (req, res) => {
       (inCopy         !== undefined)
     );
 
-    if (outcomes)               directive.outcomes               = outcomes;
-    if (implementationStatus)   directive.implementationStatus   = implementationStatus;
-    if (completionNote)         directive.completionNote         = completionNote;
-    if (implementationStartDate)directive.implementationStartDate= new Date(implementationStartDate);
-    if (implementationEndDate)  directive.implementationEndDate  = new Date(implementationEndDate);
-    if (meetingDate)            directive.meetingDate            = new Date(meetingDate);
-    if (owner)                  directive.owner                  = owner;
-    if (subject)                directive.subject                = subject;
-    if (particulars)            directive.particulars            = particulars;
-    if (amount      !== undefined) directive.amount              = amount;
-    if (vendor      !== undefined) directive.vendor              = vendor;
-    if (sheetName)              directive.sheetName              = sheetName;
-    if (department  !== undefined) directive.department          = department;
-    if (primaryEmail  !== undefined) directive.primaryEmail      = primaryEmail;
-    if (secondaryEmail!== undefined) directive.secondaryEmail    = secondaryEmail;
+    if (outcomes)                directive.outcomes                = outcomes;
+    if (implementationStatus)    directive.implementationStatus    = implementationStatus;
+    if (completionNote)          directive.completionNote          = completionNote;
+    if (implementationStartDate) directive.implementationStartDate = new Date(implementationStartDate);
+    if (implementationEndDate)   directive.implementationEndDate   = new Date(implementationEndDate);
+    if (meetingDate)             directive.meetingDate             = new Date(meetingDate);
+    if (owner)                   directive.owner                   = owner;
+    if (subject)                 directive.subject                 = subject;
+    if (particulars)             directive.particulars             = particulars;
+    if (amount      !== undefined) directive.amount                = amount;
+    if (vendor      !== undefined) directive.vendor                = vendor;
+    if (sheetName)               directive.sheetName               = sheetName;
+    if (department  !== undefined) directive.department            = department;
+    if (primaryEmail  !== undefined) directive.primaryEmail        = primaryEmail;
+    if (secondaryEmail !== undefined) directive.secondaryEmail     = secondaryEmail;
 
     if (inCopy !== undefined) {
-      directive.inCopy = Array.isArray(inCopy)
-        ? inCopy.filter(e => e?.trim())
-        : [inCopy].filter(Boolean);
-      if (directive.secondaryEmail && !directive.inCopy.includes(directive.secondaryEmail))
+      directive.inCopy = Array.isArray(inCopy) ? inCopy.filter(e => e?.trim()) : [inCopy].filter(Boolean);
+      if (directive.secondaryEmail && !directive.inCopy.includes(directive.secondaryEmail)) {
         directive.inCopy.unshift(directive.secondaryEmail);
+      }
     }
 
-    // Append timestamped comment
     if (additionalComments?.trim()) {
-      const ts   = new Date().toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+      const ts   = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
       const note = `[${ts}] ${additionalComments.trim()}`;
       directive.additionalComments = directive.additionalComments?.trim()
         ? directive.additionalComments + '\n\n' + note
@@ -1373,22 +1645,24 @@ app.put('/api/directives/:id', async (req, res) => {
     }
 
     if (outcomes) { directive.lastSbuUpdate = directive.lastResponseDate = new Date(); }
-
     await directive.updateMonitoringStatus(outcomes ? 'SBU update received' : 'Directive edited');
 
-    // Sync email across all directives with same Business Unit
+    // Sync email across all directives for the same Business Unit
     if (emailChanged && directive.owner) {
       const result = await Directive.updateMany(
         { owner: directive.owner, _id: { $ne: directive._id } },
         { $set: { primaryEmail: directive.primaryEmail, secondaryEmail: directive.secondaryEmail, inCopy: directive.inCopy } }
       );
       console.log(`✅ Email synced to ${result.modifiedCount} other directive(s) for: ${directive.owner}`);
-      return res.json({ success: true, data: directive, emailsUpdated: result.modifiedCount,
-        message: `Email updated for ${directive.owner} across ${result.modifiedCount + 1} directive(s)` });
+      return res.json({
+        success: true, data: directive, emailsUpdated: result.modifiedCount,
+        message: `Email updated for ${directive.owner} across ${result.modifiedCount + 1} directive(s)`
+      });
     }
-
     res.json({ success: true, data: directive });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.delete('/api/directives/:id', async (req, res) => {
@@ -1396,14 +1670,18 @@ app.delete('/api/directives/:id', async (req, res) => {
     const d = await Directive.findByIdAndDelete(req.params.id);
     if (!d) return res.status(404).json({ success: false, error: 'Not found' });
     res.json({ success: true, message: 'Directive deleted' });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.get('/api/admin/clear-directives', async (req, res) => {
   try {
     const r = await Directive.deleteMany({});
     res.json({ success: true, message: `Deleted ${r.deletedCount} directives` });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 // ─── Remind — single ─────────────────────────────────────────
@@ -1417,22 +1695,21 @@ app.post('/api/directives/:id/remind', async (req, res) => {
     directive.reminderHistory.push({ sentAt: new Date(), recipient: directive.owner, method: ok ? 'Email' : 'System' });
     await directive.updateMonitoringStatus(`Manual reminder ${directive.reminders} sent`);
     res.json({ success: true, data: directive, emailSent: ok });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
-// ─── Request update (selective decisions, submission token) ───
+// ─── Request update (selective decisions + submission token) ──
 app.post('/api/directives/:id/request-update', async (req, res) => {
   try {
     const directive = await Directive.findById(req.params.id);
     if (!directive) return res.status(404).json({ success: false, error: 'Not found' });
 
     const { selectedOutcomes, deptCCEmails } = req.body;
-    if (!selectedOutcomes?.length)
-      return res.status(400).json({ success: false, error: 'No decisions selected' });
-    if (!directive.primaryEmail?.trim())
-      return res.status(400).json({ success: false, error: 'No email configured for this Business Unit' });
-    if ((directive.reminders || 0) >= 3)
-      return res.status(400).json({ success: false, error: 'Maximum reminders (3) already sent' });
+    if (!selectedOutcomes?.length)    return res.status(400).json({ success: false, error: 'No decisions selected' });
+    if (!directive.primaryEmail?.trim()) return res.status(400).json({ success: false, error: 'No email configured for this Business Unit' });
+    if ((directive.reminders || 0) >= 3) return res.status(400).json({ success: false, error: 'Maximum reminders (3) already sent' });
 
     const token = crypto.randomBytes(32).toString('hex');
     await new SubmissionToken({
@@ -1443,16 +1720,15 @@ app.post('/api/directives/:id/request-update', async (req, res) => {
     const baseUrl   = process.env.BASE_URL || 'https://directives-new.onrender.com';
     const submitUrl = `${baseUrl}/submit-update/${directive._id}?token=${token}`;
     const today     = new Date();
-    const dateStr   = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default',{month:'long'})} ${today.getFullYear()}`;
-    const sourceLabel = directive.source === 'CG' ? 'Committee of Board' : 'Board of Directors';
+    const dateStr   = `${today.getDate()}${getOrdinal(today.getDate())} ${today.toLocaleString('default', { month: 'long' })} ${today.getFullYear()}`;
+    const srcLabel  = directive.source === 'CG' ? 'Committee of Board' : 'Board of Directors';
 
     const decisionsHtml = selectedOutcomes.map(idx => {
       const o = directive.outcomes[idx];
       if (!o) return '';
-      const color = { 'Not Implemented':'#6b7280','Being Implemented':'#3b82f6','Implemented':'#10b981','No Response':'#dc2626' }[o.status] || '#6b7280';
+      const color = { 'Not Implemented': '#6b7280', 'Being Implemented': '#3b82f6', 'Implemented': '#10b981', 'No Response': '#dc2626' }[o.status] || '#6b7280';
       return `
-      <div style="margin-bottom:16px;padding:16px;background:white;border-radius:8px;
-                  border-left:4px solid ${color};">
+      <div style="margin-bottom:16px;padding:16px;background:white;border-radius:8px;border-left:4px solid ${color};">
         <div style="font-weight:700;color:#1B5E20;margin-bottom:8px;font-size:13px;">Decision ${idx + 1}</div>
         <div style="color:#374151;font-size:13px;line-height:1.5;margin-bottom:8px;">${o.text}</div>
         <span style="display:inline-block;padding:4px 10px;border-radius:12px;font-size:11px;
@@ -1463,27 +1739,15 @@ app.post('/api/directives/:id/request-update', async (req, res) => {
     const emailHtml = `
     <!DOCTYPE html><html><head><meta charset="UTF-8"></head>
     <body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px;">
-    <div style="max-width:650px;margin:0 auto;background:white;border-radius:12px;
-                overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);">
+    <div style="max-width:650px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);">
       <div style="padding:24px;background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);color:white;">
-        <h1 style="margin:0;font-size:18px;text-transform:uppercase;">
-          Request for Status Update – ${sourceLabel}
-        </h1>
-        <p style="margin:6px 0 0;opacity:.9;font-size:13px;">
-          Central Bank of Nigeria – Corporate Secretariat
-        </p>
+        <h1 style="margin:0;font-size:18px;text-transform:uppercase;">Request for Status Update – ${srcLabel}</h1>
+        <p style="margin:6px 0 0;opacity:.9;font-size:13px;">Central Bank of Nigeria – Corporate Secretariat</p>
       </div>
       <div style="padding:16px 24px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;">
         <div><strong>To:</strong> ${directive.owner}</div>
-        <div style="margin-top:4px;">
-          <strong>Meeting Ref:</strong> ${directive.ref||'N/A'} &nbsp;|&nbsp;
-          <strong>Date:</strong> ${dateStr}
-        </div>
-        ${directive.amount ? `
-        <div style="margin-top:4px;">
-          <strong>Amount:</strong> ${directive.amount} &nbsp;|&nbsp;
-          <strong>Vendor:</strong> ${directive.vendor||'—'}
-        </div>` : ''}
+        <div style="margin-top:4px;"><strong>Meeting Ref:</strong> ${directive.ref || 'N/A'} &nbsp;|&nbsp; <strong>Date:</strong> ${dateStr}</div>
+        ${directive.amount ? `<div style="margin-top:4px;"><strong>Amount:</strong> ${directive.amount} &nbsp;|&nbsp; <strong>Vendor:</strong> ${directive.vendor || '—'}</div>` : ''}
       </div>
       <div style="padding:16px 24px;border-bottom:1px solid #e5e7eb;">
         <div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">Subject</div>
@@ -1495,8 +1759,7 @@ app.post('/api/directives/:id/request-update', async (req, res) => {
         </div>
       </div>
       <div style="padding:20px 24px;background:#fafafa;">${decisionsHtml}</div>
-      <div style="padding:32px 24px;text-align:center;
-                  background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);">
+      <div style="padding:32px 24px;text-align:center;background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);">
         <h3 style="color:white;margin:0 0 12px 0;font-size:18px;">Submit Your Implementation Update</h3>
         <p style="color:#C8E6C9;margin:0 0 20px 0;font-size:13px;">
           Click below to update statuses, add timelines, and upload documents.
@@ -1509,28 +1772,16 @@ app.post('/api/directives/:id/request-update', async (req, res) => {
         <p style="color:#A5D6A7;font-size:10px;margin:16px 0 0;word-break:break-all;">${submitUrl}</p>
       </div>
       <div style="padding:16px 24px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;">
-        <p style="margin:0;font-size:11px;color:#6b7280;">
-          Automated message – CBN Directives Management System
-        </p>
+        <p style="margin:0;font-size:11px;color:#6b7280;">Automated message – CBN Directives Management System</p>
       </div>
     </div>
     </body></html>`;
 
     let emailSent = false;
     if (emailTransporter) {
-     const allCC = [...(directive.inCopy || [])];
-if (directive.secondaryEmail && !allCC.includes(directive.secondaryEmail)) 
-    allCC.push(directive.secondaryEmail);
-
-// Add department CC emails selected by admin
-if (deptCCEmails?.length) {
-    deptCCEmails.forEach(email => {
-        if (email && !allCC.includes(email)) allCC.push(email);
-    });
-}
-
-
-      
+      const allCC   = [...(directive.inCopy || [])];
+      if (directive.secondaryEmail && !allCC.includes(directive.secondaryEmail)) allCC.push(directive.secondaryEmail);
+      if (deptCCEmails?.length) deptCCEmails.forEach(e => { if (e && !allCC.includes(e)) allCC.push(e); });
       const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       try {
         await emailTransporter.sendMail({
@@ -1560,7 +1811,9 @@ if (deptCCEmails?.length) {
       submissionUrl: emailSent ? undefined : submitUrl,
       reminder:      `${directive.reminders}/3`
     });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 // ─── Bulk request update ──────────────────────────────────────
@@ -1570,27 +1823,23 @@ app.post('/api/directives/bulk-request-update', async (req, res) => {
     if (!directiveIds?.length) return res.status(400).json({ success: false, error: 'No directives selected' });
 
     const results = { sent: [], failed: [], skipped: [] };
-
     for (const id of directiveIds) {
       const directive = await Directive.findById(id);
       if (!directive)                       { results.failed.push({ id, reason: 'Not found' }); continue; }
       if (!directive.primaryEmail?.trim())  { results.skipped.push({ id: directive.ref, reason: 'No email' }); continue; }
-      if ((directive.reminders||0) >= 3)    { results.skipped.push({ id: directive.ref, reason: 'Max reminders' }); continue; }
-
+      if ((directive.reminders || 0) >= 3)  { results.skipped.push({ id: directive.ref, reason: 'Max reminders' }); continue; }
       try {
         const ok = await sendReminderEmail(directive);
         directive.reminders = (directive.reminders || 0) + 1;
         directive.lastReminderDate = new Date();
         await directive.save();
-        if (ok) results.sent.push(directive.ref);
-        else    results.failed.push({ id: directive.ref, reason: 'Email send failed' });
-      } catch (e) {
-        results.failed.push({ id: directive.ref || id, reason: e.message });
-      }
+        ok ? results.sent.push(directive.ref) : results.failed.push({ id: directive.ref, reason: 'Email send failed' });
+      } catch (e) { results.failed.push({ id: directive.ref || id, reason: e.message }); }
     }
-
     res.json({ success: true, results });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 // ─── Submission portal — GET ──────────────────────────────────
@@ -1599,28 +1848,26 @@ app.get('/submit-update/:id', async (req, res) => {
     const directive = await Directive.findById(req.params.id);
     if (!directive) return res.status(404).send('<h1>Directive not found</h1>');
 
-    const token  = req.query.token;
-    let toShow   = directive.outcomes.map((o, idx) => ({ o, idx }));
+    const token = req.query.token;
+    let toShow  = directive.outcomes.map((o, idx) => ({ o, idx }));
 
     if (token) {
       const rec = await SubmissionToken.findOne({ token, directiveId: req.params.id });
       if (rec) {
         if (rec.used) return res.send('<h1>This submission link has already been used.</h1>');
         if (rec.expiresAt && new Date() > rec.expiresAt) return res.send('<h1>This submission link has expired.</h1>');
-        if (rec.selectedOutcomes?.length)
+        if (rec.selectedOutcomes?.length) {
           toShow = rec.selectedOutcomes.map(idx => ({ o: directive.outcomes[idx], idx })).filter(x => x.o);
+        }
       }
     }
 
-    const statusOpts = ['Not Implemented','Being Implemented','Implemented','No Response'];
-
+    const statusOpts    = ['Not Implemented', 'Being Implemented', 'Implemented', 'No Response'];
     const decisionsHtml = toShow.map(({ o, idx }) => `
     <div class="bg-gray-50 rounded-lg border border-gray-200 p-4 mb-4">
       <div class="flex items-center justify-between mb-3">
         <span class="text-sm font-bold text-green-700">Decision ${idx + 1}</span>
-        <span class="text-xs px-2 py-1 rounded-full font-semibold bg-gray-100 text-gray-700">
-          Current: ${o.status}
-        </span>
+        <span class="text-xs px-2 py-1 rounded-full font-semibold bg-gray-100 text-gray-700">Current: ${o.status}</span>
       </div>
       <p class="text-sm text-gray-700 mb-3 leading-relaxed">${o.text}</p>
       <input type="hidden" name="outcome_index_${idx}" value="${idx}">
@@ -1629,23 +1876,23 @@ app.get('/submit-update/:id', async (req, res) => {
           <label class="block text-xs font-semibold text-gray-600 mb-1">Update Status *</label>
           <select name="outcome_status_${idx}" required
                   class="outcome-status w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500">
-            ${statusOpts.map(s => `<option value="${s}" ${o.status===s?'selected':''}>${s}</option>`).join('')}
+            ${statusOpts.map(s => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${s}</option>`).join('')}
           </select>
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-600 mb-1">Challenges / Notes</label>
           <textarea name="outcome_challenges_${idx}" rows="2"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">${o.challenges||''}</textarea>
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">${o.challenges || ''}</textarea>
         </div>
-        <div class="completion-details-${idx}" style="display:${o.status==='Implemented'?'block':'none'}">
+        <div class="completion-details-${idx}" style="display:${o.status === 'Implemented' ? 'block' : 'none'}">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Completion Details</label>
           <textarea name="outcome_completionDetails_${idx}" rows="2"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">${o.completionDetails||''}</textarea>
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">${o.completionDetails || ''}</textarea>
         </div>
-        <div class="delay-reason-${idx}" style="display:${o.status==='No Response'?'block':'none'}">
+        <div class="delay-reason-${idx}" style="display:${o.status === 'No Response' ? 'block' : 'none'}">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Reason / Explanation</label>
           <textarea name="outcome_delayReason_${idx}" rows="2"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">${o.delayReason||''}</textarea>
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">${o.delayReason || ''}</textarea>
         </div>
       </div>
     </div>`).join('');
@@ -1661,7 +1908,6 @@ app.get('/submit-update/:id', async (req, res) => {
 </head>
 <body class="bg-gray-100 min-h-screen py-8 px-4">
 <div class="max-w-3xl mx-auto">
-
   <div class="bg-gradient-to-r from-green-800 to-green-600 text-white rounded-t-xl p-6">
     <h1 class="text-2xl font-bold mb-1">📝 Submit Implementation Update</h1>
     <p class="text-green-100 text-sm">Central Bank of Nigeria – Corporate Secretariat</p>
@@ -1669,15 +1915,11 @@ app.get('/submit-update/:id', async (req, res) => {
 
   <div class="bg-white border-b p-6">
     <div class="grid grid-cols-2 gap-4 text-sm">
-      <div><span class="text-gray-500">Meeting Ref:</span>
-           <span class="font-semibold ml-1">${directive.ref || 'N/A'}</span></div>
-      <div><span class="text-gray-500">Business Unit:</span>
-           <span class="font-semibold ml-1">${directive.owner}</span></div>
+      <div><span class="text-gray-500">Meeting Ref:</span><span class="font-semibold ml-1">${directive.ref || 'N/A'}</span></div>
+      <div><span class="text-gray-500">Business Unit:</span><span class="font-semibold ml-1">${directive.owner}</span></div>
       ${directive.amount ? `
-      <div><span class="text-gray-500">Amount:</span>
-           <span class="font-semibold ml-1">${directive.amount}</span></div>
-      <div><span class="text-gray-500">Vendor:</span>
-           <span class="font-semibold ml-1">${directive.vendor || '—'}</span></div>` : ''}
+      <div><span class="text-gray-500">Amount:</span><span class="font-semibold ml-1">${directive.amount}</span></div>
+      <div><span class="text-gray-500">Vendor:</span><span class="font-semibold ml-1">${directive.vendor || '—'}</span></div>` : ''}
     </div>
     <div class="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
       <div class="text-xs text-gray-500 font-semibold mb-1">SUBJECT</div>
@@ -1697,7 +1939,6 @@ app.get('/submit-update/:id', async (req, res) => {
       <p class="text-sm text-gray-500 mb-4">Update the status for each decision below</p>
       ${decisionsHtml}
     </div>
-
     <div class="p-6 border-b">
       <h2 class="text-lg font-bold text-gray-900 mb-4">📅 Implementation Timeline</h2>
       <div class="grid grid-cols-2 gap-4">
@@ -1715,20 +1956,16 @@ app.get('/submit-update/:id', async (req, res) => {
         </div>
       </div>
     </div>
-
     <div class="p-6 border-b">
       <h2 class="text-lg font-bold text-gray-900 mb-4">💬 Additional Comments</h2>
       <textarea name="completionNote" rows="3" placeholder="Any additional details…"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"></textarea>
     </div>
-
     <div class="p-6 border-b">
       <h2 class="text-lg font-bold text-gray-900 mb-4">📎 Supporting Documents</h2>
       <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer
-                  hover:border-green-500 transition-colors"
-           onclick="document.getElementById('fi').click()">
-        <input type="file" id="fi" multiple
-               accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" class="hidden">
+                  hover:border-green-500 transition-colors" onclick="document.getElementById('fi').click()">
+        <input type="file" id="fi" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" class="hidden">
         <p class="text-sm text-gray-600 mb-1">
           <span class="font-semibold text-green-700">Click to upload</span> or drag and drop
         </p>
@@ -1736,7 +1973,6 @@ app.get('/submit-update/:id', async (req, res) => {
       </div>
       <div id="fileList" class="mt-3 space-y-2"></div>
     </div>
-
     <div class="p-6">
       <button type="submit" id="submitBtn"
               class="w-full bg-gradient-to-r from-green-700 to-green-600 text-white font-bold py-3
@@ -1765,7 +2001,6 @@ app.get('/submit-update/:id', async (req, res) => {
 </div>
 
 <script>
-  // Show/hide conditional fields based on status selection
   document.querySelectorAll('.outcome-status').forEach(sel => {
     sel.addEventListener('change', function () {
       const m  = this.name.match(/outcome_status_(\\d+)/);
@@ -1778,7 +2013,6 @@ app.get('/submit-update/:id', async (req, res) => {
     });
   });
 
-  // File list preview
   document.getElementById('fi').addEventListener('change', function () {
     const fl = document.getElementById('fileList');
     fl.innerHTML = '';
@@ -1790,17 +2024,14 @@ app.get('/submit-update/:id', async (req, res) => {
     });
   });
 
-  // Form submission
   document.getElementById('form').addEventListener('submit', async function (e) {
     e.preventDefault();
     const btn = document.getElementById('submitBtn');
     btn.disabled    = true;
     btn.textContent = '⏳ Submitting…';
-
     try {
       const fd = new FormData(this);
       Array.from(document.getElementById('fi').files).forEach(f => fd.append('files', f));
-
       const outcomes = [];
       document.querySelectorAll('[name^="outcome_index_"]').forEach(inp => {
         const i = parseInt(inp.value);
@@ -1813,18 +2044,14 @@ app.get('/submit-update/:id', async (req, res) => {
         });
       });
       fd.append('outcomes', JSON.stringify(outcomes));
-
       const r = await fetch('/api/submit-update/${directive._id}?token=${token || ''}',
                             { method: 'POST', body: fd });
       const j = await r.json();
-
       if (j.success) {
         document.getElementById('form').classList.add('hidden');
         document.getElementById('successMessage').classList.remove('hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        throw new Error(j.error || 'Submission failed');
-      }
+      } else { throw new Error(j.error || 'Submission failed'); }
     } catch (err) {
       document.getElementById('form').classList.add('hidden');
       document.getElementById('errorText').textContent = err.message;
@@ -1835,7 +2062,9 @@ app.get('/submit-update/:id', async (req, res) => {
 </script>
 </body>
 </html>`);
-  } catch (e) { res.status(500).send('<h1>Error: ' + e.message + '</h1>'); }
+  } catch (e) {
+    res.status(500).send('<h1>Error: ' + e.message + '</h1>');
+  }
 });
 
 // ─── Submission portal — POST ─────────────────────────────────
@@ -1858,9 +2087,7 @@ app.post('/api/submit-update/:id', upload, async (req, res) => {
       updates = typeof req.body.outcomes === 'string'
         ? JSON.parse(req.body.outcomes)
         : (Array.isArray(req.body.outcomes) ? req.body.outcomes : []);
-    } catch (e) {
-      return res.status(400).json({ success: false, error: 'Invalid decisions data' });
-    }
+    } catch (e) { return res.status(400).json({ success: false, error: 'Invalid decisions data' }); }
 
     let changed = 0;
     updates.forEach(u => {
@@ -1878,10 +2105,11 @@ app.post('/api/submit-update/:id', upload, async (req, res) => {
     if (req.body.implementationEndDate)   directive.implementationEndDate   = new Date(req.body.implementationEndDate);
 
     if (req.body.completionNote?.trim()) {
-      const ts   = new Date().toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+      const ts   = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
       const note = `[${ts}] ${req.body.completionNote.trim()}`;
       directive.additionalComments = directive.additionalComments?.trim()
-        ? directive.additionalComments + '\n\n' + note : note;
+        ? directive.additionalComments + '\n\n' + note
+        : note;
     }
 
     if (req.files?.length) {
@@ -1902,14 +2130,9 @@ app.post('/api/submit-update/:id', upload, async (req, res) => {
 
     directive.lastSbuUpdate = directive.lastResponseDate = new Date();
     await directive.updateMonitoringStatus('Update received via submission link');
+    console.log(`✅ ${directive.ref} updated — ${changed} status change(s), ${req.files?.length || 0} file(s)`);
 
-    console.log(`✅ Directive ${directive.ref} updated — ${changed} status change(s), ${req.files?.length || 0} file(s) uploaded`);
-
-    res.json({
-      success:       true,
-      message:       'Update submitted successfully',
-      filesUploaded: req.files?.length || 0
-    });
+    res.json({ success: true, message: 'Update submitted successfully', filesUploaded: req.files?.length || 0 });
   } catch (e) {
     console.error('❌ Submission error:', e.message);
     res.status(500).json({ success: false, error: e.message });
@@ -1919,20 +2142,35 @@ app.post('/api/submit-update/:id', upload, async (req, res) => {
 app.get('/api/submission-token/:token', async (req, res) => {
   try {
     const rec = await SubmissionToken.findOne({ token: req.params.token }).populate('directiveId');
-    if (!rec) return res.status(404).json({ success: false, error: 'Invalid token' });
-    if (rec.used) return res.json({ success: false, error: 'Already used', usedAt: rec.usedAt });
-    if (rec.expiresAt < new Date()) return res.status(410).json({ success: false, error: 'Expired' });
+    if (!rec) {
+      return res.status(404).json({ success: false, error: 'Invalid token' });
+    }
+    if (rec.used) {
+      return res.json({ success: false, error: 'Already used', usedAt: rec.usedAt });
+    }
+    if (rec.expiresAt < new Date()) {
+      return res.status(410).json({ success: false, error: 'Expired' });
+    }
     res.json({ success: true, directive: rec.directiveId, selectedOutcomes: rec.selectedOutcomes });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 // ─── Reminder settings ────────────────────────────────────────
 app.get('/api/reminder-settings', async (req, res) => {
   try {
     let s = await ReminderSettings.findOne();
-    if (!s) s = await ReminderSettings.create({ enabled: true, statusSettings: { 'On Track':true,'At Risk':true,'High Risk':true } });
+    if (!s) {
+      s = await ReminderSettings.create({
+        enabled: true,
+        statusSettings: { 'On Track': true, 'At Risk': true, 'High Risk': true }
+      });
+    }
     res.json({ success: true, data: s });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.put('/api/reminder-settings', async (req, res) => {
@@ -1943,14 +2181,18 @@ app.put('/api/reminder-settings', async (req, res) => {
     s.updatedAt      = new Date();
     await s.save();
     res.json({ success: true, data: s });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.post('/api/reminders/send', async (req, res) => {
   try {
     await runReminders();
     res.json({ success: true, message: 'Reminders run' });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 // ─── Reports ─────────────────────────────────────────────────
@@ -1961,29 +2203,27 @@ app.get('/api/reports/stats', async (req, res) => {
 
     const [total, completed, atRisk, highRisk, onTrack, noResp] = await Promise.all([
       Directive.countDocuments(query),
-      Directive.countDocuments({ ...query, monitoringStatus: 'Completed' }),
-      Directive.countDocuments({ ...query, monitoringStatus: 'At Risk' }),
-      Directive.countDocuments({ ...query, monitoringStatus: 'High Risk' }),
-      Directive.countDocuments({ ...query, monitoringStatus: 'On Track' }),
+Directive.countDocuments({ ...query, monitoringStatus: 'Implemented' }),
+Directive.countDocuments({ ...query, monitoringStatus: 'No Response' }),
+Directive.countDocuments({ ...query, monitoringStatus: 'Being Implemented' }),
+Directive.countDocuments({ ...query, monitoringStatus: 'Not Implemented' }),
       Directive.countDocuments({ ...query, isResponsive: false })
     ]);
 
-    // Decision-level breakdown
     const decAgg = await Directive.aggregate([
       { $match: query }, { $unwind: '$outcomes' },
       { $group: { _id: '$outcomes.status', count: { $sum: 1 } } }
     ]);
-    const decisions = { 'Not Implemented':0, 'Being Implemented':0, 'Implemented':0, 'No Response':0 };
+    const decisions = { 'Not Implemented': 0, 'Being Implemented': 0, 'Implemented': 0, 'No Response': 0 };
     decAgg.forEach(r => { if (decisions[r._id] !== undefined) decisions[r._id] = r.count; });
 
-    // ⭐ Top 10 by DEPARTMENT (not by director/owner name)
     const top10Departments = await Directive.aggregate([
       { $match: query },
       { $group: {
           _id:         '$department',
           total:       { $sum: 1 },
-          implemented: { $sum: { $cond: [{ $eq: ['$monitoringStatus','Completed'] }, 1, 0] } },
-          atRisk:      { $sum: { $cond: [{ $in: ['$monitoringStatus',['At Risk','High Risk']] }, 1, 0] } }
+          implemented: { $sum: { $cond: [{ $eq: ['$monitoringStatus', 'Completed'] }, 1, 0] } },
+          atRisk:      { $sum: { $cond: [{ $in: ['$monitoringStatus', ['At Risk', 'High Risk']] }, 1, 0] } }
         }
       },
       { $sort: { total: -1 } },
@@ -2002,7 +2242,7 @@ app.get('/api/reports/stats', async (req, res) => {
 
     const now     = new Date();
     const overdue = await Directive.countDocuments({ ...query, implementationEndDate: { $lt: now }, monitoringStatus: { $ne: 'Completed' } });
-    const dueSoon = await Directive.countDocuments({ ...query, implementationEndDate: { $gte: now, $lte: addDays(now,30) }, monitoringStatus: { $ne: 'Completed' } });
+    const dueSoon = await Directive.countDocuments({ ...query, implementationEndDate: { $gte: now, $lte: addDays(now, 30) }, monitoringStatus: { $ne: 'Completed' } });
 
     res.json({
       success: true,
@@ -2017,31 +2257,42 @@ app.get('/api/reports/stats', async (req, res) => {
         riskRate:       total > 0 ? (((atRisk + highRisk + noResp) / total) * 100).toFixed(1) : 0
       }
     });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.get('/api/reports/non-responsive', async (req, res) => {
   try {
     const { source } = req.query;
     const query = source && source !== 'All' ? { source } : {};
-    const data = await Directive.find({ ...query, isResponsive: false }).sort({ reminders: -1 });
+    const data  = await Directive.find({ ...query, isResponsive: false }).sort({ reminders: -1 });
     res.json({ success: true, data });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 // ─── Lookup helpers ───────────────────────────────────────────
+
+// Returns distinct owner (Business Unit) names from saved directives
 app.get('/api/process-owners', async (req, res) => {
   try {
     const owners = await Directive.distinct('owner');
     res.json({ success: true, data: owners.filter(o => o && o !== 'Unassigned').sort() });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
+// Alias — same as process-owners but labelled as business units for the UI
 app.get('/api/business-units', async (req, res) => {
   try {
     const units = await Directive.distinct('owner');
     res.json({ success: true, data: units.filter(u => u && u !== 'Unassigned').sort() });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.get('/api/process-owners-with-directives', async (req, res) => {
@@ -2066,34 +2317,48 @@ app.get('/api/process-owners-with-directives', async (req, res) => {
       return ah === bh ? a.name.localeCompare(b.name) : ah ? 1 : -1;
     });
     res.json({ success: true, data: owners });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.post('/api/update-owner-emails', async (req, res) => {
   try {
     const { owner, primaryEmail, inCopy, secondaryEmail } = req.body;
     if (!owner) return res.status(400).json({ success: false, error: 'Owner name required' });
+
     const update = {
       primaryEmail:   primaryEmail   || '',
       secondaryEmail: secondaryEmail || '',
       inCopy:         Array.isArray(inCopy) ? inCopy : (inCopy ? [inCopy] : [])
     };
     const r = await Directive.updateMany({ owner }, { $set: update });
-    res.json({ success: true, updated: r.modifiedCount, message: `Updated ${r.modifiedCount} directives for ${owner}` });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+    res.json({
+      success:  true,
+      updated:  r.modifiedCount,
+      message:  `Updated ${r.modifiedCount} directives for ${owner}`
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 // ─── Process Owner Accounts ───────────────────────────────────
-
 app.post('/api/process-owners/check-email', async (req, res) => {
   try {
     const email = req.body.email?.toLowerCase();
     if (!email) return res.status(400).json({ success: false, error: 'Email required' });
+
     const exists = await ProcessOwner.findOne({ email });
     if (exists) return res.json({ success: true, authorized: false, accountExists: true });
-    const count = await Directive.countDocuments({ $or: [{ primaryEmail: email }, { inCopy: email }, { secondaryEmail: email }] });
+
+    const count = await Directive.countDocuments({
+      $or: [{ primaryEmail: email }, { inCopy: email }, { secondaryEmail: email }]
+    });
     res.json({ success: true, authorized: count > 0, directivesCount: count });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.post('/api/process-owners/signup', async (req, res) => {
@@ -2101,77 +2366,27 @@ app.post('/api/process-owners/signup', async (req, res) => {
     const { name, email, password, department, position, phone } = req.body;
     if (!name || !email || !password) return res.status(400).json({ success: false, error: 'Name, email and password required' });
     if (password.length < 8) return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
-
     const emailLower = email.toLowerCase();
     const count = await Directive.countDocuments({ $or: [{ primaryEmail: emailLower }, { inCopy: emailLower }, { secondaryEmail: emailLower }] });
     if (count === 0) return res.status(403).json({ success: false, error: 'Email not authorized. Contact the Corporate Secretariat.', unauthorized: true });
-
     const existing = await ProcessOwner.findOne({ email: emailLower });
     if (existing) return res.status(400).json({ success: false, error: 'Account already exists.', accountExists: true });
-
     const po = new ProcessOwner({ name, email: emailLower, password, department, position, phone, isActive: true, passwordSetAt: new Date(), createdBy: 'self-signup' });
     await po.save();
-
-    // Welcome email
-    if (emailTransporter) {
-      const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
-      await emailTransporter.sendMail({
-        to:      email,
-        subject: '🎉 Welcome to CBN Directives Platform',
-        html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:white;
-                    border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
-          <div style="padding:32px 24px;background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);
-                      color:white;text-align:center;">
-            <h1 style="margin:0;font-size:24px;">Welcome to CBN Directives Platform</h1>
-          </div>
-          <div style="padding:32px 24px;">
-            <p>Dear <strong>${name}</strong>,</p>
-            <p style="line-height:1.6;">Your account has been created. You can now log in to track and submit updates for all directives assigned to you.</p>
-            <div style="background:#f9fafb;padding:16px;border-radius:8px;margin:24px 0;border-left:4px solid #1B5E20;">
-              <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">LOGIN EMAIL</div>
-              <div style="font-size:16px;font-weight:600;color:#1B5E20;">${email}</div>
-            </div>
-            <div style="background:#E8F5E9;padding:16px;border-radius:8px;margin:24px 0;">
-              <div style="font-size:14px;color:#1B5E20;font-weight:600;margin-bottom:4px;">
-                📋 ${count} directive${count !== 1 ? 's' : ''} assigned to you
-              </div>
-            </div>
-            <div style="text-align:center;margin:32px 0;">
-              <a href="${baseUrl}/login.html"
-                 style="background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);color:white;
-                        text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:14px;">
-                Log In Now
-              </a>
-            </div>
-          </div>
-          <div style="padding:16px 24px;background:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;">
-            <p style="margin:0;font-size:11px;color:#6b7280;">
-              Central Bank of Nigeria – Directives Management System
-            </p>
-          </div>
-        </div>`
-      }).catch(e => console.error('Welcome email failed:', e.message));
-    }
-
     res.json({ success: true, message: 'Account created. You can now log in.', owner: { id: po._id, name: po.name, email: po.email }, directivesCount: count });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
-
 
 app.post('/api/process-owners/create', async (req, res) => {
   try {
     const { name, email, department, position, phone } = req.body;
     if (!name || !email) return res.status(400).json({ success: false, error: 'Name and email required' });
-
     const emailLower = email.toLowerCase();
 
-    // ── NEW: enforce max 3 login users per business unit ──────────
     if (department) {
-      const usersInBU = await ProcessOwner.countDocuments({
-        department,
-        isActive: true
-      });
+      const usersInBU = await ProcessOwner.countDocuments({ department, isActive: true });
       if (usersInBU >= 3) {
         return res.status(400).json({
           success: false,
@@ -2180,7 +2395,6 @@ app.post('/api/process-owners/create', async (req, res) => {
         });
       }
     }
-    // ─────────────────────────────────────────────────────────────
 
     const existing = await ProcessOwner.findOne({ email: emailLower });
     if (existing) return res.status(400).json({ success: false, error: 'Account already exists', accountExists: true });
@@ -2196,11 +2410,9 @@ app.post('/api/process-owners/create', async (req, res) => {
 
     const baseUrl  = process.env.BASE_URL || 'https://directives-new.onrender.com';
     const setupUrl = `${baseUrl}/setup-password.html?token=${setupToken}`;
-
     if (emailTransporter) {
       await emailTransporter.sendMail({
-        to: email,
-        subject: '🔐 Set Up Your CBN Directives Platform Password',
+        to: email, subject: '🔐 Set Up Your CBN Directives Platform Password',
         html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:white;border-radius:12px;border:1px solid #e5e7eb;">
           <h2 style="color:#1B5E20;">Welcome to CBN Directives Platform</h2>
           <p>Dear <strong>${name}</strong>,</p>
@@ -2212,20 +2424,23 @@ app.post('/api/process-owners/create', async (req, res) => {
         </div>`
       }).catch(e => console.error('Setup email failed:', e.message));
     }
-
     res.json({ success: true, message: 'Account created', processOwner: { id: po._id, name: po.name, email: po.email }, setupUrl });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
-
-
-
 
 app.get('/api/process-owners/validate-setup-token/:token', async (req, res) => {
   try {
-    const po = await ProcessOwner.findOne({ passwordSetupToken: req.params.token, passwordSetupExpires: { $gt: Date.now() } });
+    const po = await ProcessOwner.findOne({
+      passwordSetupToken:   req.params.token,
+      passwordSetupExpires: { $gt: Date.now() }
+    });
     if (!po) return res.status(400).json({ success: false, error: 'Invalid or expired setup link' });
     res.json({ success: true, processOwner: { name: po.name, email: po.email } });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.post('/api/process-owners/setup-password', async (req, res) => {
@@ -2234,32 +2449,26 @@ app.post('/api/process-owners/setup-password', async (req, res) => {
     if (!token || !password || !confirmPassword) return res.status(400).json({ success: false, error: 'All fields required' });
     if (password !== confirmPassword) return res.status(400).json({ success: false, error: 'Passwords do not match' });
     if (password.length < 8)         return res.status(400).json({ success: false, error: 'Min 8 characters' });
-
     const po = await ProcessOwner.findOne({ passwordSetupToken: token, passwordSetupExpires: { $gt: Date.now() } });
     if (!po) return res.status(400).json({ success: false, error: 'Invalid or expired link' });
-
-    po.password             = password;
-    po.passwordSetAt        = new Date();
-    po.passwordSetupToken   = undefined;
-    po.passwordSetupExpires = undefined;
+    po.password = password; po.passwordSetAt = new Date();
+    po.passwordSetupToken = undefined; po.passwordSetupExpires = undefined;
     await po.save();
-
     res.json({ success: true, message: 'Password set. You can now log in.', email: po.email });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
-// Login Step 1 — password check → send OTP
 app.post('/api/process-owners/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ success: false, error: 'Email and password required' });
-
     const po = await ProcessOwner.findOne({ email: email.toLowerCase() });
     if (!po)           return res.status(401).json({ success: false, error: 'Invalid credentials' });
     if (!po.isActive)  return res.status(403).json({ success: false, error: 'Account deactivated' });
     if (!po.password)  return res.status(403).json({ success: false, error: 'Password not set up yet. Check your email.', needsPasswordSetup: true });
     if (po.isLocked()) return res.status(423).json({ success: false, error: 'Account locked due to failed attempts. Try again later.' });
-
     const ok = await po.comparePassword(password);
     if (!ok) {
       po.failedLoginAttempts = (po.failedLoginAttempts || 0) + 1;
@@ -2267,65 +2476,67 @@ app.post('/api/process-owners/login', async (req, res) => {
       await po.save();
       return res.status(401).json({ success: false, error: `Invalid credentials. ${Math.max(0, 5 - po.failedLoginAttempts)} attempt(s) remaining.` });
     }
-
-    po.failedLoginAttempts = 0; po.accountLockedUntil = undefined;
-    await po.save();
-
+    po.failedLoginAttempts = 0; po.accountLockedUntil = undefined; await po.save();
     await sendOtp(po.email, po.name);
     res.json({ success: true, step: '2fa', email: po.email, message: `A 6-digit code was sent to ${po.email}` });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
-// Login Step 2 — OTP verify → issue token
 app.post('/api/process-owners/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
     const rec = await Otp.findOne({ email: email.toLowerCase(), used: false });
-    if (!rec || new Date() > rec.expiresAt) return res.status(401).json({ success: false, error: 'OTP expired or invalid' });
+    if (!rec || new Date() > rec.expiresAt) {
+      return res.status(401).json({ success: false, error: 'OTP expired or invalid' });
+    }
     const ok = await bcrypt.compare(String(otp), rec.otpHash);
     if (!ok) return res.status(401).json({ success: false, error: 'Incorrect code' });
-    rec.used = true; await rec.save();
+
+    rec.used = true;
+    await rec.save();
 
     const po = await ProcessOwner.findOne({ email: email.toLowerCase() });
-    po.lastLogin = new Date(); await po.save();
+    po.lastLogin = new Date();
+    await po.save();
 
-    const token = crypto.randomBytes(32).toString('hex');
-    res.json({ success: true, token, userType: 'process-owner', owner: { id: po._id, name: po.name, email: po.email, department: po.department } });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+    res.json({
+      success:  true,
+      token:    crypto.randomBytes(32).toString('hex'),
+      userType: 'process-owner',
+      owner:    { id: po._id, name: po.name, email: po.email, department: po.department }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.post('/api/process-owners/request-password-reset', async (req, res) => {
   try {
     const po = await ProcessOwner.findOne({ email: req.body.email?.toLowerCase() });
     if (!po) return res.json({ success: true, message: 'If an account exists, reset instructions were sent.' });
-
     const token = crypto.randomBytes(32).toString('hex');
-    po.passwordResetToken   = token;
-    po.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
-    await po.save();
-
-    const baseUrl  = process.env.BASE_URL || 'https://directives-new.onrender.com';
-    const resetUrl = `${baseUrl}/reset-password.html?token=${token}`;
-
+    po.passwordResetToken = token; po.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); await po.save();
+    const baseUrl = process.env.BASE_URL || 'https://directives-new.onrender.com';
     if (emailTransporter) {
       await emailTransporter.sendMail({
-        to:      po.email,
-        subject: '🔐 Password Reset – CBN Directives Platform',
-        html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:white;border-radius:12px;border:1px solid #e5e7eb;">
+        to: po.email, subject: '🔐 Password Reset – CBN Directives Platform',
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:white;border-radius:12px;border:1px solid #e5e7eb;">
           <h2 style="color:#1B5E20;">Password Reset Request</h2>
           <p>Dear <strong>${po.name}</strong>,</p>
           <p>Click below to reset your password (expires in 1 hour):</p>
           <div style="text-align:center;margin:32px 0;">
-            <a href="${resetUrl}" style="background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);color:white;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;">🔐 Reset Password</a>
+            <a href="${baseUrl}/reset-password.html?token=${token}" style="background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);color:white;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;">🔐 Reset Password</a>
           </div>
           <p style="color:#6b7280;font-size:13px;">If you didn't request this, ignore this email.</p>
         </div>`
       }).catch(() => {});
     }
-
     res.json({ success: true, message: 'If an account exists, reset instructions were sent.' });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.post('/api/process-owners/reset-password', async (req, res) => {
@@ -2333,152 +2544,140 @@ app.post('/api/process-owners/reset-password', async (req, res) => {
     const { token, password, confirmPassword } = req.body;
     if (password !== confirmPassword) return res.status(400).json({ success: false, error: 'Passwords do not match' });
     if (password.length < 8)         return res.status(400).json({ success: false, error: 'Min 8 characters' });
-
     const po = await ProcessOwner.findOne({ passwordResetToken: token, passwordResetExpires: { $gt: Date.now() } });
     if (!po) return res.status(400).json({ success: false, error: 'Invalid or expired link' });
-
-    po.password             = password;
-    po.passwordResetToken   = undefined;
-    po.passwordResetExpires = undefined;
-    po.failedLoginAttempts  = 0;
-    po.accountLockedUntil   = undefined;
+    po.password = password; po.passwordResetToken = undefined; po.passwordResetExpires = undefined;
+    po.failedLoginAttempts = 0; po.accountLockedUntil = undefined;
     await po.save();
-
     res.json({ success: true, message: 'Password reset. You can now log in.' });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
-// List all
 app.get('/api/process-owners/accounts', async (req, res) => {
   try {
     const users = await ProcessOwner.find()
-      .select('-passwordSetupToken -passwordResetToken') // keep password hash for check
+      .select('-passwordSetupToken -passwordResetToken')
       .sort({ name: 1 });
 
     const data = users.map(u => {
       const obj = u.toObject();
-      obj.hasPassword = !!obj.password;  // safe computed field
-      delete obj.password;               // never send hash to browser
+      obj.hasPassword = !!obj.password;
+      delete obj.password;
       return obj;
     });
-
     res.json({ success: true, data, total: data.length });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
-
-
-// Get one — ORIGINAL route path kept to avoid breaking frontend
 app.get('/api/process-owners/:id', async (req, res) => {
   try {
-    const po = await ProcessOwner.findById(req.params.id).select('-password -passwordSetupToken -passwordResetToken');
+    const po = await ProcessOwner.findById(req.params.id)
+      .select('-password -passwordSetupToken -passwordResetToken');
     if (!po) return res.status(404).json({ success: false, error: 'Not found' });
-    res.json({ success: true, data: po, status: { hasPassword: !!po.password, isActive: po.isActive } });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+    res.json({
+      success: true,
+      data:    po,
+      status:  { hasPassword: !!po.password, isActive: po.isActive }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
-
-// Update — ORIGINAL route path kept
 
 app.patch('/api/process-owners/:id', async (req, res) => {
   try {
-    const { name, email, department, position, phone } = req.body;  // Added: phone
+    const { name, email, department, position, phone } = req.body;
     const po = await ProcessOwner.findById(req.params.id);
     if (!po) return res.status(404).json({ success: false, error: 'Not found' });
-
     if (email && email !== po.email) {
-      const dup = await ProcessOwner.findOne({
-        email: email.toLowerCase(), _id: { $ne: req.params.id }
-      });
+      const dup = await ProcessOwner.findOne({ email: email.toLowerCase(), _id: { $ne: req.params.id } });
       if (dup) return res.status(400).json({ success: false, error: 'Email already in use' });
     }
-
     if (name)                     po.name       = name;
     if (email)                    po.email      = email.toLowerCase();
     if (department !== undefined) po.department = department;
     if (position   !== undefined) po.position   = position;
-    if (phone      !== undefined) po.phone      = phone;  // NEW LINE
+    if (phone      !== undefined) po.phone      = phone;
     await po.save();
-
     res.json({ success: true, data: { id: po._id, name: po.name, email: po.email } });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-
-
-
-// Toggle active — ORIGINAL route path kept
 app.patch('/api/process-owners/:id/toggle-active', async (req, res) => {
   try {
     const po = await ProcessOwner.findById(req.params.id);
     if (!po) return res.status(404).json({ success: false, error: 'Not found' });
     po.isActive = !po.isActive;
     await po.save();
-    res.json({ success: true, message: `Account ${po.isActive ? 'activated' : 'deactivated'}`, isActive: po.isActive });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+    res.json({
+      success:  true,
+      message:  `Account ${po.isActive ? 'activated' : 'deactivated'}`,
+      isActive: po.isActive
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
-// Resend setup email — ORIGINAL route path kept
 app.post('/api/process-owners/:id/resend-setup', async (req, res) => {
   try {
     const po = await ProcessOwner.findById(req.params.id);
     if (!po)          return res.status(404).json({ success: false, error: 'Not found' });
     if (po.password)  return res.status(400).json({ success: false, error: 'Password already set. Use reset instead.' });
     if (!po.isActive) return res.status(400).json({ success: false, error: 'Account deactivated' });
-
-    const setupToken   = crypto.randomBytes(32).toString('hex');
-    po.passwordSetupToken   = setupToken;
-    po.passwordSetupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const setupToken = crypto.randomBytes(32).toString('hex');
+    po.passwordSetupToken = setupToken; po.passwordSetupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await po.save();
-
-    const baseUrl  = process.env.BASE_URL || 'https://directives-new.onrender.com';
-    const setupUrl = `${baseUrl}/setup-password.html?token=${setupToken}`;
-
+    const setupUrl = `${process.env.BASE_URL || 'https://directives-new.onrender.com'}/setup-password.html?token=${setupToken}`;
     if (!emailTransporter) return res.status(500).json({ success: false, error: 'Email not configured', setupUrl });
-
     await emailTransporter.sendMail({
-      to:      po.email,
-      subject: '🔐 Reminder: Set Up Your CBN Directives Password',
-      html: `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:white;border-radius:12px;border:1px solid #e5e7eb;">
+      to: po.email, subject: '🔐 Reminder: Set Up Your CBN Directives Password',
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:white;border-radius:12px;border:1px solid #e5e7eb;">
         <h2 style="color:#1B5E20;">Complete Your Account Setup</h2>
         <p>Dear <strong>${po.name}</strong>,</p>
-        <p>Please set up your password by clicking below (link expires in 7 days):</p>
+        <p>Please set up your password (link expires in 7 days):</p>
         <div style="text-align:center;margin:32px 0;">
           <a href="${setupUrl}" style="background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);color:white;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;">🔐 Set Up Password</a>
         </div>
-        <p style="font-size:11px;color:#9ca3af;word-break:break-all;">${setupUrl}</p>
       </div>`
     });
-
     res.json({ success: true, message: 'Setup email resent', setupUrl, expiresIn: '7 days' });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
-
-// ⭐ DELETE process owner — ORIGINAL route path kept
-
-
-
 
 app.delete('/api/process-owners/:id', async (req, res) => {
   try {
     const po = await ProcessOwner.findByIdAndDelete(req.params.id);
     if (!po) return res.status(404).json({ success: false, error: 'Not found' });
     console.log(`⚠️  Process owner deleted: ${po.email} by ${req.body.adminUsername || 'admin'}`);
-    res.json({ success: true, message: `Account for ${po.name} (${po.email}) deleted`, deleted: { name: po.name, email: po.email, deletedAt: new Date() } });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+    res.json({
+      success: true,
+      message: `Account for ${po.name} (${po.email}) deleted`,
+      deleted: { name: po.name, email: po.email, deletedAt: new Date() }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
-
-
-
 
 app.get('/api/process-owners/:email/pending-directives', async (req, res) => {
   try {
     const email = req.params.email.toLowerCase();
-    const data  = await Directive.find({ $or: [{ primaryEmail: email }, { inCopy: email }, { secondaryEmail: email }] });
+    const data  = await Directive.find({
+      $or: [{ primaryEmail: email }, { inCopy: email }, { secondaryEmail: email }]
+    });
     res.json({ success: true, data });
-  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 // ─── Debug endpoints ──────────────────────────────────────────
@@ -2489,8 +2688,16 @@ app.get('/api/debug-token/:token', async (req, res) => {
     const rec = await SubmissionToken.findOne({ token: req.params.token });
     if (!rec) return res.json({ found: false, token: req.params.token });
     const d = await Directive.findById(rec.directiveId);
-    res.json({ found: true, directiveRef: d?.ref, selectedDecisions: rec.selectedOutcomes, used: rec.used, createdAt: rec.createdAt });
-  } catch (e) { res.json({ error: e.message }); }
+    res.json({
+      found:             true,
+      directiveRef:      d?.ref,
+      selectedDecisions: rec.selectedOutcomes,
+      used:              rec.used,
+      createdAt:         rec.createdAt
+    });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
 });
 
 // ─── Static fallback ──────────────────────────────────────────
@@ -2502,43 +2709,28 @@ app.listen(PORT, () => {
   console.log(`📍 Port:    ${PORT}`);
   console.log(`💾 MongoDB: ${mongoose.connection.readyState === 1 ? '✅ Connected' : '⏳ Connecting…'}`);
   console.log(`📧 Email:   ${emailTransporter ? '✅ Configured' : '❌ Not configured'}`);
-  console.log(`\nActive terminology:`);
-  console.log(`  "Committee of Board" | "Business Unit" | "Decisions"`);
-  console.log(`  Statuses: Not Implemented / Being Implemented / Implemented / No Response`);
-  console.log(`  inCopy[] (multiple CC) | Departments max 3 | 2FA enabled\n`);
+  console.log(`\nActive fixes:`);
+  console.log(`  ✓ Compound index {ref+sheetName} — same ref OK in multiple tabs`);
+  console.log(`  ✓ Auto-ref: CG/JAN/833/2025/RISK-01 for no-ref tabs`);
+  console.log(`  ✓ Empty REF cell = new directive (RISK, DG OPS, IAD etc.)`);
+  console.log(`  ✓ lastValidOwner defaults to deptName`);
+  console.log(`  ✓ Date inheritance across continuation rows`);
+  console.log(`  ✓ "of X" owner names resolved to "X"\n`);
 });
 
-
-
 // ============================================================
-// ADMIN USER SYSTEM — paste this into server.js
+// ADMIN USER SYSTEM
 // ============================================================
-// Instructions:
-//   1. Paste the SCHEMA section after the ProcessOwner schema
-//   2. Paste the ROUTES section after the existing admin login routes
-//   3. Replace the old /api/auth/admin/login and /api/auth/admin/verify-otp routes
-// ============================================================
-
-
-// ════════════════════════════════════════════════════════════
-// SECTION 1 — AdminUser Schema (paste after ProcessOwner schema)
-// ════════════════════════════════════════════════════════════
 
 const AdminUserSchema = new mongoose.Schema({
   name:     { type: String, required: true, trim: true },
   email:    { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: String,
-
-  // Roles:
-  //   super_admin — manages other admins, full system access
-  //   admin       — full directives access, cannot manage admins
-  //   viewer      — read-only, cannot send reminders or edit
   role: {
     type:    String,
     enum:    ['super_admin', 'admin', 'viewer'],
     default: 'admin'
   },
-
   isActive:             { type: Boolean, default: true },
   passwordSetupToken:   String,
   passwordSetupExpires: Date,
@@ -2554,37 +2746,25 @@ const AdminUserSchema = new mongoose.Schema({
 
 AdminUserSchema.pre('save', async function (next) {
   if (!this.isModified('password') || !this.password) return next();
-  const salt    = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+  this.password = await bcrypt.hash(this.password, await bcrypt.genSalt(10));
   next();
 });
-
 AdminUserSchema.methods.comparePassword = async function (p) {
-  if (!this.password) return false;
-  return bcrypt.compare(p, this.password);
+  return this.password ? bcrypt.compare(p, this.password) : false;
 };
-
 AdminUserSchema.methods.isLocked = function () {
   return !!(this.accountLockedUntil && this.accountLockedUntil > Date.now());
 };
-
 const AdminUser = mongoose.model('AdminUser', AdminUserSchema);
 
-
-// ════════════════════════════════════════════════════════════
-// SECTION 2 — Auth Middleware (paste near top with other middleware)
-// ════════════════════════════════════════════════════════════
-
-// Simple token-based session store (in-memory; survives restarts only)
-// For production swap this for Redis or signed JWTs
-// ── Persistent admin sessions (survives server restarts) ──────
+// ── Persistent admin sessions (8-hour TTL) ────────────────────
 const AdminSessionSchema = new mongoose.Schema({
   token:     { type: String, required: true, unique: true },
   adminId:   { type: String, required: true },
   role:      String,
   email:     String,
   name:      String,
-  createdAt: { type: Date, default: Date.now, expires: 28800 } // 8-hour TTL
+  createdAt: { type: Date, default: Date.now, expires: 28800 }
 });
 const AdminSession = mongoose.model('AdminSession', AdminSessionSchema);
 
@@ -2602,136 +2782,69 @@ function requireAdmin(req, res, next) {
 
 function requireSuperAdmin(req, res, next) {
   requireAdmin(req, res, () => {
-    if (req.adminSession.role !== 'super_admin')
+    if (req.adminSession.role !== 'super_admin') {
       return res.status(403).json({ success: false, error: 'Super Admin access required' });
+    }
     next();
   });
 }
 
+// ─── Admin Auth Routes ────────────────────────────────────────
 
-
-
-// ════════════════════════════════════════════════════════════
-// SECTION 3 — Admin Auth Routes
-// REPLACE the old /api/auth/admin/login and verify-otp routes with these
-// ════════════════════════════════════════════════════════════
-
-// Step 1 — Email + Password → OTP
+// Step 1: password check → send OTP
 app.post('/api/auth/admin/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password)
-      return res.status(400).json({ success: false, error: 'Email and password required' });
+    if (!email || !password) return res.status(400).json({ success: false, error: 'Email and password required' });
 
     const admin = await AdminUser.findOne({ email: email.toLowerCase() });
-    if (!admin)
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
-
-    if (!admin.isActive)
-      return res.status(403).json({ success: false, error: 'Account deactivated. Contact your system administrator.' });
-
-    if (!admin.password)
-      return res.status(403).json({
-        success: false,
-        error:   'Password not set up yet. Check your email for a setup link.',
-        needsPasswordSetup: true
-      });
-
-    if (admin.isLocked())
-      return res.status(423).json({
-        success: false,
-        error:   'Account temporarily locked due to failed attempts. Try again in 30 minutes.'
-      });
+    if (!admin)           return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    if (!admin.isActive)  return res.status(403).json({ success: false, error: 'Account deactivated. Contact your system administrator.' });
+    if (!admin.password)  return res.status(403).json({ success: false, error: 'Password not set up yet. Check your email.', needsPasswordSetup: true });
+    if (admin.isLocked()) return res.status(423).json({ success: false, error: 'Account temporarily locked. Try again in 30 minutes.' });
 
     const ok = await admin.comparePassword(password);
     if (!ok) {
       admin.failedLoginAttempts = (admin.failedLoginAttempts || 0) + 1;
-      if (admin.failedLoginAttempts >= 5)
-        admin.accountLockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+      if (admin.failedLoginAttempts >= 5) admin.accountLockedUntil = new Date(Date.now() + 30 * 60 * 1000);
       await admin.save();
       const remaining = Math.max(0, 5 - admin.failedLoginAttempts);
-      return res.status(401).json({
-        success: false,
-        error:   `Invalid credentials. ${remaining} attempt(s) remaining before lockout.`
-      });
+      return res.status(401).json({ success: false, error: `Invalid credentials. ${remaining} attempt(s) remaining before lockout.` });
     }
 
-    // Reset failed attempts on success
-    admin.failedLoginAttempts = 0;
-    admin.accountLockedUntil  = undefined;
-    await admin.save();
-
+    admin.failedLoginAttempts = 0; admin.accountLockedUntil = undefined; await admin.save();
     await sendOtp(admin.email, admin.name);
-    res.json({
-      success: true,
-      step:    '2fa',
-      email:   admin.email,
-      message: `A 6-digit code was sent to ${admin.email}`
-    });
+    res.json({ success: true, step: '2fa', email: admin.email, message: `A 6-digit code was sent to ${admin.email}` });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Step 2 — Verify OTP → issue session token
+// Step 2: verify OTP → issue session token
 app.post('/api/auth/admin/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
     const rec = await Otp.findOne({ email: email.toLowerCase(), used: false });
-
-    if (!rec || new Date() > rec.expiresAt)
-      return res.status(401).json({ success: false, error: 'OTP expired or invalid. Request a new one.' });
-
+    if (!rec || new Date() > rec.expiresAt) return res.status(401).json({ success: false, error: 'OTP expired or invalid. Request a new one.' });
     const ok = await bcrypt.compare(String(otp), rec.otpHash);
-    if (!ok)
-      return res.status(401).json({ success: false, error: 'Incorrect code. Please try again.' });
-
-    rec.used = true;
-    await rec.save();
+    if (!ok) return res.status(401).json({ success: false, error: 'Incorrect code. Please try again.' });
+    rec.used = true; await rec.save();
 
     const admin = await AdminUser.findOne({ email: email.toLowerCase() });
-    admin.lastLogin = new Date();
-    await admin.save();
+    admin.lastLogin = new Date(); await admin.save();
 
-    // Issue session token
-// Issue persistent session token stored in MongoDB
     const token = crypto.randomBytes(32).toString('hex');
-    await AdminSession.create({
-      token,
-      adminId: admin._id.toString(),
-      role:    admin.role,
-      email:   admin.email,
-      name:    admin.name
-    });
-   // Auto-expire session after 8 hours
-    setTimeout(() => adminSessions.delete(token), 8 * 60 * 60 * 1000);
-
-    res.json({
-      success:  true,
-      token,
-      userType: 'admin',
-      admin: {
-        id:    admin._id,
-        name:  admin.name,
-        email: admin.email,
-        role:  admin.role
-      },
-      message: 'Login successful'
-    });
+    await AdminSession.create({ token, adminId: admin._id.toString(), role: admin.role, email: admin.email, name: admin.name });
+    res.json({ success: true, token, userType: 'admin', admin: { id: admin._id, name: admin.name, email: admin.email, role: admin.role }, message: 'Login successful' });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Password setup (from email link)
 app.get('/api/auth/admin/validate-setup-token/:token', async (req, res) => {
   try {
-    const admin = await AdminUser.findOne({
-      passwordSetupToken:   req.params.token,
-      passwordSetupExpires: { $gt: Date.now() }
-    });
-    if (!admin)
-      return res.status(400).json({ success: false, error: 'Invalid or expired setup link' });
+    const admin = await AdminUser.findOne({ passwordSetupToken: req.params.token, passwordSetupExpires: { $gt: Date.now() } });
+    if (!admin) return res.status(400).json({ success: false, error: 'Invalid or expired setup link' });
     res.json({ success: true, admin: { name: admin.name, email: admin.email, role: admin.role } });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -2741,73 +2854,42 @@ app.get('/api/auth/admin/validate-setup-token/:token', async (req, res) => {
 app.post('/api/auth/admin/setup-password', async (req, res) => {
   try {
     const { token, password, confirmPassword } = req.body;
-    if (!token || !password || !confirmPassword)
-      return res.status(400).json({ success: false, error: 'All fields required' });
-    if (password !== confirmPassword)
-      return res.status(400).json({ success: false, error: 'Passwords do not match' });
-    if (password.length < 8)
-      return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
-
-    const admin = await AdminUser.findOne({
-      passwordSetupToken:   token,
-      passwordSetupExpires: { $gt: Date.now() }
-    });
-    if (!admin)
-      return res.status(400).json({ success: false, error: 'Invalid or expired setup link' });
-
-    admin.password             = password;
-    admin.passwordSetAt        = new Date();
-    admin.passwordSetupToken   = undefined;
-    admin.passwordSetupExpires = undefined;
+    if (!token || !password || !confirmPassword) return res.status(400).json({ success: false, error: 'All fields required' });
+    if (password !== confirmPassword) return res.status(400).json({ success: false, error: 'Passwords do not match' });
+    if (password.length < 8)         return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
+    const admin = await AdminUser.findOne({ passwordSetupToken: token, passwordSetupExpires: { $gt: Date.now() } });
+    if (!admin) return res.status(400).json({ success: false, error: 'Invalid or expired setup link' });
+    admin.password = password; admin.passwordSetAt = new Date();
+    admin.passwordSetupToken = undefined; admin.passwordSetupExpires = undefined;
     await admin.save();
-
     res.json({ success: true, message: 'Password set. You can now log in.', email: admin.email });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Password reset request
 app.post('/api/auth/admin/request-password-reset', async (req, res) => {
   try {
     const admin = await AdminUser.findOne({ email: req.body.email?.toLowerCase() });
-    if (!admin)
-      return res.json({ success: true, message: 'If an account exists, reset instructions were sent.' });
-
+    if (!admin) return res.json({ success: true, message: 'If an account exists, reset instructions were sent.' });
     const token = crypto.randomBytes(32).toString('hex');
-    admin.passwordResetToken   = token;
-    admin.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
-    await admin.save();
-
+    admin.passwordResetToken = token; admin.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); await admin.save();
     const baseUrl  = process.env.BASE_URL || 'http://localhost:3001';
     const resetUrl = `${baseUrl}/admin-reset-password.html?token=${token}`;
-
     if (emailTransporter) {
       await emailTransporter.sendMail({
-        to:      admin.email,
-        subject: '🔐 Admin Password Reset – CBN Directives Platform',
-        html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;
-                    background:white;border-radius:12px;border:1px solid #e5e7eb;">
+        to: admin.email, subject: '🔐 Admin Password Reset – CBN Directives Platform',
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:white;border-radius:12px;border:1px solid #e5e7eb;">
           <h2 style="color:#1B5E20;">Admin Password Reset</h2>
           <p>Dear <strong>${admin.name}</strong>,</p>
-          <p>A password reset was requested for your admin account (${admin.role}).</p>
           <p>Click below to reset your password (expires in 1 hour):</p>
           <div style="text-align:center;margin:32px 0;">
-            <a href="${resetUrl}"
-               style="background:linear-gradient(135deg,#1B5E20,#2E7D32);color:white;
-                      text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;">
-              🔐 Reset Password
-            </a>
+            <a href="${resetUrl}" style="background:linear-gradient(135deg,#1B5E20,#2E7D32);color:white;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;">🔐 Reset Password</a>
           </div>
-          <p style="color:#6b7280;font-size:13px;">
-            If you didn't request this, ignore this email.
-            Your password will not change unless you click the link above.
-          </p>
+          <p style="color:#6b7280;font-size:13px;">If you didn't request this, ignore this email.</p>
         </div>`
       }).catch(() => {});
     }
-
     res.json({ success: true, message: 'If an account exists, reset instructions were sent.' });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -2817,43 +2899,26 @@ app.post('/api/auth/admin/request-password-reset', async (req, res) => {
 app.post('/api/auth/admin/reset-password', async (req, res) => {
   try {
     const { token, password, confirmPassword } = req.body;
-    if (password !== confirmPassword)
-      return res.status(400).json({ success: false, error: 'Passwords do not match' });
-    if (password.length < 8)
-      return res.status(400).json({ success: false, error: 'Minimum 8 characters required' });
-
-    const admin = await AdminUser.findOne({
-      passwordResetToken:   token,
-      passwordResetExpires: { $gt: Date.now() }
-    });
-    if (!admin)
-      return res.status(400).json({ success: false, error: 'Invalid or expired reset link' });
-
-    admin.password             = password;
-    admin.passwordResetToken   = undefined;
-    admin.passwordResetExpires = undefined;
-    admin.failedLoginAttempts  = 0;
-    admin.accountLockedUntil   = undefined;
+    if (password !== confirmPassword) return res.status(400).json({ success: false, error: 'Passwords do not match' });
+    if (password.length < 8)         return res.status(400).json({ success: false, error: 'Minimum 8 characters required' });
+    const admin = await AdminUser.findOne({ passwordResetToken: token, passwordResetExpires: { $gt: Date.now() } });
+    if (!admin) return res.status(400).json({ success: false, error: 'Invalid or expired reset link' });
+    admin.password = password; admin.passwordResetToken = undefined; admin.passwordResetExpires = undefined;
+    admin.failedLoginAttempts = 0; admin.accountLockedUntil = undefined;
     await admin.save();
-
     res.json({ success: true, message: 'Password reset successfully. You can now log in.' });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Logout (invalidate session token)
 app.post('/api/auth/admin/logout', async (req, res) => {
   const token = req.headers['x-admin-token'];
   if (token) await AdminSession.deleteOne({ token }).catch(() => {});
   res.json({ success: true, message: 'Logged out' });
 });
 
-
-
-
-
-// Verify session (for frontend auth check)
+// Verify session (for frontend auth check on page load)
 app.get('/api/auth/admin/me', requireAdmin, async (req, res) => {
   try {
     const admin = await AdminUser.findById(req.adminSession.adminId)
@@ -2865,113 +2930,63 @@ app.get('/api/auth/admin/me', requireAdmin, async (req, res) => {
   }
 });
 
+// ─── Admin Management Routes ──────────────────────────────────
 
-// ════════════════════════════════════════════════════════════
-// SECTION 4 — Admin Management Routes (super_admin only for destructive actions)
-// ════════════════════════════════════════════════════════════
-
-// List all admins
 app.get('/api/admin-users', requireAdmin, async (req, res) => {
   try {
     const admins = await AdminUser.find()
-      .select('-passwordSetupToken -passwordResetToken') // keep password hash for check
+      .select('-passwordSetupToken -passwordResetToken')
       .sort({ createdAt: -1 });
 
     const data = admins.map(a => {
       const obj = a.toObject();
-      obj.hasPassword = !!obj.password; // computed field the frontend uses
-      delete obj.password;              // never send the hash to the browser
+      obj.hasPassword = !!obj.password;
+      delete obj.password;
       return obj;
     });
-
     res.json({ success: true, data, total: data.length });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-
-
-// Create admin (super_admin only)
 app.post('/api/admin-users', requireSuperAdmin, async (req, res) => {
   try {
     const { name, email, role } = req.body;
-    if (!name || !email)
-      return res.status(400).json({ success: false, error: 'Name and email required' });
-
-    const validRoles = ['super_admin', 'admin', 'viewer'];
-    if (role && !validRoles.includes(role))
-      return res.status(400).json({ success: false, error: 'Invalid role' });
-
-    const exists = await AdminUser.findOne({ email: email.toLowerCase() });
-    if (exists)
-      return res.status(400).json({ success: false, error: 'An admin with this email already exists' });
+    if (!name || !email) return res.status(400).json({ success: false, error: 'Name and email required' });
+    if (role && !['super_admin', 'admin', 'viewer'].includes(role)) return res.status(400).json({ success: false, error: 'Invalid role' });
+    if (await AdminUser.findOne({ email: email.toLowerCase() })) return res.status(400).json({ success: false, error: 'An admin with this email already exists' });
 
     const setupToken   = crypto.randomBytes(32).toString('hex');
-    const setupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
+    const setupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const admin = new AdminUser({
-      name,
-      email:               email.toLowerCase(),
-      role:                role || 'admin',
-      isActive:            true,
-      passwordSetupToken:  setupToken,
-      passwordSetupExpires: setupExpires,
-      createdBy:           req.adminSession.email
+      name, email: email.toLowerCase(), role: role || 'admin', isActive: true,
+      passwordSetupToken: setupToken, passwordSetupExpires: setupExpires,
+      createdBy: req.adminSession.email
     });
     await admin.save();
 
     const baseUrl  = process.env.BASE_URL || 'http://localhost:3001';
     const setupUrl = `${baseUrl}/admin-setup-password.html?token=${setupToken}`;
-
     if (emailTransporter) {
       const roleLabel = { super_admin: 'Super Administrator', admin: 'Administrator', viewer: 'Viewer' }[admin.role] || admin.role;
       await emailTransporter.sendMail({
-        to:      email,
-        subject: '🔐 Set Up Your CBN Directives Admin Account',
-        html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:white;
-                    border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
-          <div style="padding:32px 24px;
-                      background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);
-                      color:white;text-align:center;">
+        to: email, subject: '🔐 Set Up Your CBN Directives Admin Account',
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:white;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+          <div style="padding:32px 24px;background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);color:white;text-align:center;">
             <h1 style="margin:0;font-size:22px;">Welcome to CBN Directives Admin Portal</h1>
             <p style="margin:8px 0 0;opacity:.85;font-size:13px;">You have been granted ${roleLabel} access</p>
           </div>
           <div style="padding:32px 24px;">
             <p>Dear <strong>${name}</strong>,</p>
-            <p style="line-height:1.6;">
-              An admin account has been created for you on the
-              <strong>CBN Directives Management Platform</strong>.
-              Please set up your password to activate it.
-            </p>
-            <div style="background:#f9fafb;padding:16px;border-radius:8px;margin:24px 0;
-                        border-left:4px solid #1B5E20;">
-              <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">YOUR LOGIN EMAIL</div>
-              <div style="font-size:16px;font-weight:600;color:#1B5E20;">${email}</div>
-              <div style="font-size:11px;color:#6b7280;margin-top:8px;">ROLE</div>
-              <div style="font-size:14px;font-weight:600;color:#374151;">${roleLabel}</div>
-            </div>
+            <p>An admin account has been created for you. Please set up your password to activate it.</p>
             <div style="text-align:center;margin:32px 0;">
-              <a href="${setupUrl}"
-                 style="background:linear-gradient(135deg,#1B5E20,#2E7D32);color:white;
-                        text-decoration:none;padding:14px 32px;border-radius:8px;
-                        font-weight:700;font-size:14px;">
-                🔐 Set Up Your Password
-              </a>
+              <a href="${setupUrl}" style="background:linear-gradient(135deg,#1B5E20,#2E7D32);color:white;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:14px;">🔐 Set Up Your Password</a>
             </div>
             <p style="font-size:11px;color:#9ca3af;word-break:break-all;">${setupUrl}</p>
             <div style="background:#FEF3C7;padding:12px;border-radius:8px;margin:24px 0;">
-              <div style="font-size:12px;color:#92400E;">
-                ⏰ <strong>Important:</strong> This link expires in 7 days.
-              </div>
+              <div style="font-size:12px;color:#92400E;">⏰ <strong>Important:</strong> This link expires in 7 days.</div>
             </div>
-          </div>
-          <div style="padding:16px 24px;background:#f9fafb;text-align:center;
-                      border-top:1px solid #e5e7eb;">
-            <p style="margin:0;font-size:11px;color:#6b7280;">
-              Central Bank of Nigeria – Directives Management System
-            </p>
           </div>
         </div>`
       }).catch(e => console.error('Setup email failed:', e.message));
@@ -2980,19 +2995,12 @@ app.post('/api/admin-users', requireSuperAdmin, async (req, res) => {
     const safeAdmin = admin.toObject();
     delete safeAdmin.passwordSetupToken;
     delete safeAdmin.passwordSetupExpires;
-
-    res.json({
-      success:  true,
-      message:  `Admin account created for ${name}. Setup email sent.`,
-      admin:    safeAdmin,
-      setupUrl  // returned in case email fails
-    });
+    res.json({ success: true, message: `Admin account created for ${name}. Setup email sent.`, admin: safeAdmin, setupUrl });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Get one admin
 app.get('/api/admin-users/:id', requireAdmin, async (req, res) => {
   try {
     const admin = await AdminUser.findById(req.params.id)
@@ -3002,10 +3010,10 @@ app.get('/api/admin-users/:id', requireAdmin, async (req, res) => {
       success: true,
       admin,
       status: {
-        hasPassword:    !!admin.password,
-        isLocked:       admin.isLocked(),
-        setupPending:   !!admin.passwordSetupToken,
-        lastLogin:      admin.lastLogin
+        hasPassword:  !!admin.password,
+        isLocked:     admin.isLocked(),
+        setupPending: !!admin.passwordSetupToken,
+        lastLogin:    admin.lastLogin
       }
     });
   } catch (e) {
@@ -3013,63 +3021,58 @@ app.get('/api/admin-users/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Update admin (name, role) — super_admin only for role changes
 app.patch('/api/admin-users/:id', requireAdmin, async (req, res) => {
   try {
     const { name, role } = req.body;
     const admin = await AdminUser.findById(req.params.id);
     if (!admin) return res.status(404).json({ success: false, error: 'Admin not found' });
 
-    // Only super_admin can change roles
-    if (role && req.adminSession.role !== 'super_admin')
+    if (role && req.adminSession.role !== 'super_admin') {
       return res.status(403).json({ success: false, error: 'Only Super Admins can change roles' });
+    }
 
-    // Prevent the only super_admin from demoting themselves
     if (role && role !== 'super_admin' && req.adminSession.adminId === admin._id.toString()) {
-      const superAdminCount = await AdminUser.countDocuments({ role: 'super_admin', isActive: true });
-      if (superAdminCount <= 1)
+      const superCount = await AdminUser.countDocuments({ role: 'super_admin', isActive: true });
+      if (superCount <= 1) {
         return res.status(400).json({
           success: false,
           error:   'Cannot demote the only active Super Admin. Promote another admin first.'
         });
+      }
     }
 
     if (name) admin.name = name;
     if (role) admin.role = role;
     await admin.save();
-
-    res.json({ success: true, message: 'Admin updated', admin: { id: admin._id, name: admin.name, email: admin.email, role: admin.role } });
+    res.json({
+      success: true,
+      message: 'Admin updated',
+      admin:   { id: admin._id, name: admin.name, email: admin.email, role: admin.role }
+    });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Toggle active/inactive (super_admin only)
 app.patch('/api/admin-users/:id/toggle-active', requireSuperAdmin, async (req, res) => {
   try {
     const admin = await AdminUser.findById(req.params.id);
     if (!admin) return res.status(404).json({ success: false, error: 'Admin not found' });
 
-    // Prevent deactivating self
-    if (req.adminSession.adminId === admin._id.toString())
+    if (req.adminSession.adminId === admin._id.toString()) {
       return res.status(400).json({ success: false, error: 'You cannot deactivate your own account' });
+    }
 
-    // Prevent deactivating last super_admin
     if (admin.role === 'super_admin' && admin.isActive) {
       const activeSupers = await AdminUser.countDocuments({ role: 'super_admin', isActive: true });
-      if (activeSupers <= 1)
-        return res.status(400).json({
-          success: false,
-          error:   'Cannot deactivate the only active Super Admin'
-        });
+      if (activeSupers <= 1) {
+        return res.status(400).json({ success: false, error: 'Cannot deactivate the only active Super Admin' });
+      }
     }
 
     admin.isActive = !admin.isActive;
     await admin.save();
-
-    // Invalidate any active sessions for this admin
-   await AdminSession.deleteMany({ adminId: admin._id.toString() }).catch(() => {});
-
+    await AdminSession.deleteMany({ adminId: admin._id.toString() }).catch(() => {});
 
     res.json({
       success:  true,
@@ -3081,90 +3084,65 @@ app.patch('/api/admin-users/:id/toggle-active', requireSuperAdmin, async (req, r
   }
 });
 
-// Unlock locked account (super_admin only)
 app.patch('/api/admin-users/:id/unlock', requireSuperAdmin, async (req, res) => {
   try {
     const admin = await AdminUser.findById(req.params.id);
     if (!admin) return res.status(404).json({ success: false, error: 'Admin not found' });
-
     admin.failedLoginAttempts = 0;
     admin.accountLockedUntil  = undefined;
     await admin.save();
-
     res.json({ success: true, message: `Account unlocked for ${admin.name}` });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Resend setup email (super_admin only)
 app.post('/api/admin-users/:id/resend-setup', requireSuperAdmin, async (req, res) => {
   try {
     const admin = await AdminUser.findById(req.params.id);
     if (!admin) return res.status(404).json({ success: false, error: 'Admin not found' });
-    if (admin.password)
-      return res.status(400).json({ success: false, error: 'Password already set. Use password reset instead.' });
-
-    const setupToken   = crypto.randomBytes(32).toString('hex');
-    admin.passwordSetupToken   = setupToken;
-    admin.passwordSetupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    if (admin.password) return res.status(400).json({ success: false, error: 'Password already set. Use password reset instead.' });
+    const setupToken = crypto.randomBytes(32).toString('hex');
+    admin.passwordSetupToken = setupToken; admin.passwordSetupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await admin.save();
-
-    const baseUrl  = process.env.BASE_URL || 'http://localhost:3001';
-    const setupUrl = `${baseUrl}/admin-setup-password.html?token=${setupToken}`;
-
+    const setupUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/admin-setup-password.html?token=${setupToken}`;
     if (emailTransporter) {
       await emailTransporter.sendMail({
-        to:      admin.email,
-        subject: '🔐 Reminder: Complete Your CBN Directives Admin Setup',
-        html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;
-                    background:white;border-radius:12px;border:1px solid #e5e7eb;">
+        to: admin.email, subject: '🔐 Reminder: Complete Your CBN Directives Admin Setup',
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px;background:white;border-radius:12px;border:1px solid #e5e7eb;">
           <h2 style="color:#1B5E20;">Complete Your Account Setup</h2>
           <p>Dear <strong>${admin.name}</strong>,</p>
-          <p>Please set up your admin password by clicking the link below (expires in 7 days):</p>
+          <p>Please set up your admin password (expires in 7 days):</p>
           <div style="text-align:center;margin:32px 0;">
-            <a href="${setupUrl}"
-               style="background:linear-gradient(135deg,#1B5E20,#2E7D32);color:white;
-                      text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;">
-              🔐 Set Up Password
-            </a>
+            <a href="${setupUrl}" style="background:linear-gradient(135deg,#1B5E20,#2E7D32);color:white;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;">🔐 Set Up Password</a>
           </div>
           <p style="font-size:11px;color:#9ca3af;word-break:break-all;">${setupUrl}</p>
         </div>`
       });
     }
-
     res.json({ success: true, message: 'Setup email resent', setupUrl, expiresIn: '7 days' });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Delete admin (super_admin only — permanent)
 app.delete('/api/admin-users/:id', requireSuperAdmin, async (req, res) => {
   try {
     const admin = await AdminUser.findById(req.params.id);
     if (!admin) return res.status(404).json({ success: false, error: 'Admin not found' });
 
-    // Cannot delete self
-    if (req.adminSession.adminId === admin._id.toString())
+    if (req.adminSession.adminId === admin._id.toString()) {
       return res.status(400).json({ success: false, error: 'You cannot delete your own account' });
-
-    // Prevent deleting last super_admin
-    if (admin.role === 'super_admin') {
-      const superCount = await AdminUser.countDocuments({ role: 'super_admin' });
-      if (superCount <= 1)
-        return res.status(400).json({
-          success: false,
-          error:   'Cannot delete the only Super Admin account'
-        });
     }
 
-    // Invalidate sessions
-  await AdminSession.deleteMany({ adminId: admin._id.toString() }).catch(() => {});
+    if (admin.role === 'super_admin') {
+      const superCount = await AdminUser.countDocuments({ role: 'super_admin' });
+      if (superCount <= 1) {
+        return res.status(400).json({ success: false, error: 'Cannot delete the only Super Admin account' });
+      }
+    }
 
-
+    await AdminSession.deleteMany({ adminId: admin._id.toString() }).catch(() => {});
     await AdminUser.findByIdAndDelete(req.params.id);
     console.log(`⚠️  Admin deleted: ${admin.email} by ${req.adminSession.email}`);
 
@@ -3177,3 +3155,32 @@ app.delete('/api/admin-users/:id', requireSuperAdmin, async (req, res) => {
     res.status(500).json({ success: false, error: e.message });
   }
 });
+
+
+
+
+app.get('/api/admin/clear-all', async (req, res) => {
+  try {
+    const [dir, dept, po, tok, otp] = await Promise.all([
+      Directive.deleteMany({}),
+      Department.deleteMany({}),
+      ProcessOwner.deleteMany({}),
+      SubmissionToken.deleteMany({}),
+      Otp.deleteMany({})
+    ]);
+    res.json({
+      success: true,
+      message: 'All data cleared',
+      deleted: {
+        directives:        dir.deletedCount,
+        departments:       dept.deletedCount,
+        processOwners:     po.deletedCount,
+        submissionTokens:  tok.deletedCount,
+        otps:              otp.deletedCount
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
