@@ -45,7 +45,7 @@ const MONGODB_URI = process.env.MONGODB_URI ||
 
 mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(async () => {
-    console.log('✅ MongoDB Connected');
+    console.log('✅ MongoDB Connected!');
     // FIX 10: Drop legacy single-field unique index on ref.
     // The old schema had ref: { unique: true } which caused duplicate-key errors
     // when the same directive ref appeared in multiple department tabs.
@@ -911,7 +911,7 @@ function extractProcessOwner(ownerText, deptHint) {
 
 
 
-// ─── FIX 6: Resolve final owner name ─────────────────────────
+// ─── FIX 6!: Resolve final owner name ─────────────────────────
 // Strips leading "of " that appears after title-prefix stripping:
 //   "of Reserve Management"             → "Reserve Management"
 //   "of Financial Policy and Regulations" → "Financial Policy and Regulations"
