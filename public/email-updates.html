@@ -239,6 +239,7 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
   border: none; outline: none; font-size: 13px; font-family: inherit;
   min-width: 140px; flex: 1; background: transparent; color: var(--ink);
 }
+.tag-input:disabled { opacity: .4; cursor: not-allowed; }
 
 /* Linked users inside expand */
 .linked-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line-2); }
@@ -328,6 +329,35 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
   font-size: 13px; color: #991B1B; line-height: 1.5;
 }
 
+/* ── SORT / FILTER ───────────────────────────────────────── */
+.sort-th {
+  cursor: pointer; user-select: none;
+  white-space: nowrap;
+}
+.sort-th:hover { background: rgba(255,255,255,.12); }
+.sort-arrow { display: inline-block; margin-left: 4px; opacity: .45; font-size: 10px; }
+.sort-th.asc  .sort-arrow,
+.sort-th.desc .sort-arrow { opacity: 1; color: #A5D6A7; }
+
+.filter-chips {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  padding: 12px 18px; border-bottom: 1px solid var(--line);
+  background: var(--green-0);
+}
+.fchip {
+  padding: 4px 12px; border-radius: 20px; border: 1.5px solid var(--line-2);
+  font-size: 11px; font-weight: 700; cursor: pointer;
+  background: var(--white); color: var(--ink-3);
+  transition: .12s; white-space: nowrap;
+}
+.fchip:hover { border-color: var(--green-5); color: var(--green-9); background: var(--green-1); }
+.fchip.active { background: var(--green-9); color: var(--white); border-color: var(--green-9); }
+.fchip .fcount {
+  display: inline-block; background: rgba(255,255,255,.25);
+  padding: 0 5px; border-radius: 8px; font-size: 9px; margin-left: 3px;
+}
+.fchip:not(.active) .fcount { background: var(--line); color: var(--ink-3); }
+
 /* TOAST */
 #toast {
   position: fixed; bottom: 24px; right: 24px; z-index: 9999;
@@ -370,7 +400,7 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
 
 <div class="wrap">
   <div class="page-heading">
-    <h1 class="page-title">Settings &amp; User Management</h1>
+    <h1 class="page-title">Business Unit Management</h1>
     <p class="page-sub">
       Business units are the departments that own directives. Each unit has a responsible person,
       a contact email for reminders, and login users who can submit updates.
@@ -392,7 +422,7 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
       </svg>
-      Login Users
+      Business Unit Users
       <span class="tab-badge" id="tc-users">—</span>
     </button>
   </div>
@@ -405,7 +435,7 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
           <div class="ch-title">Business Units</div>
           <div class="ch-sub">
             These come from your directive data. Click any row to expand and fill in the responsible person's name,
-            contact email, and CC addresses. Roles without names are flagged below.
+            contact email, and CC addresses. Units without contact emails are flagged below.
           </div>
         </div>
         <div class="card-header-right">
@@ -418,16 +448,24 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
           <button class="btn btn-ghost btn-sm" onclick="loadAll()">↻ Refresh</button>
         </div>
       </div>
+      <!-- Filter chips -->
+      <div class="filter-chips" id="bu-filter-chips">
+        <span class="fchip active" data-filter="all"     onclick="setFilter('all',this)">All <span class="fcount" id="fc-all">—</span></span>
+        <span class="fchip"        data-filter="complete" onclick="setFilter('complete',this)">✓ Complete <span class="fcount" id="fc-complete">—</span></span>
+        <span class="fchip"        data-filter="noemail"  onclick="setFilter('noemail',this)">⚠ Missing Email <span class="fcount" id="fc-noemail">—</span></span>
+        <span class="fchip"        data-filter="noname"   onclick="setFilter('noname',this)">⚠ Missing Name <span class="fcount" id="fc-noname">—</span></span>
+        <span class="fchip"        data-filter="empty"    onclick="setFilter('empty',this)">✗ Both Missing <span class="fcount" id="fc-empty">—</span></span>
+      </div>
       <div class="tbl-wrap">
         <table id="bu-table">
           <thead>
             <tr>
               <th style="width:32px;"></th>
-              <th>Business Unit (Role / Dept)</th>
-              <th>Responsible Person</th>
-              <th>Email</th>
-              <th>Login Users</th>
-              <th>Directives</th>
+              <th class="sort-th" onclick="sortBU('name')"          id="sh-name">Business Unit <span class="sort-arrow">↕</span></th>
+              <th class="sort-th" onclick="sortBU('personName')"    id="sh-personName">Responsible Person <span class="sort-arrow">↕</span></th>
+              <th class="sort-th" onclick="sortBU('email')"         id="sh-email">Contact Email <span class="sort-arrow">↕</span></th>
+              <th class="sort-th" onclick="sortBU('users')"         id="sh-users">Business Unit Users <span class="sort-arrow">↕</span></th>
+              <th class="sort-th" onclick="sortBU('directiveCount')" id="sh-directiveCount">Directives <span class="sort-arrow">↕</span></th>
             </tr>
           </thead>
           <tbody id="bu-tbody">
@@ -443,12 +481,12 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
     </div>
   </div>
 
-  <!-- ═══ TAB: USERS ═══════════════════════════════════════════ -->
+  <!-- ═══ TAB: BUSINESS UNIT USERS ═══════════════════════════════════════════ -->
   <div id="pane-users" class="tab-pane">
     <div class="card">
       <div class="card-header">
         <div class="card-header-left">
-          <div class="ch-title">Login Users</div>
+          <div class="ch-title">Business Unit Users</div>
           <div class="ch-sub">Users who can sign in to the Business Unit Portal and submit directive updates</div>
         </div>
         <div class="card-header-right">
@@ -462,7 +500,7 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
             <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
-            Add User
+            Add Business Unit User
           </button>
         </div>
       </div>
@@ -470,7 +508,7 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
         <table>
           <thead>
             <tr>
-              <th>User</th>
+              <th>Name</th>
               <th>Business Unit</th>
               <th>Position</th>
               <th>Status</th>
@@ -482,7 +520,7 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
             <tr class="empty-tr">
               <td colspan="6">
                 <div class="empty-icon">⏳</div>
-                <div class="empty-title">Loading users…</div>
+                <div class="empty-title">Loading business unit users…</div>
               </td>
             </tr>
           </tbody>
@@ -492,12 +530,12 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
   </div>
 </div><!-- /wrap -->
 
-<!-- ═══ MODAL: ADD USER ══════════════════════════════════════ -->
+<!-- ═══ MODAL: ADD BUSINESS UNIT USER ══════════════════════════════════════════════ -->
 <div class="modal-overlay" id="m-add-user">
   <div class="modal-bg" onclick="closeModal('m-add-user')"></div>
   <div class="modal">
     <div class="modal-head">
-      <div class="modal-title">Add Login User</div>
+      <div class="modal-title">Add Business Unit User</div>
       <button class="modal-close" onclick="closeModal('m-add-user')">
         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -519,7 +557,7 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
         <select id="nu-bu">
           <option value="">— Select business unit —</option>
         </select>
-        <div class="mhint">The business unit this user belongs to and can submit updates for.</div>
+        <div class="mhint">The business unit this user belongs to and can submit updates for. Max 3 users per unit.</div>
       </div>
       <div class="mfield">
         <label>Position / Title</label>
@@ -543,12 +581,12 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
   </div>
 </div>
 
-<!-- ═══ MODAL: EDIT USER ═════════════════════════════════════ -->
+<!-- ═══ MODAL: EDIT BUSINESS UNIT USER ═════════════════════════════════════════════ -->
 <div class="modal-overlay" id="m-edit-user">
   <div class="modal-bg" onclick="closeModal('m-edit-user')"></div>
   <div class="modal">
     <div class="modal-head">
-      <div class="modal-title">Edit User</div>
+      <div class="modal-title">Edit Business Unit User</div>
       <button class="modal-close" onclick="closeModal('m-edit-user')">
         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -615,10 +653,14 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
 
 <script>
 const API = window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api';
+const CC_MAX = 4;
 
-let allBU    = [];   // merged from process-owners-with-directives + departments metadata
-let allUsers = [];   // ProcessOwner accounts
-const tags   = {};   // CC tag sets, keyed by BU name
+let allBU      = [];
+let allUsers   = [];
+const tags     = {};
+let sortCol    = 'completeness'; // default: complete units first
+let sortDir    = 'desc';
+let activeFilter = 'all';
 
 /* ─── INIT ───────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', loadAll);
@@ -627,12 +669,87 @@ async function loadAll() {
   await Promise.all([loadBU(), loadUsers()]);
 }
 
+/* ── Completeness score: 2=both, 1=one, 0=neither ── */
+function completeness(bu) {
+  const hasEmail = !!(bu.primaryEmail?.trim() || (bu.users?.length ? bu.users[0]?.email : ''));
+  const hasName  = !!bu.personName?.trim();
+  return (hasEmail ? 1 : 0) + (hasName ? 1 : 0);
+}
+
+/* ── Apply filter then sort ── */
+function getFilteredSorted() {
+  const enriched = allBU.map(bu => ({
+    ...bu,
+    users: allUsers.filter(u => u.department === bu.name)
+  }));
+
+  let data = enriched;
+  if (activeFilter === 'complete') data = enriched.filter(b => completeness(b) === 2);
+  else if (activeFilter === 'noemail')  data = enriched.filter(b => !b.primaryEmail?.trim() && !(b.users?.length));
+  else if (activeFilter === 'noname')   data = enriched.filter(b => !b.personName?.trim());
+  else if (activeFilter === 'empty')    data = enriched.filter(b => completeness(b) === 0);
+
+  return data.sort((a, b) => {
+    let va, vb;
+    if (sortCol === 'completeness') { va = completeness(a); vb = completeness(b); }
+    else if (sortCol === 'name')    { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
+    else if (sortCol === 'personName') { va = (a.personName||'').toLowerCase(); vb = (b.personName||'').toLowerCase(); }
+    else if (sortCol === 'email')   { va = (a.primaryEmail||'').toLowerCase(); vb = (b.primaryEmail||'').toLowerCase(); }
+    else if (sortCol === 'users')   { va = a.users.length; vb = b.users.length; }
+    else if (sortCol === 'directiveCount') { va = a.directiveCount; vb = b.directiveCount; }
+    else { va = 0; vb = 0; }
+
+    if (va < vb) return sortDir === 'asc' ? -1 : 1;
+    if (va > vb) return sortDir === 'asc' ? 1 : -1;
+    // Secondary: name asc
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function sortBU(col) {
+  if (sortCol === col) {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortCol = col;
+    sortDir = col === 'directiveCount' || col === 'users' || col === 'completeness' ? 'desc' : 'asc';
+  }
+  updateSortHeaders();
+  renderBU(getFilteredSorted());
+}
+
+function setFilter(filter, el) {
+  activeFilter = filter;
+  document.querySelectorAll('.fchip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderBU(getFilteredSorted());
+}
+
+function updateSortHeaders() {
+  ['name','personName','email','users','directiveCount'].forEach(col => {
+    const th = document.getElementById('sh-' + col);
+    if (!th) return;
+    th.classList.remove('asc','desc');
+    const arrow = th.querySelector('.sort-arrow');
+    if (sortCol === col) {
+      th.classList.add(sortDir);
+      arrow.textContent = sortDir === 'asc' ? '↑' : '↓';
+    } else {
+      arrow.textContent = '↕';
+    }
+  });
+}
+
+function updateFilterCounts() {
+  const enriched = allBU.map(bu => ({ ...bu, users: allUsers.filter(u => u.department === bu.name) }));
+  document.getElementById('fc-all').textContent      = enriched.length;
+  document.getElementById('fc-complete').textContent = enriched.filter(b => completeness(b) === 2).length;
+  document.getElementById('fc-noemail').textContent  = enriched.filter(b => !b.primaryEmail?.trim() && !(b.users?.length)).length;
+  document.getElementById('fc-noname').textContent   = enriched.filter(b => !b.personName?.trim()).length;
+  document.getElementById('fc-empty').textContent    = enriched.filter(b => completeness(b) === 0).length;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    BUSINESS UNITS TAB
-   Sources:
-   - /api/process-owners-with-directives  → unique owner names + email + directive counts
-   - /api/departments                     → stored metadata: personName, position, code
-   These are merged by name. "Department" = "Business Unit" = directive owner.
 ═══════════════════════════════════════════════════════════════ */
 
 async function loadBU() {
@@ -662,7 +779,8 @@ async function loadBU() {
     });
 
     document.getElementById('tc-bu').textContent = allBU.length;
-    renderBU(allBU);
+    updateFilterCounts();
+    renderBU(getFilteredSorted());
     populateBUDropdowns();
   } catch (e) {
     toast('Could not load business units: ' + e.message, 'err');
@@ -670,36 +788,28 @@ async function loadBU() {
 }
 
 function renderBU(data) {
-  // Attach linked users
-  const enriched = data.map(bu => ({
-    ...bu,
-    users: allUsers.filter(u => u.department === bu.name)
-  }));
-
   const tbody = document.getElementById('bu-tbody');
-  if (!enriched.length) {
+  if (!data.length) {
     tbody.innerHTML = `<tr class="empty-tr"><td colspan="6">
       <div class="empty-icon">🏢</div>
-      <div class="empty-title">No business units found</div>
-      <div class="empty-desc">Business units come from your directives data.</div>
+      <div class="empty-title">No business units match this filter</div>
+      <div class="empty-desc">Try a different filter or search term.</div>
     </td></tr>`;
     return;
   }
 
-  tbody.innerHTML = enriched.map(bu => {
-    const hasEmail  = !!bu.primaryEmail?.trim();
-    const hasName   = !!bu.personName?.trim();
-    const expId     = 'exp_' + safeid(bu.name);
-    // Auto-suggest email from first linked user if BU has no email set
-const suggestedEmail = (!bu.primaryEmail?.trim() && bu.users?.length)
-  ? bu.users[0].email
-  : (bu.primaryEmail || '');
+  tbody.innerHTML = data.map(bu => {
+    const expId = 'exp_' + safeid(bu.name);
 
-
+    // ── FIX 1: Email badge uses the resolved email (stored OR suggested from linked user)
+    const resolvedEmail = bu.primaryEmail?.trim()
+      || (bu.users?.length ? bu.users[0].email : '');
+    const hasEmail = !!resolvedEmail;
+    const hasName  = !!bu.personName?.trim();
     const userCount = bu.users.length;
 
-    const emailBadge  = hasEmail
-      ? `<span class="badge b-email">✓ Configured</span>`
+    const emailBadge = hasEmail
+      ? `<span class="badge b-email">✓ ${resolvedEmail}</span>`
       : `<span class="badge b-noemail">Not set</span>`;
 
     const personCell = hasName
@@ -714,12 +824,13 @@ const suggestedEmail = (!bu.primaryEmail?.trim() && bu.users?.length)
             <span>${esc(u.name)}<span style="color:var(--ink-4);font-size:10px;margin-left:4px;">${u.email}</span></span>
           </span>`).join('')
       : `<span style="font-size:12px;color:var(--ink-4);font-style:italic;">
-           No login users yet — add a user and assign this business unit.
+           No business unit users yet — add a user and assign this business unit.
          </span>`;
 
+    const safeN = esc2(bu.name);
+
     return `
-    <!-- DATA ROW -->
-    <tr onclick="toggleExpand('${esc2(bu.name)}', '${expId}')" style="cursor:pointer;">
+    <tr onclick="toggleExpand('${safeN}', '${expId}')" style="cursor:pointer;">
       <td style="padding:14px 8px 14px 16px;">
         <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"
              id="arr_${expId}" style="color:var(--ink-4);transition:transform .2s;">
@@ -740,58 +851,60 @@ const suggestedEmail = (!bu.primaryEmail?.trim() && bu.users?.length)
       <td><span style="font-size:13px;font-weight:700;color:var(--green-9);">${bu.directiveCount}</span></td>
     </tr>
 
-    <!-- EXPAND ROW -->
     <tr class="exp-row" id="${expId}">
       <td colspan="6">
         <div class="exp-inner">
           <div class="exp-grid">
-            <!-- Person Name -->
             <div>
               <span class="field-label">Responsible Person's Name</span>
               <input type="text" class="field-input" id="pn_${expId}"
                 value="${esc2(bu.personName)}"
-                placeholder="e.g. Dr. Amaka Osei ${!hasName ? '← Add name here' : ''}">
-              <div class="field-hint">The actual person responsible for this business unit</div>
+                placeholder="e.g. Dr. Amaka Osei">
+              <div class="field-hint">The person responsible for this business unit</div>
             </div>
-            <!-- Position -->
             <div>
               <span class="field-label">Position / Title</span>
               <input type="text" class="field-input" id="pp_${expId}"
                 value="${esc2(bu.position)}"
                 placeholder="e.g. Director, Financial Policy">
             </div>
-            <!-- Primary Email -->
             <div>
-              <span class="field-label">Primary Email (for reminders)</span>
+              <span class="field-label">Primary Contact Email (for reminders)</span>
               <input type="email" class="field-input" id="pe_${expId}"
-               value="${esc2(suggestedEmail)}"
-placeholder="director@cbn.gov.ng">
-            </div>
-            <!-- CC emails -->
-            <div>
-              <span class="field-label">In Copy (CC) — press Enter or , to add</span>
-              <div class="tag-area" id="ta_${expId}" onclick="focusTagInput('${esc2(bu.name)}')">
-                <input type="text" class="tag-input"
-                  id="ti_${esc2(bu.name)}"
-                  placeholder="cc@cbn.gov.ng"
-                  onkeydown="tagKeydown(event, '${esc2(bu.name)}')"
-                  onblur="tagBlur(event, '${esc2(bu.name)}')">
+                value="${esc2(resolvedEmail)}"
+                placeholder="director@cbn.gov.ng">
+              <div class="field-hint">
+                ${!bu.primaryEmail?.trim() && resolvedEmail
+                  ? '⚡ Pre-filled from linked business unit user — confirm or change'
+                  : 'Main recipient for directive reminder emails'}
               </div>
-              <div class="field-hint" id="th_${esc2(bu.name)}">
-                ${bu.inCopy.length ? bu.inCopy.length + ' address' + (bu.inCopy.length > 1 ? 'es' : '') + ' in copy' : 'No CC emails yet'}
+            </div>
+            <!-- ── FIX 2: CC tag input — max 4 ── -->
+            <div>
+              <span class="field-label">In Copy (CC) — press Enter or , to add (max ${CC_MAX})</span>
+              <div class="tag-area" id="ta_${expId}" onclick="focusTagInput('${safeN}')">
+                <input type="text" class="tag-input"
+                  id="ti_${safeN}"
+                  placeholder="cc@cbn.gov.ng"
+                  onkeydown="tagKeydown(event, '${safeN}')"
+                  onblur="tagBlur(event, '${safeN}')">
+              </div>
+              <div class="field-hint" id="th_${safeN}">
+                ${bu.inCopy.length
+                  ? bu.inCopy.length + ' address' + (bu.inCopy.length > 1 ? 'es' : '') + ' in copy'
+                  : 'No CC emails yet — up to ' + CC_MAX + ' addresses'}
               </div>
             </div>
           </div>
 
-          <!-- Linked users section -->
           <div class="linked-section">
-            <div class="linked-title">Login Users for this Business Unit (${userCount})</div>
+            <div class="linked-title">Business Unit Users (${userCount} / 3 max)</div>
             <div id="lu_${expId}">${usersChips}</div>
           </div>
 
           <div class="exp-footer">
             <div class="exp-note">Saving updates the email config across all directives for this business unit.</div>
-            <button class="btn btn-primary btn-sm" onclick="saveBU('${esc2(bu.name)}', '${expId}')">
+            <button class="btn btn-primary btn-sm" onclick="saveBU('${safeN}', '${expId}')">
               Save Changes
             </button>
           </div>
@@ -801,7 +914,7 @@ placeholder="director@cbn.gov.ng">
   }).join('');
 
   // Initialise tag inputs after render
-  enriched.forEach(bu => {
+  data.forEach(bu => {
     tags[bu.name] = new Set();
     const cc = [...(bu.inCopy || [])];
     if (bu.secondaryEmail && !cc.includes(bu.secondaryEmail)) cc.unshift(bu.secondaryEmail);
@@ -811,10 +924,11 @@ placeholder="director@cbn.gov.ng">
 
 function filterBU(q) {
   const lq = q.toLowerCase();
-  renderBU(allBU.filter(b =>
+  const filtered = getFilteredSorted().filter(b =>
     b.name.toLowerCase().includes(lq) ||
     (b.personName || '').toLowerCase().includes(lq)
-  ));
+  );
+  renderBU(filtered);
 }
 
 function toggleExpand(name, expId) {
@@ -822,14 +936,11 @@ function toggleExpand(name, expId) {
   if (!row) return;
   const arr  = document.getElementById('arr_' + expId);
   const open = row.classList.contains('open');
-
-  // Close all
   document.querySelectorAll('.exp-row.open').forEach(r => {
     r.classList.remove('open');
     const a = document.getElementById('arr_' + r.id);
     if (a) a.style.transform = '';
   });
-
   if (!open) {
     row.classList.add('open');
     if (arr) arr.style.transform = 'rotate(90deg)';
@@ -845,7 +956,6 @@ async function saveBU(name, expId) {
   const inCopy = Array.from(tags[name] || new Set());
 
   try {
-    // Save email config across all directives for this BU
     const r1 = await fetch(`${API}/update-owner-emails`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -854,24 +964,28 @@ async function saveBU(name, expId) {
     const j1 = await r1.json();
     if (!j1.success) throw new Error(j1.error);
 
-    // Save personName + position metadata (graceful — upsert endpoint from server patch)
     await fetch(`${API}/departments/upsert`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, personName, position })
-    }).catch(() => {});  // Graceful: if server not patched yet, still works
+    }).catch(() => {});
 
     toast('✅ Saved — ' + name, 'ok');
 
-    // Update local state
     const bu = allBU.find(b => b.name === name);
-    if (bu) { bu.primaryEmail = primaryEmail; bu.inCopy = inCopy; bu.personName = personName; bu.position = position; }
-
+    if (bu) {
+      bu.primaryEmail = primaryEmail;
+      bu.inCopy       = inCopy;
+      bu.personName   = personName;
+      bu.position     = position;
+    }
+    updateFilterCounts();
+    renderBU(getFilteredSorted());
   } catch (e) { toast(e.message, 'err'); }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   USERS TAB
+   BUSINESS UNIT USERS TAB
 ═══════════════════════════════════════════════════════════════ */
 
 async function loadUsers() {
@@ -883,8 +997,10 @@ async function loadUsers() {
     document.getElementById('tc-users').textContent = allUsers.length;
     renderUsers(allUsers);
     populateBUDropdowns();
+    updateFilterCounts();
+    renderBU(getFilteredSorted());
   } catch (e) {
-    toast('Could not load users: ' + e.message, 'err');
+    toast('Could not load business unit users: ' + e.message, 'err');
   }
 }
 
@@ -893,7 +1009,7 @@ function renderUsers(data) {
   if (!data.length) {
     tbody.innerHTML = `<tr class="empty-tr"><td colspan="6">
       <div class="empty-icon">👤</div>
-      <div class="empty-title">No login users yet</div>
+      <div class="empty-title">No business unit users yet</div>
       <div class="empty-desc">Add a user and assign them to a business unit so they can submit directive updates.</div>
     </td></tr>`;
     return;
@@ -1030,7 +1146,7 @@ async function saveUser() {
     });
     const j = await r.json();
     if (!j.success) throw new Error(j.error);
-    toast('✅ User updated', 'ok');
+    toast('✅ Business unit user updated', 'ok');
     closeModal('m-edit-user');
     await Promise.all([loadUsers(), loadBU()]);
   } catch (e) { toast(e.message, 'err'); }
@@ -1083,7 +1199,7 @@ function deleteUser(id, name) {
   );
 }
 
-/* ─── TAG INPUT LOGIC ────────────────────────────────────────── */
+/* ─── TAG INPUT LOGIC (max CC_MAX = 4) ──────────────────────────────────── */
 function ensureTags(name) { if (!tags[name]) tags[name] = new Set(); }
 
 function addTag(name, email, save = false) {
@@ -1091,6 +1207,13 @@ function addTag(name, email, save = false) {
   if (!email || !email.includes('@')) return false;
   ensureTags(name);
   if (tags[name].has(email)) return false;
+
+  // ── FIX 2: enforce CC_MAX limit
+  if (tags[name].size >= CC_MAX) {
+    toast(`Max ${CC_MAX} CC addresses per business unit`, 'warn');
+    return false;
+  }
+
   tags[name].add(email);
   renderTagsFor(name);
   if (save) updateTagHint(name);
@@ -1113,9 +1236,17 @@ function renderTagsFor(name) {
   tags[name].forEach(email => {
     const t = document.createElement('span');
     t.className = 'etag';
-    t.innerHTML = `${esc(email)} <button type="button" class="etag-x" onclick="removeTag('${esc2(name)}','${esc2(email)}')">×</button>`;
+    const safeEmail = esc2(email);
+    const safeName  = esc2(name);
+    t.innerHTML = `${esc(email)} <button type="button" class="etag-x" onclick="removeTag('${safeName}','${safeEmail}')">×</button>`;
     wrap.insertBefore(t, inp);
   });
+
+  // Disable input when at limit
+  inp.disabled = tags[name].size >= CC_MAX;
+  inp.placeholder = tags[name].size >= CC_MAX
+    ? `Max ${CC_MAX} reached`
+    : 'cc@cbn.gov.ng';
 }
 
 function updateTagHint(name) {
@@ -1123,12 +1254,13 @@ function updateTagHint(name) {
   const count = tags[name].size;
   const el = document.getElementById('th_' + name);
   if (el) el.textContent = count
-    ? count + ' address' + (count > 1 ? 'es' : '') + ' in copy'
-    : 'No CC emails yet';
+    ? `${count} of ${CC_MAX} CC addresses added`
+    : `No CC emails yet — up to ${CC_MAX} addresses`;
 }
 
 function focusTagInput(name) {
-  document.getElementById('ti_' + name)?.focus();
+  const inp = document.getElementById('ti_' + name);
+  if (inp && !inp.disabled) inp.focus();
 }
 
 function tagKeydown(e, name) {
@@ -1179,19 +1311,15 @@ function toast(msg, type = 'ok') {
 function initials(name) {
   return (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
-
 function safeid(str) {
   return (str || '').replace(/[^a-zA-Z0-9]/g, '_');
 }
-
 function esc(str) {
   const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML;
 }
-
 function esc2(str) {
-  return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  return (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
-
 function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
