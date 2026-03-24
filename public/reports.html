@@ -1,1299 +1,988 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analytics Dashboard - Board Directives</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
-    
-    <style>
-        * { 
-            font-family: 'Google Sans', 'Roboto', sans-serif; 
-            margin: 0; 
-            padding: 0; 
-            box-sizing: border-box; 
-        }
-        
-        :root {
-            --cbn-darkest: #0D2818;
-            --cbn-dark: #1B5E20;
-            --cbn-primary: #2E7D32;
-            --cbn-medium: #43A047;
-            --cbn-light: #66BB6A;
-            --cbn-pale: #E8F5E9;
-            --cbn-cream: #F1F8F4;
-            --red-critical: #C62828;
-            --bg-page: #F8F9FA;
-        }
-        
-        body {
-            background: var(--bg-page);
-            color: #202124;
-            height: 100vh;
-            overflow: hidden;
-        }
-        
-        .sidebar {
-            width: 256px;
-            background: white;
-            border-right: 1px solid #DADCE0;
-            height: 100vh;
-            position: fixed;
-            left: 0;
-            top: 0;
-            overflow-y: auto;
-        }
-        
-        .nav-item {
-            padding: 12px 20px;
-            margin: 2px 8px;
-            border-radius: 24px;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #5F6368;
-            font-weight: 500;
-            font-size: 14px;
-        }
-        
-        .nav-item:hover { background: var(--cbn-pale); }
-        .nav-item.active { background: var(--cbn-pale); color: var(--cbn-dark); font-weight: 700; }
-        
-        .main-content {
-            margin-left: 256px;
-            height: 100vh;
-            overflow-y: auto;
-            padding: 24px;
-        }
-        
-        .view-section { display: none; }
-        .view-section.active { display: block; animation: fadeIn 0.3s ease; }
-        
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        
-        .stat-card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid #DADCE0;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .stat-card:hover { box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px rgba(60,64,67,0.15); }
-        
-        .chart-card {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            border: 1px solid #DADCE0;
-        }
-        
-        .metric-big {
-            font-size: 2.5rem;
-            font-weight: 400;
-            line-height: 1;
-            font-family: 'Google Sans';
-        }
-        
-        .btn-subtle {
-            background: var(--bg-page);
-            border: none;
-            padding: 8px 16px;
-            border-radius: 24px;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            font-weight: 500;
-            font-size: 14px;
-            color: #5F6368;
-        }
-        .btn-subtle:hover { background: #E8EAED; }
-        .btn-subtle.active { background: var(--cbn-pale); color: var(--cbn-dark); }
-        
-        .btn-primary {
-            background: var(--cbn-primary);
-            color: white;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 24px;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            font-weight: 500;
-            font-size: 14px;
-        }
-        .btn-primary:hover { background: var(--cbn-dark); box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px rgba(60,64,67,0.15); }
-        
-        .badge {
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-            display: inline-block;
-        }
-        .badge-green  { background: var(--cbn-pale); color: var(--cbn-dark); }
-        .badge-red    { background: #FCE8E6; color: var(--red-critical); }
-        .badge-yellow { background: #FEF3C7; color: #92400E; }
-        .badge-blue   { background: #E3F2FD; color: #1565C0; }
-        
-        .progress-bar {
-            height: 6px;
-            background: #E8EAED;
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 8px;
-        }
-        .progress-fill {
-            height: 100%;
-            transition: width 0.8s ease;
-            border-radius: 3px;
-            background: var(--cbn-primary);
-        }
-        
-        .filter-bar {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        .filter-bar select, .filter-bar input {
-            padding: 8px 16px;
-            border: 1px solid #DADCE0;
-            border-radius: 24px;
-            font-size: 14px;
-            background: white;
-        }
-        .filter-bar input { min-width: 240px; }
-        
-        .pagination {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 24px;
-            padding-top: 24px;
-            border-top: 1px solid #DADCE0;
-        }
-        .pagination button {
-            padding: 8px 16px;
-            border: 1px solid #DADCE0;
-            background: white;
-            border-radius: 24px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            color: #5F6368;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .pagination button:hover:not(:disabled) { background: var(--cbn-pale); }
-        .pagination button.active { background: var(--cbn-primary); color: white; border-color: var(--cbn-primary); }
-        .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
-        
-        .item-card {
-            background: white;
-            border: 1px solid #DADCE0;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 12px;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .item-card:hover { box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px rgba(60,64,67,0.15); }
-        
-        .tooltip-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #E8EAED;
-            color: #5F6368;
-            font-size: 11px;
-            font-weight: bold;
-            cursor: help;
-            margin-left: 4px;
-            position: relative;
-        }
-        .tooltip-icon:hover::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 8px 12px;
-            background: #202124;
-            color: white;
-            font-size: 12px;
-            font-weight: normal;
-            white-space: nowrap;
-            border-radius: 8px;
-            z-index: 1000;
-            margin-bottom: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
-        
-        @media print {
-            .sidebar, .no-print, .filter-bar, .pagination, .tooltip-icon { display: none !important; }
-            body { background: white; overflow: visible !important; }
-            .main-content { margin-left: 0; padding: 0; overflow: visible !important; height: auto !important; }
-            .view-section { display: block !important; page-break-after: always; }
-            .view-section:last-child { page-break-after: auto; }
-            .stat-card, .chart-card, .item-card { page-break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd; }
-            canvas { max-height: 300px !important; }
-            @page { margin: 1.5cm; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analytics — CBN Decisions Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0F1E17;--ink-2:#2C3E35;--ink-3:#5A7266;--ink-4:#96AFA5;
+  --G9:#1B5E20;--G7:#2E7D32;--G5:#4CAF50;--G3:#A5D6A7;--G1:#E8F5E9;--G0:#F4FAF5;
+  --B9:#1565C0;--B5:#42A5F5;--B1:#E3F2FD;
+  --A9:#E65100;--A5:#FF9800;--A1:#FFF3E0;
+  --R9:#B71C1C;--R5:#EF5350;--R1:#FFEBEE;
+  --bg:#EFF4F1;--surface:#FFFFFF;--border:#D8E6DD;--border-2:#C4D8CB;
+  --sh-sm:0 1px 4px rgba(15,30,23,.07);
+  --sh:0 3px 12px rgba(15,30,23,.09);
+  --sh-lg:0 8px 32px rgba(15,30,23,.12);
+  --r:10px;--r-lg:14px;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Source Sans 3',sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:15px}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--G3);border-radius:3px}
+
+/* NAV */
+.nav{height:56px;background:var(--G9);display:flex;align-items:center;justify-content:space-between;padding:0 24px;box-shadow:0 2px 8px rgba(0,0,0,.2);flex-shrink:0;z-index:100}
+.nav-brand{display:flex;align-items:center;gap:12px}
+.nav-logo{width:32px;height:32px;border-radius:7px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.nav-logo img{width:100%;height:100%;object-fit:contain}
+.nav-title{font-family:'Libre Baskerville',serif;font-size:12px;color:rgba(255,255,255,.92);line-height:1.4;max-width:340px}
+.nav-sub{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.6px;margin-top:1px}
+.nav-r{display:flex;align-items:center;gap:4px}
+.nav-src{display:flex;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:3px;gap:2px;margin-right:8px}
+.src-btn{padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;color:rgba(255,255,255,.5);border:none;background:none;cursor:pointer;transition:.15s;font-family:'Source Sans 3',sans-serif}
+.src-btn.active{background:rgba(255,255,255,.15);color:#fff}
+.src-btn:hover:not(.active){color:rgba(255,255,255,.8)}
+.nbtn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;color:rgba(255,255,255,.6);border:none;background:none;cursor:pointer;transition:.15s;font-family:'Source Sans 3',sans-serif;text-decoration:none;white-space:nowrap}
+.nbtn:hover{background:rgba(255,255,255,.1);color:#fff}
+.nbtn.accent{background:rgba(165,214,167,.15);color:#A5D6A7;border:1px solid rgba(165,214,167,.2)}
+.nbtn.accent:hover{background:rgba(165,214,167,.25);color:#C8E6C9}
+.nsep{width:1px;height:16px;background:rgba(255,255,255,.12);margin:0 2px}
+
+/* SHELL */
+.shell{display:flex;height:calc(100vh - 56px);overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{width:200px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.sb-section{padding:16px 10px 8px;border-bottom:1px solid var(--border)}
+.sb-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--ink-4);padding:0 8px;margin-bottom:8px}
+nav.sb-nav{padding:8px}
+.sb-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--ink-3);transition:.12s;border:none;background:none;width:100%;text-align:left;font-family:'Source Sans 3',sans-serif;text-decoration:none}
+.sb-item:hover{background:var(--G0);color:var(--ink)}
+.sb-item.active{background:var(--G1);color:var(--G9);font-weight:700}
+.sb-icon{font-size:15px;flex-shrink:0;width:22px;text-align:center}
+.sb-foot{margin-top:auto;padding:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px}
+.sf-btn{padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;font-family:'Source Sans 3',sans-serif;cursor:pointer;transition:.15s;border:1.5px solid var(--border);background:var(--surface);color:var(--ink-2);display:flex;align-items:center;justify-content:center;gap:6px}
+.sf-btn:hover{background:var(--G0);border-color:var(--G3);color:var(--G9)}
+.sf-btn.primary{background:var(--G7);color:#fff;border-color:var(--G7)}
+.sf-btn.primary:hover{background:var(--G9)}
+
+/* MAIN */
+.main{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:0}
+
+/* SECTIONS */
+.sec{display:none;animation:fu .2s ease both}
+.sec.active{display:block}
+@keyframes fu{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* PAGE HEADER */
+.ph{margin-bottom:20px}
+.ph h2{font-family:'Libre Baskerville',serif;font-size:24px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.ph p{font-size:13px;color:var(--ink-3)}
+
+/* ── STATUS CARDS (the 4 primary) ── */
+.status-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 18px;position:relative;overflow:hidden;transition:box-shadow .2s,transform .2s;cursor:default}
+.sc:hover{box-shadow:var(--sh);transform:translateY(-1px)}
+.sc-accent{position:absolute;bottom:-16px;right:-16px;width:72px;height:72px;border-radius:50%;opacity:.08}
+.sc-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-4);margin-bottom:10px}
+.sc-val{font-family:'Libre Baskerville',serif;font-size:38px;font-weight:700;line-height:1}
+.sc-pct{font-size:12px;font-weight:600;margin-top:4px}
+.sc-sub{font-size:11px;color:var(--ink-4);margin-top:3px}
+
+/* Implemented card — has expandable breakdown */
+.sc.impl .sc-val{color:var(--G7)} .sc.impl .sc-accent{background:var(--G5)}
+.sc.impl .sc-pct{color:var(--G7)}
+.sc.being .sc-val{color:var(--B9)} .sc.being .sc-accent{background:var(--B5)}
+.sc.being .sc-pct{color:var(--B9)}
+.sc.not .sc-val{color:var(--A9)} .sc.not .sc-accent{background:var(--A5)}
+.sc.not .sc-pct{color:var(--A9)}
+.sc.noresp .sc-val{color:var(--R9)} .sc.noresp .sc-accent{background:var(--R5)}
+.sc.noresp .sc-pct{color:var(--R9)}
+
+/* Expand toggle on Implemented card */
+.sc-expand-btn{margin-top:10px;padding:0;background:none;border:none;cursor:pointer;font-size:11px;font-weight:700;color:var(--G7);display:flex;align-items:center;gap:4px;font-family:'Source Sans 3',sans-serif;transition:.12s}
+.sc-expand-btn:hover{color:var(--G9)}
+.sc-expand-btn svg{transition:.2s}
+.sc-expand-btn.open svg{transform:rotate(180deg)}
+
+/* Sub-breakdown (hidden by default) */
+.sc-breakdown{display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:6px}
+.sc-breakdown.visible{display:flex}
+.sc-brow{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:7px;background:var(--G0)}
+.sc-brow-label{font-size:11px;font-weight:600;color:var(--ink-2)}
+.sc-brow-val{font-size:13px;font-weight:700;color:var(--G7);font-family:'Libre Baskerville',serif}
+.sc-brow-pct{font-size:10px;font-weight:600;color:var(--ink-4);margin-left:4px}
+
+/* SUMMARY BANNER */
+.summary-banner{background:linear-gradient(135deg,var(--G1),var(--G0));border:1px solid var(--G3);border-radius:var(--r-lg);padding:14px 18px;margin-bottom:16px;font-size:13px;color:var(--ink-2);line-height:1.7}
+.summary-banner strong{color:var(--G9)}
+.summary-banner .warn{color:var(--R9);font-weight:700}
+
+/* CHART GRID */
+.chart-row{display:grid;gap:12px;margin-bottom:16px}
+.chart-row.c2{grid-template-columns:1fr 1fr}
+.chart-row.c3{grid-template-columns:1fr 1fr 1fr}
+.chart-row.c21{grid-template-columns:2fr 1fr}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px}
+.card-title{font-family:'Libre Baskerville',serif;font-size:14px;font-weight:700;color:var(--ink-2);margin-bottom:14px}
+.card-sub{font-size:11px;color:var(--ink-4);margin-top:-10px;margin-bottom:14px}
+
+/* FILTER BAR */
+.fbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.fbar select,.fbar input{padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);outline:none;font-family:'Source Sans 3',sans-serif;color:var(--ink);transition:.15s}
+.fbar input{min-width:200px}
+.fbar select:focus,.fbar input:focus{border-color:var(--G5);box-shadow:0 0 0 3px rgba(76,175,80,.1)}
+.results-lbl{font-size:11px;color:var(--ink-4);margin-left:auto}
+
+/* ITEM ROWS */
+.item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;transition:.12s}
+.item:last-child{margin-bottom:0}
+.item:hover{border-color:var(--G3);box-shadow:var(--sh-sm)}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.bi{background:var(--G1);color:var(--G7)}.bi::before{background:var(--G5)}
+.bb{background:var(--B1);color:var(--B9)}.bb::before{background:var(--B5)}
+.bn{background:var(--A1);color:var(--A9)}.bn::before{background:var(--A5)}
+.br{background:var(--R1);color:var(--R9)}.br::before{background:var(--R5)}
+.tag-ov{background:var(--R1);color:var(--R9);border:1px solid #FFCDD2;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700}
+.tag-soon{background:var(--A1);color:var(--A9);border:1px solid #FFE0B2;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700}
+
+/* PROGRESS */
+.prog{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px}
+.prog-fill{height:100%;border-radius:3px;transition:width .5s ease}
+
+/* EXPAND DECISIONS BUTTON */
+.xbtn{font-size:11px;font-weight:700;color:var(--G7);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;transition:.12s;font-family:'Source Sans 3',sans-serif}
+.xbtn:hover{background:var(--G1)}
+
+/* PAGINATION */
+.pag{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.pg{padding:6px 12px;border:1.5px solid var(--border);background:var(--surface);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;color:var(--ink-3);transition:.12s;font-family:'Source Sans 3',sans-serif}
+.pg:hover:not(:disabled){background:var(--G0);border-color:var(--G3);color:var(--G9)}
+.pg.on{background:var(--G7);color:#fff;border-color:var(--G7)}
+.pg:disabled{opacity:.35;cursor:not-allowed}
+
+/* STAT MINI ROW (for Business Units / Timeline) */
+.mini-stats{display:grid;gap:10px;margin-bottom:14px}
+.mini-stats.c3{grid-template-columns:repeat(3,1fr)}
+.mstat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px}
+.mstat-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--ink-4);margin-bottom:6px}
+.mstat-val{font-family:'Libre Baskerville',serif;font-size:28px;font-weight:700;line-height:1}
+.mstat-sub{font-size:11px;color:var(--ink-4);margin-top:3px}
+
+/* LOADING */
+#ld{position:fixed;inset:0;background:rgba(244,250,245,.93);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:12px}
+.ld-ring{width:34px;height:34px;border:3px solid var(--G1);border-top-color:var(--G7);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media print{
+  .sidebar,.nav-r,.fbar,.pag{display:none!important}
+  .shell,.main{overflow:visible!important;height:auto!important}
+  body,html{overflow:visible!important;height:auto!important}
+  .sec{display:block!important;page-break-after:always}
+  .sec:last-child{page-break-after:auto}
+  .card,.item,.sc{page-break-inside:avoid;box-shadow:none!important}
+}
+</style>
 </head>
 <body>
 
-    <!-- Loading -->
-    <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-90 items-center justify-center hidden z-50">
-        <div class="text-center">
-            <div class="inline-block w-12 h-12 border-4 border-gray-200 border-t-green-600 rounded-full animate-spin mb-4"></div>
-            <p class="text-gray-700 font-medium">Loading data...</p>
+<div id="ld" style="display:none">
+  <div class="ld-ring"></div>
+  <div style="font-size:12px;font-weight:600;color:var(--ink-3)">Loading data…</div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-logo"><img src="/assets/cbn_logo.png" alt="CBN" onerror="this.style.display='none'"></div>
+    <div>
+      <div class="nav-title">Dashboard on the Monitoring of the Implementation of Board/Committee of Governors Decisions</div>
+      <div class="nav-sub">Analytics · Corporate Secretariat · CBN</div>
+    </div>
+  </div>
+  <div class="nav-r">
+    <div class="nav-src">
+      <button id="src-cg"    class="src-btn active" onclick="switchSrc('CG')">Committee of Governors</button>
+      <button id="src-board" class="src-btn"         onclick="switchSrc('Board')">Board of Directors</button>
+    </div>
+    <a href="/index.html" class="nbtn">
+      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      Dashboard
+    </a>
+    <div class="nsep"></div>
+    <button class="nbtn accent" onclick="exportXLS()">
+      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      Export
+    </button>
+    <button class="nbtn" onclick="window.print()">
+      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+      Print
+    </button>
+  </div>
+</nav>
+
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-section">
+      <div class="sb-label">Views</div>
+      <nav class="sb-nav">
+        <button class="sb-item active" onclick="showSec('overview',this)"><span class="sb-icon">📊</span>Overview</button>
+        <button class="sb-item" onclick="showSec('directives',this)"><span class="sb-icon">📋</span>All Directives</button>
+        <button class="sb-item" onclick="showSec('units',this)"><span class="sb-icon">🏢</span>Business Units</button>
+        <button class="sb-item" onclick="showSec('timeline',this)"><span class="sb-icon">⏱</span>Timeline</button>
+      </nav>
+    </div>
+    <div class="sb-foot">
+      <button class="sf-btn primary" onclick="exportXLS()">
+        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Export Excel
+      </button>
+      <button class="sf-btn" onclick="window.print()">
+        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        Print Report
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- ════════════════════════════════════════════════
+         OVERVIEW
+    ════════════════════════════════════════════════ -->
+    <div id="sec-overview" class="sec active">
+      <div class="ph">
+        <h2>Overview</h2>
+        <p id="ov-date">—</p>
+      </div>
+
+      <!-- 4 PRIMARY STATUS CARDS -->
+      <!-- "Implemented" card has expand to show Full vs Partial breakdown -->
+      <div class="status-row">
+
+        <!-- IMPLEMENTED -->
+        <div class="sc impl" id="impl-card">
+          <div class="sc-accent"></div>
+          <div class="sc-label">Implemented</div>
+          <div class="sc-val" id="sc-impl">0</div>
+          <div class="sc-pct" id="sc-impl-pct">0% of all decisions</div>
+          <div class="sc-sub">decisions complete</div>
+          <!-- Expand toggle -->
+          <button class="sc-expand-btn" id="impl-expand-btn" onclick="toggleImplBreakdown()">
+            <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+            Show directive breakdown
+          </button>
+          <!-- Sub-breakdown (hidden by default) -->
+          <div class="sc-breakdown" id="impl-breakdown">
+            <div class="sc-brow">
+              <span class="sc-brow-label">✅ Fully Implemented</span>
+              <span><span class="sc-brow-val" id="sc-full">0</span><span class="sc-brow-pct" id="sc-full-pct"></span></span>
+            </div>
+            <div class="sc-brow" style="background:var(--B1)">
+              <span class="sc-brow-label" style="color:var(--ink-2)">⚙ Partially Implemented</span>
+              <span><span class="sc-brow-val" id="sc-partial" style="color:var(--B9)">0</span><span class="sc-brow-pct" id="sc-partial-pct"></span></span>
+            </div>
+            <div style="font-size:10px;color:var(--ink-4);margin-top:2px;font-style:italic">Counts are directives, not decisions</div>
+          </div>
         </div>
+
+        <!-- BEING IMPLEMENTED -->
+        <div class="sc being">
+          <div class="sc-accent"></div>
+          <div class="sc-label">Being Implemented</div>
+          <div class="sc-val" id="sc-being">0</div>
+          <div class="sc-pct" id="sc-being-pct">0% of all decisions</div>
+          <div class="sc-sub">decisions in progress</div>
+        </div>
+
+        <!-- NOT IMPLEMENTED -->
+        <div class="sc not">
+          <div class="sc-accent"></div>
+          <div class="sc-label">Not Implemented</div>
+          <div class="sc-val" id="sc-not">0</div>
+          <div class="sc-pct" id="sc-not-pct">0% of all decisions</div>
+          <div class="sc-sub">decisions pending</div>
+        </div>
+
+        <!-- NO RESPONSE -->
+        <div class="sc noresp">
+          <div class="sc-accent"></div>
+          <div class="sc-label">No Response</div>
+          <div class="sc-val" id="sc-noresp">0</div>
+          <div class="sc-pct" id="sc-noresp-pct">0% of all decisions</div>
+          <div class="sc-sub">awaiting any feedback</div>
+        </div>
+
+      </div>
+
+      <!-- SUMMARY -->
+      <div class="summary-banner" id="ov-summary"></div>
+
+      <!-- CHARTS -->
+      <div class="chart-row c2">
+        <div class="card">
+          <div class="card-title">Decision Status Distribution</div>
+          <div class="card-sub">All <span id="ch-total-dec">0</span> decisions across <span id="ch-total-dir">0</span> directives</div>
+          <canvas id="ch-donut" height="220"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">Top 10 Business Units by Implementation Rate</div>
+          <div class="card-sub">Percentage of decisions marked Implemented</div>
+          <canvas id="ch-bu-top" height="220"></canvas>
+        </div>
+      </div>
+
+      <!-- PROBLEMATIC -->
+      <div class="card">
+        <div class="card-title">⚠ Directives Needing Attention</div>
+        <div class="card-sub" style="margin-bottom:12px">Highest count of Not Implemented + No Response decisions combined</div>
+        <div id="ov-prob"></div>
+      </div>
     </div>
 
-    <!-- Sidebar -->
-    <aside class="sidebar no-print">
-        <div class="p-6 border-b border-gray-200">
-            <a href="/" class="flex items-center gap-3" style="text-decoration: none;">
-                <img src="/assets/cbn_logo.png" alt="CBN" class="w-10 h-10 object-contain rounded-full bg-green-100">
-                <div>
-                    <h1 class="font-bold text-lg" style="color: var(--cbn-dark);">Analytics</h1>
-                    <p class="text-xs text-gray-500">Board Directives</p>
-                </div>
-            </a>
+    <!-- ════════════════════════════════════════════════
+         ALL DIRECTIVES
+    ════════════════════════════════════════════════ -->
+    <div id="sec-directives" class="sec">
+      <div class="ph">
+        <h2>All Directives</h2>
+        <p>Full list with decision tracking per directive</p>
+      </div>
+      <div class="card">
+        <div class="fbar">
+          <select id="df-status">
+            <option value="all">All Decision Statuses</option>
+            <option value="impl">Has Implemented decisions</option>
+            <option value="being">Has Being Implemented decisions</option>
+            <option value="not">Has Not Implemented decisions</option>
+            <option value="noresp">Has No Response decisions</option>
+          </select>
+          <select id="df-sort">
+            <option value="rate-d">Implementation Rate ↓</option>
+            <option value="rate-a">Implementation Rate ↑</option>
+            <option value="dec-d">Most Decisions First</option>
+            <option value="new">Newest First</option>
+          </select>
+          <input type="text" id="df-q" placeholder="Search ref, subject, business unit…">
+          <span class="results-lbl" id="df-count"></span>
         </div>
+        <div id="dir-list"></div>
+      </div>
+    </div>
 
-        <!-- Source Selector -->
-        <div class="p-4">
-            <div class="flex gap-2">
-                <button id="src-cg"    onclick="switchSource('CG')"    class="btn-subtle active flex-1">CG</button>
-                <button id="src-board" onclick="switchSource('Board')"  class="btn-subtle flex-1">Board</button>
-            </div>
+    <!-- ════════════════════════════════════════════════
+         BUSINESS UNITS
+    ════════════════════════════════════════════════ -->
+    <div id="sec-units" class="sec">
+      <div class="ph">
+        <h2>Business Unit Performance</h2>
+        <p>Ranked by percentage of decisions implemented</p>
+      </div>
+      <div class="chart-row c2" style="margin-bottom:14px">
+        <div class="card">
+          <div class="card-title">Implementation Rate by Business Unit</div>
+          <canvas id="ch-bu-bar" height="280"></canvas>
         </div>
-
-        <!-- Navigation -->
-        <nav class="py-2">
-            <a href="/index.html" class="nav-item" style="text-decoration: none; color: inherit;">
-                <span>←</span><span>Back to Dashboard</span>
-            </a>
-            <div class="nav-item active" onclick="showView('overview')">
-                <span>📊</span><span>Overview</span>
-            </div>
-            <div class="nav-item" onclick="showView('decisions')">
-                <span>📈</span><span>Decision Analysis</span>
-            </div>
-            <div class="nav-item" onclick="showView('directives')">
-                <span>📋</span><span>Directive Details</span>
-            </div>
-            <div class="nav-item" onclick="showView('timeline')">
-                <span>⏱️</span><span>Timeline Tracking</span>
-            </div>
-            <div class="nav-item" onclick="showView('owners')">
-                <span>🏢</span><span>Business Units</span>
-            </div>
-        </nav>
-
-        <!-- Actions -->
-        <div class="p-4 border-t border-gray-200 mt-auto">
-            <button onclick="window.print()" class="btn-subtle w-full mb-2">🖨️ Print Report</button>
-            <button onclick="exportReport()" class="btn-primary w-full">📥 Export Excel</button>
+        <div class="card">
+          <div class="card-title">Decision Status Mix by Unit</div>
+          <canvas id="ch-bu-stack" height="280"></canvas>
         </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="main-content">
-
-        <!-- ═══ OVERVIEW ═══════════════════════════════════════════════════════ -->
-        <div id="view-overview" class="view-section active">
-            <div class="mb-6">
-                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Overview</h2>
-                <p class="text-sm text-gray-600" id="current-date"></p>
-            </div>
-
-            <!-- Decision-Based Stats (was Outcome-Based) -->
-            <div class="grid grid-cols-5 gap-4 mb-6">
-                <div class="stat-card">
-                    <div class="flex items-center text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                        Total Decisions
-                        <span class="tooltip-icon" data-tooltip="Total individual decisions across all directives">ℹ</span>
-                    </div>
-                    <div class="metric-big" style="color: var(--cbn-dark);" id="ov-total-decisions">0</div>
-                    <div class="text-xs text-gray-500 mt-2">From <span id="ov-total-directives">0</span> directives</div>
-                </div>
-                <div class="stat-card">
-                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-primary);">
-                        Implemented
-                        <span class="tooltip-icon" data-tooltip="Decisions marked as Implemented">ℹ</span>
-                    </div>
-                    <div class="metric-big" style="color: var(--cbn-primary);" id="ov-implemented">0</div>
-                    <div class="text-xs font-medium mt-2" style="color: var(--cbn-primary);" id="ov-implemented-pct">0%</div>
-                </div>
-                <div class="stat-card">
-                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-medium);">
-                        Being Implemented
-                        <span class="tooltip-icon" data-tooltip="Decisions actively in progress">ℹ</span>
-                    </div>
-                    <div class="metric-big" style="color: var(--cbn-medium);" id="ov-implementing">0</div>
-                    <div class="text-xs font-medium mt-2" style="color: var(--cbn-medium);" id="ov-implementing-pct">0%</div>
-                </div>
-                <div class="stat-card">
-                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2 text-orange-600">
-                        Not Implemented
-                        <span class="tooltip-icon" data-tooltip="Decisions not yet begun">ℹ</span>
-                    </div>
-                    <div class="metric-big text-orange-600" id="ov-not-implemented">0</div>
-                    <div class="text-xs font-medium mt-2 text-orange-600" id="ov-not-implemented-pct">0%</div>
-                </div>
-                <div class="stat-card">
-                    <div class="flex items-center text-xs font-medium uppercase tracking-wide mb-2 text-red-700">
-                        No Response
-                        <span class="tooltip-icon" data-tooltip="Business unit has not responded">ℹ</span>
-                    </div>
-                    <div class="metric-big text-red-700" id="ov-no-response">0</div>
-                    <div class="text-xs font-medium mt-2 text-red-700" id="ov-no-response-pct">0%</div>
-                </div>
-            </div>
-
-            <!-- Directive-Level Implementation -->
-            <div class="grid grid-cols-3 gap-4 mb-6">
-                <div class="stat-card bg-green-50">
-                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                        Full Implementation
-                        <span class="tooltip-icon" data-tooltip="Directives with ALL decisions Implemented">ℹ</span>
-                    </div>
-                    <div class="text-4xl font-light text-green-700" id="ov-full-implementation">0</div>
-                    <div class="text-xs text-green-700 mt-1" id="ov-full-implementation-pct">0%</div>
-                </div>
-                <div class="stat-card bg-blue-50">
-                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                        Partial Implementation
-                        <span class="tooltip-icon" data-tooltip="Directives with SOME decisions Implemented">ℹ</span>
-                    </div>
-                    <div class="text-4xl font-light text-blue-700" id="ov-partial-implementation">0</div>
-                    <div class="text-xs text-blue-700 mt-1" id="ov-partial-implementation-pct">0%</div>
-                </div>
-                <div class="stat-card bg-red-50">
-                    <div class="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
-                        Non-Responsive
-                        <span class="tooltip-icon" data-tooltip="Directives with 3+ reminders, no response">ℹ</span>
-                    </div>
-                    <div class="text-4xl font-light text-red-700" id="ov-non-responsive">0</div>
-                    <div class="text-xs text-red-700 mt-1" id="ov-non-responsive-pct">0%</div>
-                </div>
-            </div>
-
-            <!-- Summary -->
-            <div class="stat-card mb-6">
-                <h3 class="text-base font-medium mb-2 flex items-center" style="color: var(--cbn-dark);">
-                    Strategic Summary
-                    <span class="tooltip-icon" data-tooltip="Overall performance assessment">ℹ</span>
-                </h3>
-                <p id="ov-summary" class="text-gray-700 leading-relaxed text-sm"></p>
-            </div>
-
-            <!-- Charts -->
-            <div class="grid grid-cols-2 gap-6">
-                <div class="chart-card">
-                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Decision Status Distribution</h3>
-                    <canvas id="ov-decision-chart" height="200"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Directive Implementation Status</h3>
-                    <canvas id="ov-directive-chart" height="200"></canvas>
-                </div>
-            </div>
+      </div>
+      <div class="card">
+        <div class="fbar">
+          <select id="uf-perf">
+            <option value="all">All Levels</option>
+            <option value="exc">Excellent (80%+)</option>
+            <option value="good">Good (60–79%)</option>
+            <option value="low">Needs Attention (&lt;60%)</option>
+          </select>
+          <select id="uf-sort">
+            <option value="rate-d">Rate ↓</option>
+            <option value="dec-d">Most Decisions</option>
+            <option value="dir-d">Most Directives</option>
+          </select>
+          <input type="text" id="uf-q" placeholder="Search business units…">
+          <span class="results-lbl" id="uf-count"></span>
         </div>
+        <div id="bu-list"></div>
+      </div>
+    </div>
 
-        <!-- ═══ DECISION ANALYSIS ══════════════════════════════════════════════ -->
-        <div id="view-decisions" class="view-section">
-            <div class="mb-6">
-                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Decision Analysis</h2>
-                <p class="text-sm text-gray-600">Individual decision status tracking</p>
-            </div>
-
-            <!-- Decision Metrics -->
-            <div class="grid grid-cols-4 gap-4 mb-6">
-                <div class="stat-card">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-primary);">Implemented</div>
-                    <div class="text-4xl font-light" style="color: var(--cbn-primary);" id="out-implemented">0</div>
-                    <div class="text-xs mt-2" style="color: var(--cbn-primary);" id="out-implemented-pct">0%</div>
-                </div>
-                <div class="stat-card">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--cbn-medium);">Being Implemented</div>
-                    <div class="text-4xl font-light" style="color: var(--cbn-medium);" id="out-implementing">0</div>
-                    <div class="text-xs mt-2" style="color: var(--cbn-medium);" id="out-implementing-pct">0%</div>
-                </div>
-                <div class="stat-card">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-orange-600">Not Implemented</div>
-                    <div class="text-4xl font-light text-orange-600" id="out-not-implemented">0</div>
-                    <div class="text-xs text-orange-600 mt-2" id="out-not-implemented-pct">0%</div>
-                </div>
-                <div class="stat-card">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-red-700">No Response</div>
-                    <div class="text-4xl font-light text-red-700" id="out-no-response">0</div>
-                    <div class="text-xs text-red-700 mt-2" id="out-no-response-pct">0%</div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-6 mb-6">
-                <div class="chart-card">
-                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Status Distribution</h3>
-                    <canvas id="decision-status-chart" height="200"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Top 10: Most Decisions</h3>
-                    <canvas id="decision-by-directive-chart" height="200"></canvas>
-                </div>
-            </div>
-
-            <!-- Problematic Decisions -->
-            <div class="chart-card">
-                <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">
-                    ⚠️ Directives with Most Not Implemented / No Response Decisions
-                </h3>
-                <div id="problematic-decisions"></div>
-            </div>
+    <!-- ════════════════════════════════════════════════
+         TIMELINE
+    ════════════════════════════════════════════════ -->
+    <div id="sec-timeline" class="sec">
+      <div class="ph">
+        <h2>Timeline Tracking</h2>
+        <p>Deadline status for directives with implementation end dates</p>
+      </div>
+      <div class="mini-stats c3" style="margin-bottom:14px">
+        <div class="mstat" style="background:var(--R1);border-color:#FFCDD2">
+          <div class="mstat-label" style="color:var(--R9)">Overdue</div>
+          <div class="mstat-val" id="tl-ov" style="color:var(--R9)">0</div>
+          <div class="mstat-sub">past their deadline</div>
         </div>
-
-        <!-- ═══ DIRECTIVE DETAILS ══════════════════════════════════════════════ -->
-        <div id="view-directives" class="view-section">
-            <div class="mb-6">
-                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Directive Details</h2>
-                <p class="text-sm text-gray-600">Full list with implementation tracking</p>
-            </div>
-
-            <div class="chart-card">
-                <div class="filter-bar no-print">
-                    <select id="dir-filter-status" class="flex-1">
-                        <option value="all">All Statuses</option>
-                        <option value="full">Full Implementation</option>
-                        <option value="partial">Partial Implementation</option>
-                        <option value="none">Not Implemented</option>
-                    </select>
-                    <select id="dir-filter-sort" class="flex-1">
-                        <option value="completion-desc">Implementation Rate ↓</option>
-                        <option value="completion-asc">Implementation Rate ↑</option>
-                        <option value="outcomes-desc">Most Decisions</option>
-                    </select>
-                    <input type="text" id="dir-search" placeholder="Search directives...">
-                </div>
-                <div id="directives-list"></div>
-            </div>
+        <div class="mstat" style="background:var(--A1);border-color:#FFE0B2">
+          <div class="mstat-label" style="color:var(--A9)">Due Within 30 Days</div>
+          <div class="mstat-val" id="tl-soon" style="color:var(--A9)">0</div>
+          <div class="mstat-sub">needs attention soon</div>
         </div>
-
-        <!-- ═══ TIMELINE ══════════════════════════════════════════════════════ -->
-        <div id="view-timeline" class="view-section">
-            <div class="mb-6">
-                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Timeline Tracking</h2>
-                <p class="text-sm text-gray-600">Deadlines and implementation schedules</p>
-            </div>
-
-            <div class="grid grid-cols-3 gap-4 mb-6">
-                <div class="stat-card bg-red-50">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-red-700">Overdue</div>
-                    <div class="text-5xl font-light text-red-700 mb-2" id="tl-overdue">0</div>
-                    <div class="text-xs text-red-700">Past deadline</div>
-                </div>
-                <div class="stat-card bg-yellow-50">
-                    <div class="text-xs font-medium uppercase tracking-wide mb-2 text-yellow-700">Due Soon</div>
-                    <div class="text-5xl font-light text-yellow-700 mb-2" id="tl-due-soon">0</div>
-                    <div class="text-xs text-yellow-700">Within 30 days</div>
-                </div>
-                <div class="stat-card">
-                    <div class="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">No Timeline</div>
-                    <div class="text-5xl font-light text-gray-600 mb-2" id="tl-no-date">0</div>
-                    <div class="text-xs text-gray-600">Needs scheduling</div>
-                </div>
-            </div>
-
-            <div class="chart-card mb-6">
-                <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Timeline Status</h3>
-                <canvas id="timeline-chart" height="150"></canvas>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">🚨 Overdue Directives</h3>
-                <div id="overdue-list"></div>
-            </div>
+        <div class="mstat">
+          <div class="mstat-label">No Timeline Set</div>
+          <div class="mstat-val" id="tl-none">0</div>
+          <div class="mstat-sub">no deadline entered</div>
         </div>
-
-        <!-- ═══ BUSINESS UNITS (was Process Owners) ═════════════════════════════ -->
-        <div id="view-owners" class="view-section">
-            <div class="mb-6">
-                <h2 class="text-3xl font-normal mb-2" style="color: var(--cbn-darkest);">Business Unit Performance</h2>
-                <p class="text-sm text-gray-600">Ranked by decision implementation rate</p>
-            </div>
-
-            <div class="chart-card mb-6">
-                <h3 class="text-base font-medium mb-4" style="color: var(--cbn-dark);">Top 10 Business Units</h3>
-                <canvas id="top-owners-chart" height="300"></canvas>
-            </div>
-
-            <!-- Filters -->
-            <div class="chart-card">
-                <div class="filter-bar no-print">
-                    <select id="owner-filter-performance" class="flex-1">
-                        <option value="all">All Performance</option>
-                        <option value="excellent">Excellent (80%+)</option>
-                        <option value="good">Good (60-79%)</option>
-                        <option value="needs-improvement">Needs Improvement (&lt;60%)</option>
-                    </select>
-                    <select id="owner-filter-sort" class="flex-1">
-                        <option value="completion-desc">Implementation Rate ↓</option>
-                        <option value="outcomes-desc">Most Decisions</option>
-                        <option value="directives-desc">Most Directives</option>
-                    </select>
-                    <input type="text" id="owner-search" placeholder="Search business units...">
-                </div>
-                <div id="owners-list"></div>
-            </div>
+      </div>
+      <div class="chart-row c2" style="margin-bottom:14px">
+        <div class="card">
+          <div class="card-title">Timeline Status</div>
+          <canvas id="ch-tl" height="200"></canvas>
         </div>
+        <div class="card">
+          <div class="card-title">🚨 Most Overdue Directives</div>
+          <div id="tl-ov-list" style="max-height:280px;overflow-y:auto"></div>
+        </div>
+      </div>
+    </div>
 
-    </main>
+  </main>
+</div>
 
-    <script>
-        const API_BASE = window.location.hostname === 'localhost' 
-            ? 'http://localhost:3001/api'
-            : 'https://directives-new.onrender.com/api';
-        
-        // ── Decision status constants (new terminology) ──────────────────────
-        const STATUS = {
-            IMPLEMENTED:    'Implemented',
-            BEING_IMPL:     'Being Implemented',
-            NOT_IMPLEMENTED:'Not Implemented',
-            NO_RESPONSE:    'No Response'
-        };
+<script>
+const API = window.location.hostname==='localhost'
+  ? 'http://localhost:3001/api'
+  : 'https://directives-new.onrender.com/api';
 
-        let currentSource = 'CG';
-        let allDirectives = [];
-        let charts = {};
-        
-        // Pagination & filter state
-        let dirCurrentPage = 1;
-        let dirPageSize = 15;
-        let ownerCurrentPage = 1;
-        let ownerPageSize = 15;
-        let dirFilters  = { status: 'all', sort: 'completion-desc', search: '' };
-        let ownerFilters= { performance: 'all', sort: 'completion-desc', search: '' };
+const S = {I:'Implemented', B:'Being Implemented', N:'Not Implemented', R:'No Response'};
 
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', {
-                day: '2-digit', month: 'long', year: 'numeric'
-            });
-            setupEventListeners();
-            loadReport();
-        });
+let all=[], src='CG', charts={};
+let dPage=1, uPage=1;
+const PAGE=12;
+let dF={status:'all',sort:'rate-d',q:''};
+let uF={perf:'all',sort:'rate-d',q:''};
 
-        function setupEventListeners() {
-            // Directive filters
-            document.getElementById('dir-filter-status').addEventListener('change', (e) => {
-                dirFilters.status = e.target.value;
-                dirCurrentPage = 1;
-                renderDirectivesList(getFilteredDirectives());
-            });
-            document.getElementById('dir-filter-sort').addEventListener('change', (e) => {
-                dirFilters.sort = e.target.value;
-                dirCurrentPage = 1;
-                renderDirectivesList(getFilteredDirectives());
-            });
-            let dirSearchTimeout;
-            document.getElementById('dir-search').addEventListener('input', (e) => {
-                clearTimeout(dirSearchTimeout);
-                dirSearchTimeout = setTimeout(() => {
-                    dirFilters.search = e.target.value.toLowerCase();
-                    dirCurrentPage = 1;
-                    renderDirectivesList(getFilteredDirectives());
-                }, 300);
-            });
+/* ── INIT ─────────── */
+document.addEventListener('DOMContentLoaded',()=>{
+  const d=new Date();
+  document.getElementById('ov-date').textContent=
+    d.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  setupListeners();
+  load();
+});
 
-            // Owner filters
-            document.getElementById('owner-filter-performance').addEventListener('change', (e) => {
-                ownerFilters.performance = e.target.value;
-                ownerCurrentPage = 1;
-                renderOwnersList(getFilteredOwners());
-            });
-            document.getElementById('owner-filter-sort').addEventListener('change', (e) => {
-                ownerFilters.sort = e.target.value;
-                ownerCurrentPage = 1;
-                renderOwnersList(getFilteredOwners());
-            });
-            let ownerSearchTimeout;
-            document.getElementById('owner-search').addEventListener('input', (e) => {
-                clearTimeout(ownerSearchTimeout);
-                ownerSearchTimeout = setTimeout(() => {
-                    ownerFilters.search = e.target.value.toLowerCase();
-                    ownerCurrentPage = 1;
-                    renderOwnersList(getFilteredOwners());
-                }, 300);
-            });
-        }
+function setupListeners(){
+  ['df-status','df-sort'].forEach(id=>
+    document.getElementById(id).addEventListener('change',e=>{
+      dF[id==='df-status'?'status':'sort']=e.target.value;dPage=1;renderDirs();
+    })
+  );
+  let dt; document.getElementById('df-q').addEventListener('input',e=>{
+    clearTimeout(dt);dt=setTimeout(()=>{dF.q=e.target.value.toLowerCase();dPage=1;renderDirs();},250);
+  });
+  ['uf-perf','uf-sort'].forEach(id=>
+    document.getElementById(id).addEventListener('change',e=>{
+      uF[id==='uf-perf'?'perf':'sort']=e.target.value;uPage=1;renderUnits();
+    })
+  );
+  let ut; document.getElementById('uf-q').addEventListener('input',e=>{
+    clearTimeout(ut);ut=setTimeout(()=>{uF.q=e.target.value.toLowerCase();uPage=1;renderUnits();},250);
+  });
+}
 
-        function showLoading(show = true) {
-            document.getElementById('loading-overlay').classList.toggle('hidden', !show);
-            document.getElementById('loading-overlay').classList.toggle('flex', show);
-        }
+function loading(v){document.getElementById('ld').style.display=v?'flex':'none';}
 
-        function showView(viewName) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-            document.getElementById(`view-${viewName}`).classList.add('active');
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-        }
+async function load(){
+  loading(true);
+  try{
+    const r=await fetch(`${API}/directives?source=${src}`);
+    const j=await r.json();
+    if(j.success){all=j.data;renderAll();}
+    else console.error(j.error);
+  }catch(e){console.error(e);}
+  finally{loading(false);}
+}
 
-        function switchSource(source) {
-            currentSource = source;
-            document.getElementById('src-cg').classList.toggle('active',    source === 'CG');
-            document.getElementById('src-board').classList.toggle('active', source === 'Board');
-            loadReport();
-        }
+function renderAll(){
+  renderOverview();
+  renderDirs();
+  renderUnits();
+  renderTimeline();
+}
 
-        async function loadReport() {
-            showLoading();
-            try {
-                const response = await fetch(`${API_BASE}/directives?source=${currentSource}`);
-                const result   = await response.json();
-                if (result.success) {
-                    allDirectives = result.data;
-                    renderAll();
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error loading data');
-            } finally {
-                showLoading(false);
-            }
-        }
+function showSec(name,el){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+}
 
-        function renderAll() {
-            renderOverview();
-            renderDecisions();
-            renderDirectives();
-            renderTimeline();
-            renderOwners();
-        }
+function switchSrc(s){
+  src=s;
+  document.getElementById('src-cg').classList.toggle('active',s==='CG');
+  document.getElementById('src-board').classList.toggle('active',s==='Board');
+  load();
+}
 
-        // ── Helpers ────────────────────────────────────────────────────────────
-        function countByStatus(directives, status) {
-            return directives.reduce((sum, d) =>
-                sum + (d.outcomes ? d.outcomes.filter(o => o.status === status).length : 0), 0);
-        }
-        function totalDecisions(directives) {
-            return directives.reduce((sum, d) => sum + (d.outcomes ? d.outcomes.length : 0), 0);
-        }
-        function pct(num, total) { return total > 0 ? Math.round((num / total) * 100) : 0; }
-        function fmtPct(num, total) { return total > 0 ? `${Math.round((num / total) * 100)}%` : '0%'; }
-        function formatDate(date) {
-            if (!date) return 'N/A';
-            return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        }
+/* ── HELPERS ──────── */
+function cntS(arr,s){return arr.reduce((n,d)=>n+(d.outcomes||[]).filter(o=>o.status===s).length,0);}
+function totDec(arr){return arr.reduce((n,d)=>n+(d.outcomes||[]).length,0);}
+function pct(a,b){return b>0?Math.round(a/b*100):0;}
+function fp(a,b){return pct(a,b)+'%';}
+function fd(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}
+function tr(s,n){return s&&s.length>n?s.slice(0,n)+'…':s||'';}
+function bclass(s){return{[S.I]:'bi',[S.B]:'bb',[S.N]:'bn',[S.R]:'br'}[s]||'bn';}
+function bdg(s){return `<span class="badge ${bclass(s)}">${s}</span>`;}
+function dc(key){if(charts[key]){charts[key].destroy();delete charts[key];}}
+function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 
-        // ── Overview ───────────────────────────────────────────────────────────
-        function renderOverview() {
-            const total         = totalDecisions(allDirectives);
-            const implemented   = countByStatus(allDirectives, STATUS.IMPLEMENTED);
-            const implementing  = countByStatus(allDirectives, STATUS.BEING_IMPL);
-            const notImpl       = countByStatus(allDirectives, STATUS.NOT_IMPLEMENTED);
-            const noResponse    = countByStatus(allDirectives, STATUS.NO_RESPONSE);
+/* ── IMPL BREAKDOWN TOGGLE ── */
+let implOpen=false;
+function toggleImplBreakdown(){
+  implOpen=!implOpen;
+  const bd=document.getElementById('impl-breakdown');
+  const btn=document.getElementById('impl-expand-btn');
+  bd.classList.toggle('visible',implOpen);
+  btn.classList.toggle('open',implOpen);
+  btn.innerHTML=`<svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>${implOpen?'Hide breakdown':'Show directive breakdown'}`;
+}
 
-            let fullImpl = 0, partialImpl = 0, nonResponsive = 0;
-            allDirectives.forEach(d => {
-                const ocs = d.outcomes || [];
-                const doneCount = ocs.filter(o => o.status === STATUS.IMPLEMENTED).length;
-                if (ocs.length > 0 && doneCount === ocs.length) fullImpl++;
-                else if (doneCount > 0) partialImpl++;
-                if (d.isResponsive === false) nonResponsive++;
-            });
+/* ── OVERVIEW ─────── */
+function renderOverview(){
+  const tot=totDec(all);
+  const impl=cntS(all,S.I), being=cntS(all,S.B), notI=cntS(all,S.N), noresp=cntS(all,S.R);
 
-            // Update DOM
-            document.getElementById('ov-total-decisions').textContent = total;
-            document.getElementById('ov-total-directives').textContent = allDirectives.length;
-            document.getElementById('ov-implemented').textContent     = implemented;
-            document.getElementById('ov-implemented-pct').textContent = fmtPct(implemented, total);
-            document.getElementById('ov-implementing').textContent     = implementing;
-            document.getElementById('ov-implementing-pct').textContent = fmtPct(implementing, total);
-            document.getElementById('ov-not-implemented').textContent  = notImpl;
-            document.getElementById('ov-not-implemented-pct').textContent = fmtPct(notImpl, total);
-            document.getElementById('ov-no-response').textContent      = noResponse;
-            document.getElementById('ov-no-response-pct').textContent  = fmtPct(noResponse, total);
+  // Directive-level full/partial
+  let full=0,partial=0;
+  all.forEach(d=>{
+    const ocs=d.outcomes||[];
+    if(!ocs.length)return;
+    const done=ocs.filter(o=>o.status===S.I).length;
+    if(done===ocs.length)full++;
+    else if(done>0)partial++;
+  });
 
-            document.getElementById('ov-full-implementation').textContent    = fullImpl;
-            document.getElementById('ov-full-implementation-pct').textContent = fmtPct(fullImpl, allDirectives.length);
-            document.getElementById('ov-partial-implementation').textContent  = partialImpl;
-            document.getElementById('ov-partial-implementation-pct').textContent = fmtPct(partialImpl, allDirectives.length);
-            document.getElementById('ov-non-responsive').textContent  = nonResponsive;
-            document.getElementById('ov-non-responsive-pct').textContent = fmtPct(nonResponsive, allDirectives.length);
+  set('sc-impl', impl);    set('sc-impl-pct', fp(impl,tot)+' of all decisions');
+  set('sc-being',being);   set('sc-being-pct',fp(being,tot)+' of all decisions');
+  set('sc-not',  notI);    set('sc-not-pct',  fp(notI,tot)+' of all decisions');
+  set('sc-noresp',noresp); set('sc-noresp-pct',fp(noresp,tot)+' of all decisions');
+  set('sc-full',  full);   document.getElementById('sc-full-pct').textContent=' directives';
+  set('sc-partial',partial);document.getElementById('sc-partial-pct').textContent=' directives';
+  set('ch-total-dec',tot); set('ch-total-dir',all.length);
 
-            const implementationRate = pct(implemented, total);
-            const grade = implementationRate >= 80 ? 'Excellent' : implementationRate >= 70 ? 'Good' : implementationRate >= 60 ? 'Satisfactory' : 'Needs Improvement';
-            document.getElementById('ov-summary').innerHTML = `
-                <strong>Overall Performance: ${grade}</strong>.
-                ${implemented} of ${total} decisions implemented (${implementationRate}%).
-                ${fullImpl} directives fully implemented, ${partialImpl} partially implemented.
-                ${nonResponsive > 0 ? `<span style="color: var(--red-critical);"> ⚠️ ${nonResponsive} non-responsive directive(s) require immediate attention.</span>` : ''}
-            `;
+  const rate=pct(impl,tot);
+  const grade=rate>=80?'Excellent ✅':rate>=70?'Good 👍':rate>=60?'Satisfactory':'Needs Improvement ⚠';
+  const nonr=all.filter(d=>d.isResponsive===false).length;
+  document.getElementById('ov-summary').innerHTML=
+    `<strong>Overall: ${grade}.</strong> `+
+    `${impl} of ${tot} decisions are Implemented (${rate}%). `+
+    `${full} directives are <em>fully</em> implemented, ${partial} are <em>partially</em> implemented. `+
+    (nonr>0?`<span class="warn">⚠ ${nonr} directive(s) marked non-responsive — immediate follow-up needed.</span>`:
+    `All directives have received at least some response.`);
 
-            // Decision status doughnut
-            if (charts.decisionChart) charts.decisionChart.destroy();
-            charts.decisionChart = new Chart(document.getElementById('ov-decision-chart').getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['Implemented', 'Being Implemented', 'Not Implemented', 'No Response'],
-                    datasets: [{ data: [implemented, implementing, notImpl, noResponse], backgroundColor: ['#43A047', '#66BB6A', '#FB8C00', '#C62828'], borderWidth: 0 }]
-                },
-                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10 } } } }
-            });
+  // Donut
+  dc('donut');
+  charts['donut']=new Chart(document.getElementById('ch-donut').getContext('2d'),{
+    type:'doughnut',
+    data:{
+      labels:['Implemented','Being Implemented','Not Implemented','No Response'],
+      datasets:[{data:[impl,being,notI,noresp],
+        backgroundColor:['#2E7D32','#1565C0','#E65100','#B71C1C'],
+        borderWidth:2,borderColor:'#fff',hoverOffset:8}]
+    },
+    options:{responsive:true,maintainAspectRatio:true,cutout:'60%',
+      plugins:{legend:{position:'bottom',labels:{font:{size:11,family:'Source Sans 3'},padding:12,usePointStyle:true,pointStyleWidth:8}}}}
+  });
 
-            // Directive bar
-            if (charts.directiveChart) charts.directiveChart.destroy();
-            charts.directiveChart = new Chart(document.getElementById('ov-directive-chart').getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: ['Full Implementation', 'Partial Implementation', 'Non-Responsive'],
-                    datasets: [{ data: [fullImpl, partialImpl, nonResponsive], backgroundColor: ['#43A047', '#2196F3', '#C62828'], borderRadius: 8 }]
-                },
-                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } } }
-            });
-        }
+  // Top BU chart
+  const buMap={};
+  all.forEach(d=>{
+    const o=d.owner||'Unassigned';
+    if(!buMap[o])buMap[o]={tot:0,impl:0};
+    (d.outcomes||[]).forEach(oc=>{buMap[o].tot++;if(oc.status===S.I)buMap[o].impl++;});
+  });
+  const top10=Object.entries(buMap)
+    .map(([n,v])=>({n,rate:pct(v.impl,v.tot),tot:v.tot}))
+    .filter(x=>x.tot>0).sort((a,b)=>b.rate-a.rate).slice(0,10);
 
-        // ── Decision Analysis ──────────────────────────────────────────────────
-        function renderDecisions() {
-            const total        = totalDecisions(allDirectives);
-            const implemented  = countByStatus(allDirectives, STATUS.IMPLEMENTED);
-            const implementing = countByStatus(allDirectives, STATUS.BEING_IMPL);
-            const notImpl      = countByStatus(allDirectives, STATUS.NOT_IMPLEMENTED);
-            const noResponse   = countByStatus(allDirectives, STATUS.NO_RESPONSE);
+  dc('bu-top');
+  charts['bu-top']=new Chart(document.getElementById('ch-bu-top').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:top10.map(u=>tr(u.n,22)),
+      datasets:[{data:top10.map(u=>u.rate),
+        backgroundColor:top10.map(u=>u.rate>=80?'#2E7D32':u.rate>=60?'#1565C0':'#B71C1C'),
+        borderRadius:5,barThickness:16}]
+    },
+    options:{responsive:true,maintainAspectRatio:true,indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true,max:100,grid:{color:'rgba(0,0,0,.05)'},
+                 ticks:{font:{size:10},callback:v=>v+'%'}},
+              y:{grid:{display:false},ticks:{font:{size:10}}}}}
+  });
 
-            document.getElementById('out-implemented').textContent      = implemented;
-            document.getElementById('out-implemented-pct').textContent  = fmtPct(implemented, total);
-            document.getElementById('out-implementing').textContent      = implementing;
-            document.getElementById('out-implementing-pct').textContent  = fmtPct(implementing, total);
-            document.getElementById('out-not-implemented').textContent   = notImpl;
-            document.getElementById('out-not-implemented-pct').textContent = fmtPct(notImpl, total);
-            document.getElementById('out-no-response').textContent       = noResponse;
-            document.getElementById('out-no-response-pct').textContent   = fmtPct(noResponse, total);
+  // Problematic directives
+  const prob=all.map(d=>{
+    const ocs=d.outcomes||[];
+    const n=ocs.filter(o=>o.status===S.N||o.status===S.R).length;
+    const ni=ocs.filter(o=>o.status===S.N).length;
+    const nr=ocs.filter(o=>o.status===S.R).length;
+    return n>0?{d,n,ni,nr}:null;
+  }).filter(Boolean).sort((a,b)=>b.n-a.n).slice(0,8);
 
-            if (charts.decisionStatus) charts.decisionStatus.destroy();
-            charts.decisionStatus = new Chart(document.getElementById('decision-status-chart').getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: ['Implemented', 'Being Implemented', 'Not Implemented', 'No Response'],
-                    datasets: [{ data: [implemented, implementing, notImpl, noResponse], backgroundColor: ['#43A047', '#66BB6A', '#FB8C00', '#C62828'], borderRadius: 8 }]
-                },
-                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } } }
-            });
+  document.getElementById('ov-prob').innerHTML=prob.length
+    ?prob.map((p,i)=>`
+      <div class="item" style="display:flex;align-items:center;gap:14px">
+        <div style="font-family:'Libre Baskerville',serif;font-size:22px;color:var(--ink-4);width:32px;text-align:center;flex-shrink:0">#${i+1}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-3);margin-bottom:3px">${p.d.ref||'N/A'}</div>
+          <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:5px;line-height:1.4">${tr(p.d.subject,65)}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--ink-3)">${tr(p.d.owner||'—',25)}</span>
+            ${p.ni?`<span class="badge bn">${p.ni} Not Implemented</span>`:''}
+            ${p.nr?`<span class="badge br">${p.nr} No Response</span>`:''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:'Libre Baskerville',serif;font-size:30px;font-weight:700;color:var(--R9)">${p.n}</div>
+          <div style="font-size:10px;color:var(--R9);font-weight:700">issues</div>
+        </div>
+      </div>`).join('')
+    :'<p style="text-align:center;padding:20px;color:var(--ink-4);font-style:italic;font-size:13px">No significant issues detected ✓</p>';
+}
 
-            // Top 10 by decision count
-            const top10 = [...allDirectives]
-                .filter(d => d.outcomes && d.outcomes.length > 0)
-                .sort((a, b) => b.outcomes.length - a.outcomes.length)
-                .slice(0, 10);
+/* ── DIRECTIVES ─────── */
+function dirData(){
+  return all.map(d=>{
+    const ocs=d.outcomes||[];
+    const im=ocs.filter(o=>o.status===S.I).length,
+          be=ocs.filter(o=>o.status===S.B).length,
+          no=ocs.filter(o=>o.status===S.N).length,
+          nr=ocs.filter(o=>o.status===S.R).length;
+    return{d,tot:ocs.length,im,be,no,nr,rate:ocs.length?pct(im,ocs.length):0};
+  });
+}
 
-            if (charts.decisionByDirective) charts.decisionByDirective.destroy();
-            charts.decisionByDirective = new Chart(document.getElementById('decision-by-directive-chart').getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: top10.map(d => (d.ref || 'N/A').substring(0, 15)),
-                    datasets: [{ data: top10.map(d => d.outcomes.length), backgroundColor: '#2196F3', borderRadius: 8 }]
-                },
-                options: { responsive: true, maintainAspectRatio: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, grid: { display: false } }, y: { grid: { display: false } } } }
-            });
+function filtDirs(){
+  let data=dirData();
+  if(dF.status!=='all'){
+    const map={impl:S.I,being:S.B,not:S.N,noresp:S.R};
+    const st=map[dF.status];
+    if(st)data=data.filter(a=>(a.d.outcomes||[]).some(o=>o.status===st));
+  }
+  if(dF.q)data=data.filter(a=>
+    (a.d.ref||'').toLowerCase().includes(dF.q)||
+    (a.d.subject||'').toLowerCase().includes(dF.q)||
+    (a.d.owner||'').toLowerCase().includes(dF.q)
+  );
+  const sortMap={'rate-d':(a,b)=>b.rate-a.rate,'rate-a':(a,b)=>a.rate-b.rate,
+                 'dec-d':(a,b)=>b.tot-a.tot,'new':(a,b)=>new Date(b.d.createdAt)-new Date(a.d.createdAt)};
+  data.sort(sortMap[dF.sort]||sortMap['rate-d']);
+  return data;
+}
 
-            // Problematic — most Not Implemented + No Response
-            const problematic = allDirectives
-                .map(d => {
-                    if (!d.outcomes || d.outcomes.length === 0) return null;
-                    const notImplCount  = d.outcomes.filter(o => o.status === STATUS.NOT_IMPLEMENTED).length;
-                    const noRespCount   = d.outcomes.filter(o => o.status === STATUS.NO_RESPONSE).length;
-                    const problems = notImplCount + noRespCount;
-                    return problems > 0 ? { directive: d, notImplCount, noRespCount, problems } : null;
-                })
-                .filter(Boolean)
-                .sort((a, b) => b.problems - a.problems)
-                .slice(0, 10);
-
-            document.getElementById('problematic-decisions').innerHTML = problematic.length > 0 ? `
-                <div class="space-y-2">
-                    ${problematic.map((p, idx) => `
-                        <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="text-xs font-bold text-red-600">#${idx + 1}</span>
-                                    <span class="text-xs font-mono font-medium text-gray-700 truncate">${p.directive.ref || 'N/A'}</span>
-                                </div>
-                                <div class="text-xs text-gray-600 truncate mb-1">${p.directive.subject}</div>
-                                <div class="text-xs text-gray-500">${p.notImplCount} not implemented • ${p.noRespCount} no response</div>
-                            </div>
-                            <div class="text-right ml-4">
-                                <div class="text-3xl font-light text-red-600">${p.problems}</div>
-                                <div class="text-xs text-red-600">issues</div>
-                            </div>
-                        </div>
-                    `).join('')}
+function renderDirs(){
+  const data=filtDirs();
+  const total=data.length,pages=Math.ceil(total/PAGE)||1;
+  const s=(dPage-1)*PAGE,e=Math.min(s+PAGE,total);
+  set('df-count',`${total} directive${total!==1?'s':''}`);
+  const today=new Date();
+  document.getElementById('dir-list').innerHTML=
+    (!total?'<p style="text-align:center;padding:24px;color:var(--ink-4);font-style:italic">No directives match your filters</p>':
+    `<div style="font-size:11px;color:var(--ink-4);margin-bottom:10px">Showing ${s+1}–${e} of ${total}</div>`+
+    data.slice(s,e).map(a=>{
+      const d=a.d;
+      const dl=d.implementationEndDate?new Date(d.implementationEndDate):null;
+      const days=dl?Math.ceil((dl-today)/86400000):null;
+      const ov=days!==null&&days<0, soon=days!==null&&days>=0&&days<=30;
+      const col=a.rate===100?'var(--G7)':a.rate>=50?'var(--B9)':'var(--R9)';
+      return `<div class="item">
+        <!-- Header row -->
+        <div style="display:flex;align-items:flex-start;gap:14px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:5px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--ink-3)">${d.ref||'N/A'}</span>
+              ${ov?'<span class="tag-ov">OVERDUE</span>':soon?'<span class="tag-soon">DUE SOON</span>':''}
+              ${d.isResponsive===false?'<span class="tag-ov">NON-RESPONSIVE</span>':''}
+            </div>
+            <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px;line-height:1.4">${tr(d.subject,70)}</div>
+            <!-- Meta grid -->
+            <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-3)">
+              <span><strong style="color:var(--ink-2)">Unit:</strong> ${tr(d.owner||'—',28)}</span>
+              <span><strong style="color:var(--ink-2)">Reminders:</strong> <span style="color:${(d.reminders||0)>=3?'var(--R9)':'var(--ink-2)'}">${d.reminders||0}/3</span></span>
+              <span><strong style="color:var(--ink-2)">Deadline:</strong> <span style="color:${ov?'var(--R9)':soon?'var(--A9)':'var(--ink-2)'}">${dl?fd(dl):'Not set'}</span></span>
+            </div>
+          </div>
+          <!-- Rate big number -->
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-family:'Libre Baskerville',serif;font-size:36px;font-weight:700;line-height:1;color:${col}">${a.rate}%</div>
+            <div style="font-size:10px;color:var(--ink-4);font-weight:600;margin-top:2px">${a.im}/${a.tot} done</div>
+          </div>
+        </div>
+        <!-- 4 status mini-boxes -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0">
+          <div style="background:var(--G0);border-radius:7px;padding:7px 10px;text-align:center">
+            <div style="font-family:'Libre Baskerville',serif;font-size:20px;color:var(--G7)">${a.im}</div>
+            <div style="font-size:10px;color:var(--G7);font-weight:700">Implemented</div>
+          </div>
+          <div style="background:var(--B1);border-radius:7px;padding:7px 10px;text-align:center">
+            <div style="font-family:'Libre Baskerville',serif;font-size:20px;color:var(--B9)">${a.be}</div>
+            <div style="font-size:10px;color:var(--B9);font-weight:700">Being Impl.</div>
+          </div>
+          <div style="background:var(--A1);border-radius:7px;padding:7px 10px;text-align:center">
+            <div style="font-family:'Libre Baskerville',serif;font-size:20px;color:var(--A9)">${a.no}</div>
+            <div style="font-size:10px;color:var(--A9);font-weight:700">Not Impl.</div>
+          </div>
+          <div style="background:var(--R1);border-radius:7px;padding:7px 10px;text-align:center">
+            <div style="font-family:'Libre Baskerville',serif;font-size:20px;color:var(--R9)">${a.nr}</div>
+            <div style="font-size:10px;color:var(--R9);font-weight:700">No Response</div>
+          </div>
+        </div>
+        <!-- Progress -->
+        <div class="prog"><div class="prog-fill" style="width:${a.rate}%;background:${col}"></div></div>
+        <!-- Expand decisions -->
+        ${a.tot>0?`<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+          <button class="xbtn" onclick="xDec('${d._id}')"><span id="xlbl-${d._id}">▼ Show ${a.tot} decisions</span></button>
+          <div id="xdec-${d._id}" style="display:none;margin-top:8px;flex-direction:column;gap:5px">
+            ${(d.outcomes||[]).map((o,i)=>`
+              <div style="display:flex;align-items:flex-start;gap:9px;padding:9px 11px;border-radius:7px;background:var(--bg);border-left:3px solid ${o.status===S.I?'#2E7D32':o.status===S.B?'#1565C0':o.status===S.R?'#B71C1C':'#E65100'}">
+                <div style="width:18px;height:18px;border-radius:50%;background:var(--G9);color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">${i+1}</div>
+                <div style="flex:1">
+                  <div style="font-size:12px;line-height:1.5;color:var(--ink-2);margin-bottom:4px">${o.text}</div>
+                  ${bdg(o.status)}
+                  ${o.challenges?`<div style="font-size:11px;color:var(--ink-3);margin-top:4px"><strong>Notes:</strong> ${tr(o.challenges,100)}</div>`:''}
                 </div>
-            ` : '<p class="text-gray-500 text-sm text-center py-6">No significant issues detected ✓</p>';
-        }
+              </div>`).join('')}
+          </div>
+        </div>`:''}
+      </div>`;
+    }).join('')+
+    (pages>1?renderPag(dPage,pages,'d'):''));
+}
 
-        // ── Directive Details ──────────────────────────────────────────────────
-        function renderDirectives() {
-            renderDirectivesList(getFilteredDirectives());
-        }
+function xDec(id){
+  const el=document.getElementById('xdec-'+id);
+  const lbl=document.getElementById('xlbl-'+id);
+  const show=el.style.display==='none'||!el.style.display||el.style.display==='none';
+  el.style.display=show?'flex':'none';
+  // get count from label
+  if(lbl){const t=lbl.textContent;lbl.textContent=show?t.replace('▼ Show','▲ Hide'):t.replace('▲ Hide','▼ Show');}
+}
 
-        function getFilteredDirectives() {
-            let directiveAnalysis = allDirectives.map(d => {
-                const hasDecisions = d.outcomes && d.outcomes.length > 0;
-                return {
-                    directive:        d,
-                    total:            hasDecisions ? d.outcomes.length : 0,
-                    implemented:      hasDecisions ? d.outcomes.filter(o => o.status === STATUS.IMPLEMENTED).length : 0,
-                    inProgress:       hasDecisions ? d.outcomes.filter(o => o.status === STATUS.BEING_IMPL).length : 0,
-                    notImplemented:   hasDecisions ? d.outcomes.filter(o => o.status === STATUS.NOT_IMPLEMENTED).length : 0,
-                    noResponse:       hasDecisions ? d.outcomes.filter(o => o.status === STATUS.NO_RESPONSE).length : 0,
-                    completionRate:   hasDecisions && d.outcomes.length > 0
-                                        ? Math.round((d.outcomes.filter(o => o.status === STATUS.IMPLEMENTED).length / d.outcomes.length) * 100)
-                                        : 0
-                };
-            });
+/* ── BUSINESS UNITS ─── */
+function buStats(){
+  const m={};
+  all.forEach(d=>{
+    const o=d.owner||'Unassigned';
+    if(!m[o])m[o]={name:o,dirs:0,tot:0,im:0,be:0,no:0,nr:0};
+    m[o].dirs++;
+    (d.outcomes||[]).forEach(oc=>{
+      m[o].tot++;
+      if(oc.status===S.I)m[o].im++;
+      else if(oc.status===S.B)m[o].be++;
+      else if(oc.status===S.N)m[o].no++;
+      else m[o].nr++;
+    });
+  });
+  return Object.values(m).map(u=>({...u,rate:u.tot>0?pct(u.im,u.tot):0}));
+}
 
-            if (dirFilters.status !== 'all') {
-                directiveAnalysis = directiveAnalysis.filter(a => {
-                    if (dirFilters.status === 'full')    return a.completionRate === 100;
-                    if (dirFilters.status === 'partial') return a.completionRate > 0 && a.completionRate < 100;
-                    if (dirFilters.status === 'none')    return a.completionRate === 0;
-                    return true;
-                });
-            }
+function filtUnits(){
+  let data=buStats();
+  if(uF.perf!=='all')data=data.filter(u=>{
+    if(uF.perf==='exc')return u.rate>=80;
+    if(uF.perf==='good')return u.rate>=60&&u.rate<80;
+    if(uF.perf==='low')return u.rate<60;
+    return true;
+  });
+  if(uF.q)data=data.filter(u=>u.name.toLowerCase().includes(uF.q));
+  const srt={'rate-d':(a,b)=>b.rate-a.rate,'dec-d':(a,b)=>b.tot-a.tot,'dir-d':(a,b)=>b.dirs-a.dirs};
+  data.sort(srt[uF.sort]||srt['rate-d']);
+  return data;
+}
 
-            if (dirFilters.search) {
-                directiveAnalysis = directiveAnalysis.filter(a =>
-                    (a.directive.subject || '').toLowerCase().includes(dirFilters.search) ||
-                    (a.directive.ref     || '').toLowerCase().includes(dirFilters.search) ||
-                    (a.directive.owner   || '').toLowerCase().includes(dirFilters.search)
-                );
-            }
+function renderUnits(){
+  const all_stats=buStats().sort((a,b)=>b.rate-a.rate);
+  const top=all_stats.slice(0,12);
 
-            directiveAnalysis.sort((a, b) => {
-                if (dirFilters.sort === 'completion-desc') return b.completionRate - a.completionRate;
-                if (dirFilters.sort === 'completion-asc')  return a.completionRate - b.completionRate;
-                if (dirFilters.sort === 'outcomes-desc')   return b.total - a.total;
-                return b.completionRate - a.completionRate;
-            });
+  // Bar chart
+  dc('bu-bar');
+  charts['bu-bar']=new Chart(document.getElementById('ch-bu-bar').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:top.map(u=>tr(u.name,20)),
+      datasets:[{label:'Implementation Rate %',data:top.map(u=>u.rate),
+        backgroundColor:top.map(u=>u.rate>=80?'#2E7D32':u.rate>=60?'#1565C0':'#B71C1C'),
+        borderRadius:4,barThickness:14}]
+    },
+    options:{responsive:true,maintainAspectRatio:true,indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},
+              y:{grid:{display:false},ticks:{font:{size:10}}}}}
+  });
 
-            return directiveAnalysis;
-        }
+  // Stacked bar
+  const s8=all_stats.slice(0,8);
+  dc('bu-stack');
+  charts['bu-stack']=new Chart(document.getElementById('ch-bu-stack').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:s8.map(u=>tr(u.name,18)),
+      datasets:[
+        {label:'Implemented',   data:s8.map(u=>u.im),backgroundColor:'#2E7D32',borderRadius:0},
+        {label:'Being Impl.',   data:s8.map(u=>u.be),backgroundColor:'#1565C0'},
+        {label:'Not Impl.',     data:s8.map(u=>u.no),backgroundColor:'#E65100'},
+        {label:'No Response',   data:s8.map(u=>u.nr),backgroundColor:'#B71C1C'},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:true,indexAxis:'y',
+      plugins:{legend:{position:'bottom',labels:{font:{size:10,family:'Source Sans 3'},padding:8,usePointStyle:true,pointStyleWidth:8}}},
+      scales:{x:{stacked:true,beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10}}},
+              y:{stacked:true,grid:{display:false},ticks:{font:{size:10}}}}}
+  });
 
-        function renderDirectivesList(data) {
-            if (data.length === 0) {
-                document.getElementById('directives-list').innerHTML = '<p class="text-gray-500 text-sm text-center py-12">No directives found</p>';
-                return;
-            }
+  // List
+  const data=filtUnits();
+  const total=data.length,pages=Math.ceil(total/PAGE)||1;
+  const s_=(uPage-1)*PAGE,e_=Math.min(s_+PAGE,total);
+  set('uf-count',`${total} unit${total!==1?'s':''}`);
+  document.getElementById('bu-list').innerHTML=
+    (!total?'<p style="text-align:center;padding:24px;color:var(--ink-4);font-style:italic">No units found</p>':
+    `<div style="font-size:11px;color:var(--ink-4);margin-bottom:10px">Showing ${s_+1}–${e_} of ${total}</div>`+
+    data.slice(s_,e_).map((u,i)=>{
+      const rank=s_+i+1;
+      const col=u.rate>=80?'var(--G7)':u.rate>=60?'var(--B9)':'var(--R9)';
+      return `<div class="item">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="font-family:'Libre Baskerville',serif;font-size:20px;color:var(--ink-4);width:36px;text-align:center;flex-shrink:0">#${rank}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px">${u.name}</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+              <div style="background:var(--bg);border-radius:7px;padding:7px 10px">
+                <div style="font-size:9px;color:var(--ink-4);font-weight:700;text-transform:uppercase;margin-bottom:2px">Directives</div>
+                <div style="font-family:'Libre Baskerville',serif;font-size:20px">${u.dirs}</div>
+              </div>
+              <div style="background:var(--G0);border-radius:7px;padding:7px 10px">
+                <div style="font-size:9px;color:var(--ink-4);font-weight:700;text-transform:uppercase;margin-bottom:2px">Implemented</div>
+                <div style="font-family:'Libre Baskerville',serif;font-size:20px;color:var(--G7)">${u.im}</div>
+              </div>
+              <div style="background:var(--A1);border-radius:7px;padding:7px 10px">
+                <div style="font-size:9px;color:var(--ink-4);font-weight:700;text-transform:uppercase;margin-bottom:2px">Not Impl.</div>
+                <div style="font-family:'Libre Baskerville',serif;font-size:20px;color:var(--A9)">${u.no}</div>
+              </div>
+              <div style="background:var(--R1);border-radius:7px;padding:7px 10px">
+                <div style="font-size:9px;color:var(--ink-4);font-weight:700;text-transform:uppercase;margin-bottom:2px">No Response</div>
+                <div style="font-family:'Libre Baskerville',serif;font-size:20px;color:var(--R9)">${u.nr}</div>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;min-width:76px">
+            <div style="font-family:'Libre Baskerville',serif;font-size:38px;font-weight:700;line-height:1;color:${col}">${u.rate}%</div>
+            <div style="font-size:10px;color:var(--ink-4);font-weight:600;margin-top:2px">${u.tot} decisions</div>
+          </div>
+        </div>
+        <div class="prog" style="margin-top:10px"><div class="prog-fill" style="width:${u.rate}%;background:${col}"></div></div>
+      </div>`;
+    }).join('')+(pages>1?renderPag(uPage,pages,'u'):''));
+}
 
-            const totalPages = Math.ceil(data.length / dirPageSize);
-            const startIdx   = (dirCurrentPage - 1) * dirPageSize;
-            const endIdx     = Math.min(startIdx + dirPageSize, data.length);
-            const pageData   = data.slice(startIdx, endIdx);
+/* ── TIMELINE ─────── */
+function renderTimeline(){
+  const today=new Date();
+  let ov=0,soon=0,nodt=0;
+  const ovList=[];
+  all.forEach(d=>{
+    if(!d.implementationEndDate){nodt++;return;}
+    const dl=new Date(d.implementationEndDate);
+    const days=Math.ceil((dl-today)/86400000);
+    if(days<0){ov++;ovList.push({d,days:Math.abs(days)});}
+    else if(days<=30)soon++;
+  });
+  const on=all.length-ov-soon-nodt;
+  set('tl-ov',ov);set('tl-soon',soon);set('tl-none',nodt);
 
-            const html = `
-                <div class="text-xs text-gray-500 mb-4">Showing ${startIdx + 1}–${endIdx} of ${data.length} directives</div>
-                <div class="space-y-4">
-                    ${pageData.map((analysis) => {
-                        const d = analysis.directive;
-                        const today      = new Date();
-                        const deadline   = d.implementationEndDate ? new Date(d.implementationEndDate) : null;
-                        const daysUntil  = deadline ? Math.ceil((deadline - today) / (1000 * 60 * 60 * 24)) : null;
-                        const isOverdue  = daysUntil !== null && daysUntil < 0;
-                        const isDueSoon  = daysUntil !== null && daysUntil > 0 && daysUntil <= 30;
+  dc('tl');
+  charts['tl']=new Chart(document.getElementById('ch-tl').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:['Overdue','Due ≤30 days','On Schedule','No Timeline'],
+      datasets:[{data:[ov,soon,on,nodt],
+        backgroundColor:['#B71C1C','#E65100','#2E7D32','#96AFA5'],
+        borderRadius:6,barThickness:32}]
+    },
+    options:{responsive:true,maintainAspectRatio:true,indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:11}}},
+              y:{grid:{display:false},ticks:{font:{size:11}}}}}
+  });
 
-                        const statusStyles = {
-                            [STATUS.IMPLEMENTED]:   { bg: 'bg-green-50',  border: 'border-green-200',  text: 'text-green-800',  badge: 'badge-green', icon: '✓' },
-                            [STATUS.BEING_IMPL]:    { bg: 'bg-blue-50',   border: 'border-blue-200',   text: 'text-blue-800',   badge: 'badge-blue',  icon: '⚙️' },
-                            [STATUS.NOT_IMPLEMENTED]:{ bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', badge: 'badge-yellow',icon: '○' },
-                            [STATUS.NO_RESPONSE]:   { bg: 'bg-red-50',    border: 'border-red-200',    text: 'text-red-800',    badge: 'badge-red',   icon: '✗' }
-                        };
+  ovList.sort((a,b)=>b.days-a.days);
+  document.getElementById('tl-ov-list').innerHTML=
+    (!ovList.length?'<p style="text-align:center;padding:20px;color:var(--ink-4);font-style:italic;font-size:13px">No overdue directives ✓</p>':
+    ovList.slice(0,10).map(item=>`
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;background:var(--R1);margin-bottom:6px">
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--R9);margin-bottom:2px">${item.d.ref||'N/A'}</div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink)">${tr(item.d.subject,45)}</div>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:2px">${tr(item.d.owner||'—',25)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:'Libre Baskerville',serif;font-size:22px;font-weight:700;color:var(--R9)">${item.days}</div>
+          <div style="font-size:9px;color:var(--R9);font-weight:700">days over</div>
+        </div>
+      </div>`).join(''));
+}
 
-                        return `
-                        <div class="item-card ${d.isResponsive === false ? 'border-2 border-red-500' : ''}">
-                            <!-- Header -->
-                            <div class="flex items-start justify-between mb-4">
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-2 mb-2 flex-wrap">
-                                        <span class="badge ${analysis.completionRate === 100 ? 'badge-green' : analysis.completionRate >= 50 ? 'badge-blue' : 'badge-red'}">
-                                            ${analysis.completionRate}% Implemented
-                                        </span>
-                                        <span class="text-xs font-mono font-medium text-gray-700">${d.ref || 'N/A'}</span>
-                                        ${d.isResponsive === false ? '<span class="badge badge-red">⚠️ NON-RESPONSIVE</span>' : ''}
-                                        ${isOverdue  ? '<span class="badge badge-red">⏰ OVERDUE</span>' : ''}
-                                        ${isDueSoon  ? '<span class="badge badge-yellow">⏱️ DUE SOON</span>' : ''}
-                                    </div>
-                                    <div class="font-medium text-base text-gray-900 mb-3">${d.subject}</div>
+/* ── PAGINATION ────── */
+function renderPag(cur,total,type){
+  const start=Math.max(1,cur-3),end=Math.min(total,cur+3);
+  let b=`<button class="pg" onclick="cp('${type}',${cur-1})" ${cur===1?'disabled':''}>← Prev</button>`;
+  for(let i=start;i<=end;i++)b+=`<button class="pg ${i===cur?'on':''}" onclick="cp('${type}',${i})">${i}</button>`;
+  b+=`<button class="pg" onclick="cp('${type}',${cur+1})" ${cur===total?'disabled':''}>Next →</button>`;
+  return `<div class="pag">${b}</div>`;
+}
+function cp(type,p){
+  if(type==='d'){dPage=p;renderDirs();}
+  if(type==='u'){uPage=p;renderUnits();}
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 
-                                    <!-- Key Metrics Row -->
-                                    <div class="grid grid-cols-4 gap-3 mb-3 text-xs">
-                                        <div class="bg-gray-50 rounded p-2">
-                                            <div class="text-gray-500 mb-1">Business Unit</div>
-                                            <div class="font-medium text-gray-900 truncate">${d.owner || 'Unassigned'}</div>
-                                        </div>
-                                        <div class="bg-gray-50 rounded p-2">
-                                            <div class="text-gray-500 mb-1">Reminders</div>
-                                            <div class="font-medium ${(d.reminders || 0) >= 3 ? 'text-red-600' : (d.reminders || 0) >= 2 ? 'text-yellow-600' : 'text-gray-900'}">
-                                                ${d.reminders || 0}/3 ${(d.reminders || 0) >= 3 ? '🚨' : (d.reminders || 0) >= 2 ? '⚠️' : '✓'}
-                                            </div>
-                                        </div>
-                                        <div class="bg-gray-50 rounded p-2">
-                                            <div class="text-gray-500 mb-1">Deadline</div>
-                                            <div class="font-medium ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-yellow-600' : 'text-gray-900'}">
-                                                ${deadline ? formatDate(deadline) : 'Not set'}
-                                            </div>
-                                            ${daysUntil !== null ? `<div class="text-xs ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-yellow-600' : 'text-gray-500'}">${isOverdue ? Math.abs(daysUntil) + 'd overdue' : daysUntil + 'd left'}</div>` : ''}
-                                        </div>
-                                        <div class="bg-gray-50 rounded p-2">
-                                            <div class="text-gray-500 mb-1">Department</div>
-                                            <div class="font-medium text-gray-900 truncate">${d.department || '—'}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="text-right ml-6 flex-shrink-0">
-                                    <div class="text-5xl font-light" style="color: var(--cbn-primary);">${analysis.completionRate}%</div>
-                                    <div class="text-xs text-gray-500 mt-1">${analysis.implemented}/${analysis.total} done</div>
-                                </div>
-                            </div>
+/* ── EXPORT ─────────── */
+function exportXLS(){
+  const wb=XLSX.utils.book_new();
+  const tot=totDec(all),impl=cntS(all,S.I);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([
+    ['CBN Decisions Monitoring Report'],
+    ['Date:',new Date().toLocaleDateString('en-GB')],
+    ['Source:',src==='CG'?'Committee of Governors':'Board of Directors'],
+    [],
+    ['Metric','Value','%'],
+    ['Total Directives',all.length,''],
+    ['Total Decisions',tot,'100%'],
+    ['Implemented',impl,fp(impl,tot)],
+    ['Being Implemented',cntS(all,S.B),fp(cntS(all,S.B),tot)],
+    ['Not Implemented',cntS(all,S.N),fp(cntS(all,S.N),tot)],
+    ['No Response',cntS(all,S.R),fp(cntS(all,S.R),tot)],
+  ]),'Summary');
 
-                            <!-- Decision Status Summary -->
-                            <div class="grid grid-cols-4 gap-2 mb-4">
-                                <div class="bg-green-50 rounded-lg p-3 text-center">
-                                    <div class="text-2xl font-light text-green-600">${analysis.implemented}</div>
-                                    <div class="text-xs text-green-700 font-medium">Implemented</div>
-                                </div>
-                                <div class="bg-blue-50 rounded-lg p-3 text-center">
-                                    <div class="text-2xl font-light text-blue-600">${analysis.inProgress}</div>
-                                    <div class="text-xs text-blue-700 font-medium">Being Impl.</div>
-                                </div>
-                                <div class="bg-orange-50 rounded-lg p-3 text-center">
-                                    <div class="text-2xl font-light text-orange-600">${analysis.notImplemented}</div>
-                                    <div class="text-xs text-orange-700 font-medium">Not Implemented</div>
-                                </div>
-                                <div class="bg-red-50 rounded-lg p-3 text-center">
-                                    <div class="text-2xl font-light text-red-600">${analysis.noResponse}</div>
-                                    <div class="text-xs text-red-700 font-medium">No Response</div>
-                                </div>
-                            </div>
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(all.map(d=>({
+    'Ref':d.ref||'N/A','Subject':d.subject,'Business Unit':d.owner,'Department':d.department||'',
+    'Total Decisions':(d.outcomes||[]).length,
+    'Implemented':(d.outcomes||[]).filter(o=>o.status===S.I).length,
+    'Being Implemented':(d.outcomes||[]).filter(o=>o.status===S.B).length,
+    'Not Implemented':(d.outcomes||[]).filter(o=>o.status===S.N).length,
+    'No Response':(d.outcomes||[]).filter(o=>o.status===S.R).length,
+    'Deadline':d.implementationEndDate?fd(d.implementationEndDate):'Not Set',
+    'Reminders':d.reminders||0,
+  }))),'Directives');
 
-                            <!-- Detailed Decision List (expandable) -->
-                            ${analysis.total > 0 ? `
-                                <div class="border-t border-gray-200 pt-4">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div>
-                                            <h4 class="text-sm font-semibold text-gray-900">📋 All ${analysis.total} Decisions</h4>
-                                            <p class="text-xs text-gray-500 mt-1">
-                                                ${analysis.implemented} implemented • ${analysis.inProgress} in progress • ${analysis.notImplemented} not implemented • ${analysis.noResponse} no response
-                                            </p>
-                                        </div>
-                                        <button onclick="toggleDecisions('${d._id}')" class="text-xs text-blue-600 hover:text-blue-800 font-medium px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors">
-                                            <span id="toggle-${d._id}">▼ Show All Decisions</span>
-                                        </button>
-                                    </div>
-                                    <div id="decisions-${d._id}" class="hidden space-y-2">
-                                        ${d.outcomes.map((decision, oIdx) => {
-                                            const style = statusStyles[decision.status] || statusStyles[STATUS.NOT_IMPLEMENTED];
-                                            return `
-                                            <div class="flex items-start gap-3 p-3 rounded-lg border-2 ${style.border} ${style.bg}">
-                                                <div class="flex-shrink-0 w-7 h-7 rounded-full bg-white border-2 border-current flex items-center justify-center text-sm font-bold ${style.text}">
-                                                    ${oIdx + 1}
-                                                </div>
-                                                <div class="flex-1 min-w-0">
-                                                    <div class="text-sm font-medium ${style.text} mb-2">${decision.text}</div>
-                                                    <div class="flex items-center gap-2 flex-wrap">
-                                                        <span class="badge ${style.badge} text-xs">${style.icon} ${decision.status}</span>
-                                                        ${decision.challenges ? `<div class="text-xs ${style.text} opacity-90 mt-1 w-full"><strong>Notes:</strong> ${decision.challenges.substring(0, 120)}${decision.challenges.length > 120 ? '...' : ''}</div>` : ''}
-                                                    </div>
-                                                </div>
-                                            </div>`;
-                                        }).join('')}
-                                    </div>
-                                </div>
-                            ` : '<p class="text-xs text-gray-500 italic text-center py-4">No decisions recorded for this directive</p>'}
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(buStats().map(u=>({
+    'Business Unit':u.name,'Directives':u.dirs,'Total Decisions':u.tot,
+    'Implemented':u.im,'Being Implemented':u.be,'Not Implemented':u.no,'No Response':u.nr,
+    'Implementation Rate':u.rate+'%',
+  }))),'Business Units');
 
-                            <!-- Progress Bar -->
-                            <div class="progress-bar mt-4">
-                                <div class="progress-fill" style="width: ${analysis.completionRate}%;"></div>
-                            </div>
-                        </div>`;
-                    }).join('')}
-                </div>
-                ${totalPages > 1 ? renderPagination(dirCurrentPage, totalPages, 'dir') : ''}
-            `;
-
-            document.getElementById('directives-list').innerHTML = html;
-        }
-
-        function toggleDecisions(directiveId) {
-            const div = document.getElementById(`decisions-${directiveId}`);
-            const btn = document.getElementById(`toggle-${directiveId}`);
-            if (div.classList.contains('hidden')) {
-                div.classList.remove('hidden');
-                btn.textContent = '▲ Hide Decisions';
-            } else {
-                div.classList.add('hidden');
-                btn.textContent = '▼ Show All Decisions';
-            }
-        }
-
-        // ── Timeline ───────────────────────────────────────────────────────────
-        function renderTimeline() {
-            const today = new Date();
-            let overdue = 0, dueSoon = 0, noDate = 0;
-            const overdueList = [];
-
-            allDirectives.forEach(d => {
-                if (!d.implementationEndDate) {
-                    noDate++;
-                } else {
-                    const deadline   = new Date(d.implementationEndDate);
-                    const daysUntil  = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
-                    if (daysUntil < 0) {
-                        overdue++;
-                        overdueList.push({ directive: d, daysOverdue: Math.abs(daysUntil) });
-                    } else if (daysUntil <= 30) {
-                        dueSoon++;
-                    }
-                }
-            });
-
-            document.getElementById('tl-overdue').textContent  = overdue;
-            document.getElementById('tl-due-soon').textContent  = dueSoon;
-            document.getElementById('tl-no-date').textContent   = noDate;
-
-            if (charts.timeline) charts.timeline.destroy();
-            const onSchedule = allDirectives.length - overdue - dueSoon - noDate;
-            charts.timeline = new Chart(document.getElementById('timeline-chart').getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: ['Overdue', 'Due Soon', 'On Schedule', 'No Timeline'],
-                    datasets: [{ data: [overdue, dueSoon, onSchedule, noDate], backgroundColor: ['#C62828', '#FB8C00', '#43A047', '#9E9E9E'], borderRadius: 8 }]
-                },
-                options: { responsive: true, maintainAspectRatio: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, grid: { display: false } }, y: { grid: { display: false } } } }
-            });
-
-            overdueList.sort((a, b) => b.daysOverdue - a.daysOverdue);
-            document.getElementById('overdue-list').innerHTML = overdueList.length > 0 ? `
-                <div class="space-y-2">
-                    ${overdueList.slice(0, 10).map(item => `
-                        <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                            <div class="flex-1 min-w-0">
-                                <div class="text-xs font-mono font-medium text-gray-700 truncate mb-1">${item.directive.ref || 'N/A'}</div>
-                                <div class="text-xs text-gray-600 truncate">${item.directive.subject}</div>
-                            </div>
-                            <div class="text-right ml-4">
-                                <div class="text-2xl font-light text-red-600">${item.daysOverdue}</div>
-                                <div class="text-xs text-red-600">days overdue</div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            ` : '<p class="text-gray-500 text-sm text-center py-6">No overdue directives ✓</p>';
-        }
-
-        // ── Business Units (was Process Owners) ────────────────────────────────
-        function renderOwners() {
-            const unitStats = buildUnitStats();
-
-            // Top 10 chart
-            const top10 = [...unitStats].sort((a, b) => b.completionRate - a.completionRate).slice(0, 10);
-
-            if (charts.topOwners) charts.topOwners.destroy();
-            charts.topOwners = new Chart(document.getElementById('top-owners-chart').getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: top10.map(o => o.name.substring(0, 25)),
-                    datasets: [{ label: 'Implementation Rate (%)', data: top10.map(o => o.completionRate), backgroundColor: '#43A047', borderRadius: 8 }]
-                },
-                options: { responsive: true, maintainAspectRatio: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, max: 100, grid: { display: false } }, y: { grid: { display: false } } } }
-            });
-
-            renderOwnersList(getFilteredOwners());
-        }
-
-        function buildUnitStats() {
-            const unitMap = {};
-            allDirectives.forEach(d => {
-                const owner = d.owner || 'Unassigned';
-                if (!unitMap[owner]) unitMap[owner] = { name: owner, directivesTotal: 0, totalDecisions: 0, implementedDecisions: 0 };
-                unitMap[owner].directivesTotal++;
-                if (d.outcomes && d.outcomes.length > 0) {
-                    unitMap[owner].totalDecisions      += d.outcomes.length;
-                    unitMap[owner].implementedDecisions += d.outcomes.filter(o => o.status === STATUS.IMPLEMENTED).length;
-                }
-            });
-            return Object.values(unitMap).map(u => ({
-                ...u,
-                completionRate: u.totalDecisions > 0 ? Math.round((u.implementedDecisions / u.totalDecisions) * 100) : 0
-            }));
-        }
-
-        function getFilteredOwners() {
-            let owners = buildUnitStats();
-
-            if (ownerFilters.performance !== 'all') {
-                owners = owners.filter(o => {
-                    if (ownerFilters.performance === 'excellent')         return o.completionRate >= 80;
-                    if (ownerFilters.performance === 'good')              return o.completionRate >= 60 && o.completionRate < 80;
-                    if (ownerFilters.performance === 'needs-improvement') return o.completionRate < 60;
-                    return true;
-                });
-            }
-
-            if (ownerFilters.search) {
-                owners = owners.filter(o => o.name.toLowerCase().includes(ownerFilters.search));
-            }
-
-            owners.sort((a, b) => {
-                if (ownerFilters.sort === 'completion-desc') return b.completionRate - a.completionRate;
-                if (ownerFilters.sort === 'outcomes-desc')   return b.totalDecisions - a.totalDecisions;
-                if (ownerFilters.sort === 'directives-desc') return b.directivesTotal - a.directivesTotal;
-                return b.completionRate - a.completionRate;
-            });
-
-            return owners;
-        }
-
-        function renderOwnersList(data) {
-            if (data.length === 0) {
-                document.getElementById('owners-list').innerHTML = '<p class="text-gray-500 text-sm text-center py-12">No business units found</p>';
-                return;
-            }
-
-            const totalPages = Math.ceil(data.length / ownerPageSize);
-            const startIdx   = (ownerCurrentPage - 1) * ownerPageSize;
-            const endIdx     = Math.min(startIdx + ownerPageSize, data.length);
-            const pageData   = data.slice(startIdx, endIdx);
-
-            const html = `
-                <div class="text-xs text-gray-500 mb-4">Showing ${startIdx + 1}–${endIdx} of ${data.length} business units</div>
-                <div class="space-y-3">
-                    ${pageData.map((unit, idx) => {
-                        const globalIdx  = startIdx + idx;
-                        const gradeColor = unit.completionRate >= 80 ? 'green' : unit.completionRate >= 60 ? 'blue' : 'red';
-                        return `
-                        <div class="item-card">
-                            <div class="flex items-start justify-between">
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-3 mb-2">
-                                        <span class="badge badge-${gradeColor}">Rank #${globalIdx + 1}</span>
-                                        <span class="text-lg font-medium" style="color: var(--cbn-dark);">${unit.name}</span>
-                                    </div>
-                                    <div class="grid grid-cols-3 gap-4 text-sm">
-                                        <div>
-                                            <div class="text-xs text-gray-500 mb-1">Directives</div>
-                                            <div class="font-medium text-xl">${unit.directivesTotal}</div>
-                                        </div>
-                                        <div>
-                                            <div class="text-xs text-gray-500 mb-1">Total Decisions</div>
-                                            <div class="font-medium text-xl">${unit.totalDecisions}</div>
-                                        </div>
-                                        <div>
-                                            <div class="text-xs text-gray-500 mb-1">Implemented</div>
-                                            <div class="font-medium text-xl text-green-600">${unit.implementedDecisions}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="text-right ml-6">
-                                    <div class="text-4xl font-light" style="color: var(--cbn-primary);">${unit.completionRate}%</div>
-                                    <div class="text-xs text-gray-500 mt-1">implementation</div>
-                                </div>
-                            </div>
-                            <div class="progress-bar mt-3">
-                                <div class="progress-fill" style="width: ${unit.completionRate}%;"></div>
-                            </div>
-                        </div>`;
-                    }).join('')}
-                </div>
-                ${totalPages > 1 ? renderPagination(ownerCurrentPage, totalPages, 'owner') : ''}
-            `;
-
-            document.getElementById('owners-list').innerHTML = html;
-        }
-
-        // ── Pagination ─────────────────────────────────────────────────────────
-        function renderPagination(currentPage, totalPages, type) {
-            const maxButtons = 7;
-            let startPage, endPage;
-            if (totalPages <= maxButtons) { startPage = 1; endPage = totalPages; }
-            else if (currentPage <= 4)    { startPage = 1; endPage = maxButtons; }
-            else if (currentPage >= totalPages - 3) { startPage = totalPages - maxButtons + 1; endPage = totalPages; }
-            else { startPage = currentPage - 3; endPage = currentPage + 3; }
-
-            let buttons = '';
-            for (let i = startPage; i <= endPage; i++) {
-                buttons += `<button onclick="changePage('${type}', ${i})" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
-            }
-            return `
-                <div class="pagination no-print">
-                    <button onclick="changePage('${type}', ${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>← Previous</button>
-                    ${buttons}
-                    <button onclick="changePage('${type}', ${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next →</button>
-                </div>`;
-        }
-
-        function changePage(type, page) {
-            if (type === 'dir')   { dirCurrentPage   = page; renderDirectivesList(getFilteredDirectives()); }
-            if (type === 'owner') { ownerCurrentPage  = page; renderOwnersList(getFilteredOwners()); }
-        }
-
-        // ── Export ─────────────────────────────────────────────────────────────
-        function exportReport() {
-            const wb = XLSX.utils.book_new();
-
-            const total       = totalDecisions(allDirectives);
-            const implemented = countByStatus(allDirectives, STATUS.IMPLEMENTED);
-
-            const summaryData = [
-                ['Board Directives Report'],
-                ['Date:', new Date().toLocaleDateString()],
-                ['Source:', currentSource === 'CG' ? 'Committee of Board' : 'Board of Directors'],
-                [],
-                ['Metric', 'Value'],
-                ['Total Directives',   allDirectives.length],
-                ['Total Decisions',    total],
-                ['Implemented',        implemented],
-                ['Being Implemented',  countByStatus(allDirectives, STATUS.BEING_IMPL)],
-                ['Not Implemented',    countByStatus(allDirectives, STATUS.NOT_IMPLEMENTED)],
-                ['No Response',        countByStatus(allDirectives, STATUS.NO_RESPONSE)],
-                ['Implementation Rate', total > 0 ? Math.round((implemented / total) * 100) + '%' : '0%']
-            ];
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), 'Summary');
-
-            const detailsData = allDirectives.map(d => ({
-                'Ref':               d.ref || 'N/A',
-                'Subject':           d.subject,
-                'Business Unit':     d.owner,
-                'Department':        d.department || '',
-                'Total Decisions':   d.outcomes?.length || 0,
-                'Implemented':       d.outcomes?.filter(o => o.status === STATUS.IMPLEMENTED).length   || 0,
-                'Being Implemented': d.outcomes?.filter(o => o.status === STATUS.BEING_IMPL).length    || 0,
-                'Not Implemented':   d.outcomes?.filter(o => o.status === STATUS.NOT_IMPLEMENTED).length || 0,
-                'No Response':       d.outcomes?.filter(o => o.status === STATUS.NO_RESPONSE).length   || 0,
-                'Deadline':          d.implementationEndDate ? formatDate(d.implementationEndDate) : 'Not Set',
-                'Reminders':         d.reminders || 0
-            }));
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailsData), 'Directives');
-
-            // Business Units sheet
-            const unitData = buildUnitStats().map(u => ({
-                'Business Unit':       u.name,
-                'Directives':          u.directivesTotal,
-                'Total Decisions':     u.totalDecisions,
-                'Implemented':         u.implementedDecisions,
-                'Implementation Rate': u.completionRate + '%'
-            }));
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(unitData), 'Business Units');
-
-            XLSX.writeFile(wb, `Report_${currentSource}_${new Date().toISOString().split('T')[0]}.xlsx`);
-        }
-    </script>
+  XLSX.writeFile(wb,`CBN_Report_${src}_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+</script>
 </body>
 </html>
