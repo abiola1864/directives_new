@@ -9,87 +9,134 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --g900:#0F3D20;--g800:#1B5E20;--g700:#2E7D32;--g600:#388E3C;
-  --g400:#66BB6A;--g100:#E8F5E9;--g50:#F1F8F2;
+  --g400:#66BB6A;--g200:#A5D6A7;--g100:#E8F5E9;--g50:#F1F8F2;
   --ink:#0D1117;--ink2:#374151;--ink3:#6B7280;--ink4:#9CA3AF;
   --border:#E5E7EB;--white:#FFFFFF;--bg:#F8FAFB;
   --danger:#DC2626;--warn:#D97706;--info:#2563EB;
+  --amber:#FEF3C7;--amber-b:#F59E0B;
   --r:10px;--shadow:0 1px 3px rgba(0,0,0,.07),0 4px 12px rgba(0,0,0,.04);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.12);
 }
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
 
-/* ── Header ── */
-.header{background:linear-gradient(135deg,var(--g900) 0%,var(--g800) 50%,var(--g700) 100%);color:#fff;padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+/* ── HEADER ──────────────────────────────────────────────── */
+.header{background:linear-gradient(135deg,var(--g900) 0%,var(--g800) 50%,var(--g700) 100%);color:#fff;padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,0,0,.2)}
 .hbrand{display:flex;align-items:center;gap:12px}
 .hbrand-icon{width:36px;height:36px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center}
 .hbrand-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:700;color:#fff}
-.hbrand-sub{font-size:11px;color:rgba(255,255,255,.6);margin-top:1px}
-.huser{display:flex;align-items:center;gap:14px}
-.huser-info{text-align:right}
-.huser-name{font-size:13px;font-weight:600;color:#fff}
-.huser-email{font-size:11px;color:rgba(255,255,255,.6)}
-.btn-logout{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#fff;transition:.15s;display:flex;align-items:center;gap:6px}
-.btn-logout:hover{background:rgba(255,255,255,.2)}
+.hbrand-sub{font-size:11px;color:rgba(255,255,255,.55);margin-top:1px}
+.hnav{display:flex;align-items:center;gap:4px}
+.hnav-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:rgba(255,255,255,.7);border:none;background:none;transition:.15s;font-family:'DM Sans',sans-serif}
+.hnav-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.hnav-btn.active{background:rgba(255,255,255,.18);color:#fff}
+.hnav-sep{width:1px;height:20px;background:rgba(255,255,255,.15);margin:0 4px}
+.btn-logout{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:rgba(255,255,255,.8);transition:.15s;display:flex;align-items:center;gap:6px;font-family:'DM Sans',sans-serif}
+.btn-logout:hover{background:rgba(255,255,255,.2);color:#fff}
 
-/* ── Stats banner ── */
-.stats-band{background:var(--white);border-bottom:1px solid var(--border)}
-.stats-inner{max-width:1100px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:repeat(5,1fr);gap:0}
-.stat{padding:20px 16px;text-align:center;border-right:1px solid var(--border)}
+/* ── UNIT IDENTITY BANNER ────────────────────────────────── */
+.unit-banner{background:var(--white);border-bottom:1px solid var(--border)}
+.unit-inner{max-width:1140px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.unit-left{display:flex;align-items:center;gap:14px}
+.unit-avatar{width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,var(--g800),var(--g600));display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-size:18px;font-weight:800;color:#fff;flex-shrink:0}
+.unit-name{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;color:var(--ink)}
+.unit-meta{font-size:12px;color:var(--ink3);margin-top:3px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.unit-meta-item{display:flex;align-items:center;gap:4px}
+.unit-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:16px;font-size:11px;font-weight:700;background:var(--g100);color:var(--g800);border:1px solid var(--g200)}
+.unit-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--g600);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.unit-right{display:flex;align-items:center;gap:10px}
+
+/* ── STATS BAR ────────────────────────────────────────────── */
+.stats-bar{background:var(--white);border-bottom:2px solid var(--border)}
+.stats-inner{max-width:1140px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:repeat(5,1fr)}
+.stat{padding:18px 16px;text-align:center;border-right:1px solid var(--border);position:relative}
 .stat:last-child{border-right:none}
-.stat-n{font-family:'Sora',sans-serif;font-size:28px;font-weight:700;line-height:1}
-.stat-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-top:6px}
+.stat-n{font-family:'Sora',sans-serif;font-size:32px;font-weight:800;line-height:1}
+.stat-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink4);margin-top:5px}
+.stat-pct{position:absolute;top:10px;right:12px;font-size:10px;font-weight:700;padding:2px 6px;border-radius:8px;background:var(--g50);color:var(--g800)}
 
-/* ── Page ── */
-.page{max-width:1100px;margin:0 auto;padding:28px 24px}
+/* ── PAGE LAYOUT ──────────────────────────────────────────── */
+.page-wrap{max-width:1140px;margin:0 auto;padding:28px 24px}
 
-/* ── Filters ── */
+/* ── TABS ─────────────────────────────────────────────────── */
+.page-tabs{display:flex;gap:2px;border-bottom:2px solid var(--border);margin-bottom:24px}
+.ptab{padding:10px 20px;font-size:13px;font-weight:600;color:var(--ink3);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px}
+.ptab:hover{color:var(--ink)}
+.ptab.active{color:var(--g800);border-bottom-color:var(--g700)}
+.pane{display:none}
+.pane.active{display:block}
+
+/* ── DIRECTIVES PANE ──────────────────────────────────────── */
 .filters{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
 .filters select,.filters input{padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;color:var(--ink);background:var(--white);outline:none;transition:.15s}
 .filters input{flex:1;min-width:220px}
 .filters select:focus,.filters input:focus{border-color:var(--g400)}
 
-/* ── Directive card ── */
+/* ── DIRECTIVE CARD ───────────────────────────────────────── */
 .dir-card{background:var(--white);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;box-shadow:var(--shadow);overflow:hidden;transition:box-shadow .2s}
-.dir-card:hover{box-shadow:0 4px 16px rgba(15,61,32,.1)}
+.dir-card:hover{box-shadow:0 4px 20px rgba(15,61,32,.1)}
 .dir-card-head{padding:20px 24px 0}
 .dir-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .ref-pill{font-size:11px;font-family:monospace;font-weight:700;background:var(--bg);border:1px solid var(--border);padding:3px 8px;border-radius:6px;color:var(--ink2)}
-.dir-title{font-family:'Sora',sans-serif;font-size:16px;font-weight:700;color:var(--ink);margin-bottom:6px;line-height:1.3}
+.dir-title{font-family:'Sora',sans-serif;font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px;line-height:1.3}
 .dir-particulars{font-size:13px;color:var(--ink3);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-
-/* ── Progress ── */
-.prog-row{padding:16px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--g50)}
+.prog-row{padding:14px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--g50)}
 .prog-label{display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:8px}
 .prog-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
-.prog-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--g600) 0%,var(--g900) 100%);transition:width .5s}
-
-/* ── Decision mini stats ── */
+.prog-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--g600),var(--g900));transition:width .5s}
 .dec-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)}
-.dec-cell{background:var(--white);padding:14px 16px;text-align:center}
-.dec-n{font-family:'Sora',sans-serif;font-size:22px;font-weight:700;line-height:1}
+.dec-cell{background:var(--white);padding:12px 16px;text-align:center}
+.dec-n{font-family:'Sora',sans-serif;font-size:20px;font-weight:700;line-height:1}
 .dec-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:4px}
-
-/* ── Card footer ── */
 .dir-card-foot{padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.card-info{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--ink3)}
-.card-info span{display:flex;align-items:center;gap:4px}
-.btn-update{background:var(--g800);color:#fff;border:none;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;transition:.15s}
+.card-info{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--ink3);flex-wrap:wrap}
+.btn-update{background:var(--g800);color:#fff;border:none;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;transition:.15s;font-family:'DM Sans',sans-serif}
 .btn-update:hover{background:var(--g900)}
 
-/* ── Badge ── */
+/* ── BADGE ────────────────────────────────────────────────── */
 .badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:16px;font-size:10px;font-weight:700;letter-spacing:.2px}
-.b-impl{background:#ECFDF5;color:#065F46}.b-being{background:#EFF6FF;color:#1E40AF}.b-not{background:#FFF7ED;color:#9A3412}.b-resp{background:#FEF2F2;color:#991B1B}
+.b-impl{background:#ECFDF5;color:#065F46}.b-being{background:#EFF6FF;color:#1E40AF}
+.b-not{background:#FFF7ED;color:#9A3412}.b-resp{background:#FEF2F2;color:#991B1B}
+.b-done{background:var(--g100);color:var(--g800)}
 
-/* ── Empty state ── */
+/* ── EMPTY ────────────────────────────────────────────────── */
 .empty{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:64px 24px;text-align:center;color:var(--ink3)}
 .empty-icon{font-size:56px;margin-bottom:16px}
-.empty-title{font-family:'Sora',sans-serif;font-size:20px;font-weight:700;color:var(--ink2);margin-bottom:8px}
-.empty-desc{font-size:14px;line-height:1.6}
+.empty-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:700;color:var(--ink2);margin-bottom:8px}
+.empty-desc{font-size:14px;line-height:1.6;max-width:360px;margin:0 auto}
 
-/* ── Modal ── */
+/* ── SETTINGS PANE ────────────────────────────────────────── */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:700px){.settings-grid{grid-template-columns:1fr}}
+.scard{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.scard-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.scard-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.scard-title{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:var(--ink)}
+.scard-sub{font-size:12px;color:var(--ink3);margin-top:2px}
+.scard-body{padding:20px 22px}
+.srow{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.srow:last-child{border-bottom:none}
+.srow-label{font-size:13px;color:var(--ink2);font-weight:500}
+.srow-val{font-size:13px;color:var(--ink3)}
+.srow-action{font-size:12px;font-weight:600;color:var(--g700);background:none;border:none;cursor:pointer;font-family:inherit}
+.srow-action:hover{color:var(--g900);text-decoration:underline}
+
+/* ── ACTIVITY PANE ────────────────────────────────────────── */
+.act-list{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.act-item{display:flex;align-items:flex-start;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);transition:.1s}
+.act-item:last-child{border-bottom:none}
+.act-item:hover{background:var(--g50)}
+.act-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.act-content{flex:1}
+.act-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:3px}
+.act-meta{font-size:11px;color:var(--ink4)}
+.act-ref{font-family:monospace;font-size:11px;color:var(--ink3)}
+
+/* ── MODAL ────────────────────────────────────────────────── */
 .overlay{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
 .overlay.open{display:flex}
-.overlay-bg{position:absolute;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px)}
-.modal{position:relative;z-index:1;background:var(--white);border-radius:16px;width:100%;max-width:740px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:pop .3s cubic-bezier(.4,0,.2,1)}
+.overlay-bg{position:absolute;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px)}
+.modal{position:relative;z-index:1;background:var(--white);border-radius:16px;width:100%;max-width:740px;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:pop .25s cubic-bezier(.4,0,.2,1)}
 @keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
 .modal-head{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:var(--white);z-index:2;border-radius:16px 16px 0 0}
 .modal-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:700;color:var(--ink)}
@@ -100,7 +147,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-
 .section-title{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .modal-foot{padding:18px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--white);border-radius:0 0 16px 16px}
 
-/* ── Form ── */
+/* ── FORM ─────────────────────────────────────────────────── */
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:560px){.frow{grid-template-columns:1fr}}
 .fgroup{margin-bottom:14px}
@@ -108,85 +155,335 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-
 .finput,.fselect,.ftextarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;color:var(--ink);outline:none;transition:.15s;background:var(--white)}
 .finput:focus,.fselect:focus,.ftextarea:focus{border-color:var(--g400);background:var(--g50)}
 .ftextarea{resize:vertical;min-height:60px}
+.fhint{font-size:11px;color:var(--ink4);margin-top:4px}
 
-/* ── Decision update cards ── */
-.dec-card{border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;transition:.15s}
+/* ── DECISION UPDATE CARDS ────────────────────────────────── */
+.dec-card{border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;transition:.15s;cursor:pointer}
 .dec-card.selected{border-color:var(--g400);background:var(--g50)}
-.dec-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;cursor:pointer}
+.dec-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:0}
 .dec-num{width:26px;height:26px;border-radius:6px;background:var(--g800);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
 .dec-text{font-size:13px;color:var(--ink2);line-height:1.5;flex:1}
-.toggle-all{background:none;border:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--g700);text-decoration:underline}
+.toggle-all{background:none;border:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--g700);font-family:inherit}
+.toggle-all:hover{text-decoration:underline}
 
-/* ── File upload ── */
+/* ── FILE UPLOAD ──────────────────────────────────────────── */
 .upload-zone{border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:.15s}
 .upload-zone:hover{border-color:var(--g400);background:var(--g50)}
 .file-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;margin-top:8px;font-size:12px}
 
-/* ── Btn secondary ── */
-.btn-sec{background:var(--white);border:1px solid var(--border);padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink2);transition:.15s}
+/* ── BUTTONS ──────────────────────────────────────────────── */
+.btn-sec{background:var(--white);border:1px solid var(--border);padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink2);transition:.15s;font-family:'DM Sans',sans-serif}
 .btn-sec:hover{background:var(--bg)}
+.btn-primary{background:var(--g800);color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;font-family:'DM Sans',sans-serif}
+.btn-primary:hover{background:var(--g900)}
+.btn-danger{background:none;border:1px solid #FECACA;color:var(--danger);padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;font-family:'DM Sans',sans-serif}
+.btn-danger:hover{background:#FEF2F2}
+
+/* ── TOAST ────────────────────────────────────────────────── */
+#toast{position:fixed;bottom:24px;right:24px;z-index:9999;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;color:#fff;box-shadow:var(--shadow-lg);transform:translateY(60px);opacity:0;transition:.3s cubic-bezier(.4,0,.2,1);pointer-events:none;max-width:320px}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.ok{background:var(--g700)}
+#toast.err{background:var(--danger)}
+#toast.warn{background:var(--warn)}
 
 .hidden{display:none!important}
 </style>
 </head>
 <body>
 
-<!-- Header -->
+<!-- ── HEADER ── -->
 <header class="header">
   <div class="hbrand">
     <div class="hbrand-icon">
       <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
     </div>
     <div>
-      <div class="hbrand-name">Business Unit Portal</div>
-      <div class="hbrand-sub">CBN Directives – Corporate Secretariat</div>
+      <div class="hbrand-name">CBN Decisions Tracker</div>
+      <div class="hbrand-sub">Business Unit Portal · Corporate Secretariat</div>
     </div>
   </div>
-  <div class="huser">
-    <div class="huser-info">
-      <div class="huser-name" id="user-name">Loading…</div>
-      <div class="huser-email" id="user-email"></div>
-    </div>
+  <div class="hnav">
+    <button class="hnav-btn active" id="tab-btn-directives" onclick="switchTab('directives',this)">
+      <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      My Directives
+    </button>
+    <button class="hnav-btn" id="tab-btn-activity" onclick="switchTab('activity',this)">
+      <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Activity
+    </button>
+    <button class="hnav-btn" id="tab-btn-settings" onclick="switchTab('settings',this)">
+      <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Settings
+    </button>
+    <div class="hnav-sep"></div>
     <button class="btn-logout" onclick="logout()">
-      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+      <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
       Sign Out
     </button>
   </div>
 </header>
 
-<!-- Stats band -->
-<div class="stats-band">
+<!-- ── UNIT IDENTITY BANNER ── -->
+<div class="unit-banner">
+  <div class="unit-inner">
+    <div class="unit-left">
+      <div class="unit-avatar" id="unit-avatar">—</div>
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink4);margin-bottom:2px">Currently Reviewing</div>
+        <div class="unit-name" id="unit-name">Loading…</div>
+        <div class="unit-meta">
+          <div class="unit-meta-item">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            <span id="unit-user">—</span>
+          </div>
+          <div class="unit-meta-item">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            <span id="unit-email">—</span>
+          </div>
+          <span class="unit-badge" id="unit-status-badge">Active Session</span>
+        </div>
+      </div>
+    </div>
+    <div class="unit-right">
+      <div style="text-align:right">
+        <div style="font-size:11px;color:var(--ink4);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;font-weight:700">Implementation Rate</div>
+        <div style="font-family:'Sora',sans-serif;font-size:36px;font-weight:800;color:var(--g800);line-height:1" id="unit-rate">—%</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:3px" id="unit-rate-sub">across all directives</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── STATS BAR ── -->
+<div class="stats-bar">
   <div class="stats-inner">
-    <div class="stat"><div class="stat-n" id="s-total" style="color:var(--g800)">—</div><div class="stat-l">Total Decisions</div></div>
-    <div class="stat"><div class="stat-n" id="s-impl" style="color:#065F46">—</div><div class="stat-l">Implemented</div></div>
-    <div class="stat"><div class="stat-n" id="s-being" style="color:#1E40AF">—</div><div class="stat-l">Being Impl.</div></div>
-    <div class="stat"><div class="stat-n" id="s-not" style="color:#9A3412">—</div><div class="stat-l">Not Impl.</div></div>
-    <div class="stat"><div class="stat-n" id="s-resp" style="color:#991B1B">—</div><div class="stat-l">No Response</div></div>
+    <div class="stat">
+      <div class="stat-n" id="s-total" style="color:var(--g800)">—</div>
+      <div class="stat-l">Total Decisions</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n" id="s-impl" style="color:#065F46">—</div>
+      <div class="stat-l">Implemented</div>
+      <div class="stat-pct" id="pct-impl">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n" id="s-being" style="color:#1E40AF">—</div>
+      <div class="stat-l">Being Impl.</div>
+      <div class="stat-pct" id="pct-being">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n" id="s-not" style="color:#9A3412">—</div>
+      <div class="stat-l">Not Impl.</div>
+      <div class="stat-pct" id="pct-not">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n" id="s-resp" style="color:#991B1B">—</div>
+      <div class="stat-l">No Response</div>
+      <div class="stat-pct" id="pct-resp">—</div>
+    </div>
   </div>
 </div>
 
-<!-- Page -->
-<div class="page">
+<!-- ── PAGE ── -->
+<div class="page-wrap">
 
-  <!-- Filters -->
-  <div class="filters">
-    <select id="f-status" onchange="render()">
-      <option value="all">All Directives</option>
-      <option value="not-impl">Not Implemented</option>
-      <option value="being">Being Implemented</option>
-      <option value="no-resp">No Response</option>
-      <option value="partial">Partial Implementation</option>
-      <option value="full">Fully Implemented</option>
-    </select>
-    <input type="text" id="f-search" placeholder="Search subject, reference…" oninput="render()">
+  <!-- Tab bar -->
+  <div class="page-tabs">
+    <button class="ptab active" id="ptab-directives" onclick="switchTab('directives',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      My Directives <span id="tc-dir" style="background:var(--g100);color:var(--g800);padding:1px 7px;border-radius:10px;font-size:10px;font-weight:800;margin-left:4px">—</span>
+    </button>
+    <button class="ptab" id="ptab-activity" onclick="switchTab('activity',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Submission Activity
+    </button>
+    <button class="ptab" id="ptab-settings" onclick="switchTab('settings',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Settings
+    </button>
   </div>
 
-  <!-- Directives list -->
-  <div id="dir-list"></div>
+  <!-- ═══ PANE: DIRECTIVES ════════════════════════════════ -->
+  <div class="pane active" id="pane-directives">
+    <div class="filters">
+      <select id="f-status" onchange="render()">
+        <option value="all">All Directives</option>
+        <option value="pending">Needs Attention (Not Impl. / No Response)</option>
+        <option value="being">Being Implemented</option>
+        <option value="full">Fully Implemented</option>
+      </select>
+      <input type="text" id="f-search" placeholder="Search subject or reference…" oninput="render()">
+    </div>
+    <div id="dir-list"></div>
+  </div>
 
-</div>
+  <!-- ═══ PANE: ACTIVITY ══════════════════════════════════ -->
+  <div class="pane hidden" id="pane-activity">
+    <div style="margin-bottom:16px">
+      <div style="font-family:'Sora',sans-serif;font-size:16px;font-weight:700;color:var(--ink);margin-bottom:4px">Your Submission History</div>
+      <div style="font-size:13px;color:var(--ink3)">A log of all updates you have submitted to the Corporate Secretariat.</div>
+    </div>
+    <div class="act-list" id="activity-list">
+      <div class="empty" style="border:none;padding:40px 24px">
+        <div class="empty-icon">📋</div>
+        <div class="empty-title">No submissions yet</div>
+        <div class="empty-desc">Your submission history will appear here after you submit your first update.</div>
+      </div>
+    </div>
+  </div>
 
-<!-- ═══ UPDATE MODAL ════════════════════════════════════════════ -->
+  <!-- ═══ PANE: SETTINGS ══════════════════════════════════ -->
+  <div class="pane hidden" id="pane-settings">
+    <div style="margin-bottom:20px">
+      <div style="font-family:'Sora',sans-serif;font-size:16px;font-weight:700;color:var(--ink);margin-bottom:4px">Account Settings</div>
+      <div style="font-size:13px;color:var(--ink3)">Manage your account information and security settings.</div>
+    </div>
+    <div class="settings-grid">
+
+      <!-- Account Info -->
+      <div class="scard">
+        <div class="scard-head">
+          <div class="scard-icon" style="background:var(--g100)">
+            <svg width="18" height="18" fill="none" stroke="var(--g800)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          </div>
+          <div>
+            <div class="scard-title">Account Information</div>
+            <div class="scard-sub">Your portal account details</div>
+          </div>
+        </div>
+        <div class="scard-body">
+          <div class="srow">
+            <div>
+              <div class="srow-label">Full Name</div>
+              <div class="srow-val" id="si-name">—</div>
+            </div>
+          </div>
+          <div class="srow">
+            <div>
+              <div class="srow-label">Email Address</div>
+              <div class="srow-val" id="si-email">—</div>
+            </div>
+          </div>
+          <div class="srow">
+            <div>
+              <div class="srow-label">Business Unit</div>
+              <div class="srow-val" id="si-unit">—</div>
+            </div>
+          </div>
+          <div class="srow">
+            <div>
+              <div class="srow-label">Account Status</div>
+              <div class="srow-val">
+                <span class="badge b-impl">Active</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="scard">
+        <div class="scard-head">
+          <div class="scard-icon" style="background:#FEF3C7">
+            <svg width="18" height="18" fill="none" stroke="#D97706" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <div>
+            <div class="scard-title">Change Password</div>
+            <div class="scard-sub">Update your login password</div>
+          </div>
+        </div>
+        <div class="scard-body">
+          <div class="fgroup">
+            <label class="flabel">Current Password</label>
+            <input type="password" id="pw-current" class="finput" placeholder="Enter current password">
+          </div>
+          <div class="fgroup">
+            <label class="flabel">New Password</label>
+            <input type="password" id="pw-new" class="finput" placeholder="At least 8 characters">
+          </div>
+          <div class="fgroup" style="margin-bottom:16px">
+            <label class="flabel">Confirm New Password</label>
+            <input type="password" id="pw-confirm" class="finput" placeholder="Repeat new password">
+          </div>
+          <button class="btn-primary" style="width:100%" onclick="changePassword()">Update Password</button>
+        </div>
+      </div>
+
+      <!-- Unit info -->
+      <div class="scard">
+        <div class="scard-head">
+          <div class="scard-icon" style="background:var(--g100)">
+            <svg width="18" height="18" fill="none" stroke="var(--g800)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          </div>
+          <div>
+            <div class="scard-title">Unit Configuration</div>
+            <div class="scard-sub">Contact setup managed by Secretariat</div>
+          </div>
+        </div>
+        <div class="scard-body">
+          <div class="srow">
+            <div>
+              <div class="srow-label">Primary Contact Email</div>
+              <div class="srow-val" id="si-primary-email">—</div>
+            </div>
+          </div>
+          <div class="srow">
+            <div>
+              <div class="srow-label">CC Addresses</div>
+              <div class="srow-val" id="si-cc">—</div>
+            </div>
+          </div>
+          <div class="srow">
+            <div>
+              <div class="srow-label">Responsible Person</div>
+              <div class="srow-val" id="si-person">—</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;padding:10px 12px;background:var(--g50);border-radius:8px;font-size:12px;color:var(--ink3)">
+            To update contact information, contact the Corporate Secretariat.
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick stats -->
+      <div class="scard">
+        <div class="scard-head">
+          <div class="scard-icon" style="background:#EFF6FF">
+            <svg width="18" height="18" fill="none" stroke="#2563EB" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          </div>
+          <div>
+            <div class="scard-title">Your Unit at a Glance</div>
+            <div class="scard-sub" id="si-glance-sub">Summary of all decisions</div>
+          </div>
+        </div>
+        <div class="scard-body">
+          <div class="srow">
+            <div class="srow-label">Total Directives Assigned</div>
+            <div style="font-family:'Sora',sans-serif;font-size:20px;font-weight:700;color:var(--g800)" id="si-total-dir">—</div>
+          </div>
+          <div class="srow">
+            <div class="srow-label">Total Decisions</div>
+            <div style="font-family:'Sora',sans-serif;font-size:20px;font-weight:700;color:var(--ink)" id="si-total-dec">—</div>
+          </div>
+          <div class="srow">
+            <div class="srow-label">Fully Implemented Directives</div>
+            <div style="font-family:'Sora',sans-serif;font-size:20px;font-weight:700;color:#065F46" id="si-full-dir">—</div>
+          </div>
+          <div class="srow">
+            <div class="srow-label">Directives Needing Attention</div>
+            <div style="font-family:'Sora',sans-serif;font-size:20px;font-weight:700;color:var(--warn)" id="si-attn-dir">—</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /page-wrap -->
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  SUBMIT UPDATE MODAL                                       -->
+<!-- ══════════════════════════════════════════════════════════ -->
 <div class="overlay" id="update-modal">
   <div class="overlay-bg" onclick="closeModal()"></div>
   <div class="modal">
@@ -200,9 +497,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-
       </button>
     </div>
 
-    <!-- Subject context -->
+    <!-- Context -->
     <div class="modal-section" style="background:var(--g50)">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink3);margin-bottom:4px">Subject</div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink3);margin-bottom:4px">Directive Subject</div>
       <div style="font-size:14px;font-weight:600;color:var(--ink)" id="m-subject"></div>
       <div style="font-size:12px;color:var(--ink3);margin-top:4px;line-height:1.5" id="m-particulars"></div>
     </div>
@@ -214,11 +511,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-
         Select Decisions to Update
         <button class="toggle-all" onclick="toggleAll()">Toggle All</button>
       </div>
-      <div id="dec-select" class="space-y-2" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
+      <div id="dec-select" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
       <div style="font-size:12px;color:var(--ink3);margin-top:8px" id="sel-count">0 of 0 selected</div>
     </div>
 
-    <!-- Decision update forms -->
+    <!-- Decision forms -->
     <div class="modal-section hidden" id="dec-updates">
       <div class="section-title">
         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -239,7 +536,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-
           <input type="date" id="m-start" class="finput">
         </div>
         <div class="fgroup">
-          <label class="flabel">End Date</label>
+          <label class="flabel">End / Completion Date</label>
           <input type="date" id="m-end" class="finput">
         </div>
       </div>
@@ -249,12 +546,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-
     <div class="modal-section">
       <div class="section-title">
         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-        Supporting Documents
+        Supporting Documents <span style="font-size:11px;font-weight:400;color:var(--ink4)">(PDF, DOC, XLS, Images — max 10 MB each)</span>
       </div>
       <div class="upload-zone" onclick="document.getElementById('file-inp').click()">
         <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin:0 auto 8px;color:var(--ink4)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-        <div style="font-size:13px;font-weight:600;color:var(--ink2)">Click to upload files</div>
-        <div style="font-size:11px;color:var(--ink3);margin-top:4px">PDF, DOC, XLS, Images — max 10MB each</div>
+        <div style="font-size:13px;font-weight:600;color:var(--ink2)">Click to upload supporting files</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px">Up to 5 files, 10 MB each</div>
       </div>
       <input type="file" id="file-inp" multiple class="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onchange="handleFiles(event)">
       <div id="file-list"></div>
@@ -279,109 +576,210 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-
   </div>
 </div>
 
+<div id="toast"></div>
+
 <script>
-const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'/api';
-const DS={IMPL:'Implemented',BEING:'Being Implemented',NOT:'Not Implemented',RESP:'No Response'};
+const API = window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api';
+const DS = { IMPL:'Implemented', BEING:'Being Implemented', NOT:'Not Implemented', RESP:'No Response' };
 
-let allDirs=[],currentDir=null,selFiles=[];
+let allDirs = [], currentDir = null, selFiles = [], submissionHistory = [];
 
-// Auth
-if(sessionStorage.getItem('isLoggedIn')!=='true'||sessionStorage.getItem('userType')!=='businessOwner'){
-  window.location.href='/login.html';
+/* ── AUTH CHECK ─────────────────────────────────────────────── */
+if (sessionStorage.getItem('isLoggedIn') !== 'true' || sessionStorage.getItem('userType') !== 'businessOwner') {
+  window.location.href = '/login.html';
 }
-const uName=sessionStorage.getItem('userName')||'Business Unit';
-const uEmail=sessionStorage.getItem('userEmail')||'';
-document.getElementById('user-name').textContent=uName;
-document.getElementById('user-email').textContent=uEmail;
+const uName  = sessionStorage.getItem('userName')  || 'Business Unit';
+const uEmail = sessionStorage.getItem('userEmail') || '';
+const uDept  = sessionStorage.getItem('userDept')  || uName;
 
-// Load
-async function load(){
-  try{
-    const r=await fetch(`${API}/directives`);
-    const j=await r.json();
-    if(!j.success)throw new Error(j.error);
-    allDirs=j.data.filter(d=>{
-      const em=uEmail.toLowerCase();
-      return d.owner===uName||
-        (d.primaryEmail&&d.primaryEmail.toLowerCase()===em)||
-        (d.secondaryEmail&&d.secondaryEmail.toLowerCase()===em)||
-        (d.inCopy&&d.inCopy.some(e=>e.toLowerCase()===em));
+/* ── INIT UI ────────────────────────────────────────────────── */
+function initUI() {
+  // Unit banner
+  const initials = uDept.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  document.getElementById('unit-avatar').textContent = initials;
+  document.getElementById('unit-name').textContent   = uDept;
+  document.getElementById('unit-user').textContent   = uName;
+  document.getElementById('unit-email').textContent  = uEmail;
+
+  // Settings panel
+  document.getElementById('si-name').textContent  = uName;
+  document.getElementById('si-email').textContent = uEmail;
+  document.getElementById('si-unit').textContent  = uDept;
+}
+initUI();
+
+/* ── TAB SWITCHING ──────────────────────────────────────────── */
+function switchTab(name, el) {
+  // Header nav buttons
+  document.querySelectorAll('.hnav-btn').forEach(b => b.classList.remove('active'));
+  const hb = document.getElementById('tab-btn-' + name);
+  if (hb) hb.classList.add('active');
+  // Page tabs
+  document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
+  const pb = document.getElementById('ptab-' + name);
+  if (pb) pb.classList.add('active');
+  // Panes
+  document.querySelectorAll('.pane').forEach(p => { p.classList.remove('active'); p.classList.add('hidden'); });
+  const pane = document.getElementById('pane-' + name);
+  if (pane) { pane.classList.add('active'); pane.classList.remove('hidden'); }
+  // Lazy render activity
+  if (name === 'activity') renderActivity();
+}
+
+/* ── LOAD DATA ──────────────────────────────────────────────── */
+async function load() {
+  try {
+    const r = await fetch(`${API}/directives`);
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error);
+
+    // Filter to this unit's directives
+    const em = uEmail.toLowerCase();
+    allDirs = j.data.filter(d => {
+      return d.owner === uDept || d.owner === uName ||
+        (d.primaryEmail   && d.primaryEmail.toLowerCase()   === em) ||
+        (d.secondaryEmail && d.secondaryEmail.toLowerCase() === em) ||
+        (d.inCopy && d.inCopy.some(e => e.toLowerCase() === em));
     });
-    calcStats();render();
-  }catch(e){
-    document.getElementById('dir-list').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Could not load directives</div><div class="empty-desc">${e.message}</div></div>`;
+
+    // Collect submission history
+    submissionHistory = [];
+    allDirs.forEach(d => {
+      (d.updateHistory || []).forEach(u => {
+        submissionHistory.push({ ...u, ref: d.ref, subject: d.subject, directiveId: d._id });
+      });
+    });
+    submissionHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    calcStats();
+    render();
+    loadUnitMeta();
+    document.getElementById('tc-dir').textContent = allDirs.length;
+  } catch (e) {
+    document.getElementById('dir-list').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Could not load directives</div><div class="empty-desc">${e.message}</div></div>`;
   }
 }
 
-function calcStats(){
-  let tot=0,impl=0,being=0,not=0,resp=0;
-  allDirs.forEach(d=>(d.outcomes||[]).forEach(o=>{
+async function loadUnitMeta() {
+  try {
+    const r = await fetch(`${API}/departments`);
+    const j = await r.json();
+    if (!j.success) return;
+    const meta = (j.data || []).find(d => d.name === uDept || d.name === uName);
+    if (meta) {
+      document.getElementById('si-person').textContent      = meta.personName || '—';
+    }
+    // Also load BU contact info
+    const r2 = await fetch(`${API}/process-owners-with-directives`);
+    const j2 = await r2.json();
+    if (j2.success) {
+      const bu = (j2.data || []).find(b => b.name === uDept || b.name === uName);
+      if (bu) {
+        document.getElementById('si-primary-email').textContent = bu.primaryEmail || '—';
+        document.getElementById('si-cc').textContent = bu.inCopy?.length ? bu.inCopy.join(', ') : '—';
+      }
+    }
+  } catch (_) {}
+}
+
+/* ── STATS ──────────────────────────────────────────────────── */
+function calcStats() {
+  let tot = 0, impl = 0, being = 0, not = 0, resp = 0;
+  allDirs.forEach(d => (d.outcomes || []).forEach(o => {
     tot++;
-    if(o.status===DS.IMPL||o.status==='Completed')impl++;
-    else if(o.status===DS.BEING||o.status==='Being Implemented')being++;
-    else if(o.status===DS.RESP||o.status==='Delayed')resp++;
+    const s = o.status;
+    if (s === DS.IMPL || s === 'Completed') impl++;
+    else if (s === DS.BEING || s === 'Being Implemented') being++;
+    else if (s === DS.RESP || s === 'Delayed') resp++;
     else not++;
   }));
-  document.getElementById('s-total').textContent=tot;
-  document.getElementById('s-impl').textContent=impl;
-  document.getElementById('s-being').textContent=being;
-  document.getElementById('s-not').textContent=not;
-  document.getElementById('s-resp').textContent=resp;
+
+  const pct = n => tot > 0 ? Math.round(n / tot * 100) + '%' : '0%';
+  const rate = tot > 0 ? Math.round(impl / tot * 100) : 0;
+
+  document.getElementById('s-total').textContent = tot;
+  document.getElementById('s-impl').textContent  = impl;
+  document.getElementById('s-being').textContent = being;
+  document.getElementById('s-not').textContent   = not;
+  document.getElementById('s-resp').textContent  = resp;
+  document.getElementById('pct-impl').textContent  = pct(impl);
+  document.getElementById('pct-being').textContent = pct(being);
+  document.getElementById('pct-not').textContent   = pct(not);
+  document.getElementById('pct-resp').textContent  = pct(resp);
+  document.getElementById('unit-rate').textContent = rate + '%';
+  document.getElementById('unit-rate-sub').textContent = impl + ' of ' + tot + ' decisions implemented';
+
+  // Settings glance
+  const fullDirs  = allDirs.filter(d => { const s = decStats(d); return s.rate === 100 && s.tot > 0; }).length;
+  const attnDirs  = allDirs.filter(d => { const s = decStats(d); return s.not > 0 || s.resp > 0; }).length;
+  document.getElementById('si-total-dir').textContent = allDirs.length;
+  document.getElementById('si-total-dec').textContent = tot;
+  document.getElementById('si-full-dir').textContent  = fullDirs;
+  document.getElementById('si-attn-dir').textContent  = attnDirs;
+  document.getElementById('si-glance-sub').textContent = allDirs.length + ' directives · ' + tot + ' decisions';
 }
 
-function stats(d){
-  const ocs=d.outcomes||[];
-  const tot=ocs.length;
-  const impl=ocs.filter(o=>o.status===DS.IMPL||o.status==='Completed').length;
-  const being=ocs.filter(o=>o.status===DS.BEING||o.status==='Being Implemented').length;
-  const not=ocs.filter(o=>o.status===DS.NOT||o.status==='Not Started').length;
-  const resp=ocs.filter(o=>o.status===DS.RESP||o.status==='Delayed').length;
-  const rate=tot>0?Math.round(impl/tot*100):0;
-  return{tot,impl,being,not,resp,rate};
+function decStats(d) {
+  const ocs = d.outcomes || [];
+  const tot  = ocs.length;
+  const impl = ocs.filter(o => o.status === DS.IMPL || o.status === 'Completed').length;
+  const being = ocs.filter(o => o.status === DS.BEING || o.status === 'Being Implemented').length;
+  const not  = ocs.filter(o => o.status === DS.NOT || o.status === 'Not Started').length;
+  const resp = ocs.filter(o => o.status === DS.RESP || o.status === 'Delayed').length;
+  return { tot, impl, being, not, resp, rate: tot > 0 ? Math.round(impl / tot * 100) : 0 };
 }
 
-function render(){
-  const filter=document.getElementById('f-status').value;
-  const q=document.getElementById('f-search').value.toLowerCase();
-  let data=allDirs.filter(d=>{
-    if(q&&!(d.subject||'').toLowerCase().includes(q)&&!(d.ref||'').toLowerCase().includes(q))return false;
-    if(filter==='all')return true;
-    const s=stats(d);
-    if(filter==='full')return s.rate===100&&s.tot>0;
-    if(filter==='partial')return s.impl>0&&s.rate<100;
-    if(filter==='being')return s.being>0;
-    if(filter==='no-resp')return s.resp>0;
-    if(filter==='not-impl')return s.not===s.tot&&s.tot>0;
+/* ── RENDER DIRECTIVES ──────────────────────────────────────── */
+function render() {
+  const filter = document.getElementById('f-status').value;
+  const q = document.getElementById('f-search').value.toLowerCase();
+  let data = allDirs.filter(d => {
+    if (q && !(d.subject || '').toLowerCase().includes(q) && !(d.ref || '').toLowerCase().includes(q)) return false;
+    const s = decStats(d);
+    if (filter === 'full')    return s.rate === 100 && s.tot > 0;
+    if (filter === 'being')   return s.being > 0;
+    if (filter === 'pending') return s.not > 0 || s.resp > 0;
     return true;
   });
 
-  if(!data.length){
-    document.getElementById('dir-list').innerHTML=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">${allDirs.length?'No directives match your filters':'No Directives Found'}</div><div class="empty-desc">${allDirs.length?'Try adjusting the filters above.':'You currently have no directives assigned to your account.<br>Contact the Corporate Secretariat if you believe this is an error.'}</div></div>`;
+  if (!data.length) {
+    document.getElementById('dir-list').innerHTML = `<div class="empty">
+      <div class="empty-icon">📋</div>
+      <div class="empty-title">${allDirs.length ? 'No directives match your filters' : 'No Directives Found'}</div>
+      <div class="empty-desc">${allDirs.length ? 'Try adjusting the filters above.' : 'You currently have no directives assigned to <strong>' + esc(uDept) + '</strong>.<br>Contact the Corporate Secretariat if this seems incorrect.'}</div>
+    </div>`;
     return;
   }
 
-  document.getElementById('dir-list').innerHTML=data.map(d=>{
-    const s=stats(d);
-    const tagHtml=s.rate===100&&s.tot>0
-      ?`<span class="badge b-impl">Fully Implemented</span>`
-      :s.impl>0?`<span class="badge b-being">Partial</span>`:'';
-    return `<div class="dir-card">
+  document.getElementById('dir-list').innerHTML = data.map(d => {
+    const s = decStats(d);
+    const needsAttention = (s.not > 0 || s.resp > 0) && s.rate < 100;
+    const fullyDone = s.rate === 100 && s.tot > 0;
+    const urgentBadge = needsAttention
+      ? `<span class="badge b-not" style="animation:none">⚠ Needs Attention</span>` : '';
+    const doneBadge = fullyDone
+      ? `<span class="badge b-impl">✓ Fully Implemented</span>` : '';
+    const beingBadge = (!fullyDone && s.being > 0 && !needsAttention)
+      ? `<span class="badge b-being">In Progress</span>` : '';
+
+    const progColor = s.rate === 100 ? '#065F46' : s.rate >= 50 ? 'var(--g700)' : s.rate > 0 ? 'var(--warn)' : 'var(--danger)';
+
+    return `<div class="dir-card" style="${needsAttention ? 'border-left:3px solid var(--warn)' : fullyDone ? 'border-left:3px solid #065F46' : ''}">
       <div class="dir-card-head">
         <div class="dir-meta">
-          <span class="ref-pill">${d.ref||'N/A'}</span>
-          ${tagHtml}
-          ${d.amount?`<span class="badge" style="background:var(--bg);color:var(--ink2);border:1px solid var(--border)">₦ ${esc(d.amount)}</span>`:''}
-          ${d.vendor?`<span class="badge" style="background:var(--bg);color:var(--ink2);border:1px solid var(--border)">${esc(d.vendor)}</span>`:''}
+          <span class="ref-pill">${esc(d.ref || 'N/A')}</span>
+          ${urgentBadge}${doneBadge}${beingBadge}
+          ${d.reminders ? `<span class="badge" style="background:#FEF9EC;color:#92400E;border:1px solid #FDE68A">📧 ${d.reminders}/3 reminders</span>` : ''}
         </div>
         <div class="dir-title">${esc(d.subject)}</div>
-        ${d.particulars?`<div class="dir-particulars">${esc(d.particulars)}</div>`:''}
+        ${d.particulars ? `<div class="dir-particulars" style="margin-bottom:12px">${esc(d.particulars)}</div>` : ''}
       </div>
-      <div class="prog-row" style="margin-top:14px">
+      <div class="prog-row">
         <div class="prog-label">
           <span>Implementation Progress</span>
-          <span style="color:var(--g800);font-weight:700">${s.rate}%</span>
+          <span style="color:${progColor};font-weight:700">${s.rate}% — ${s.impl} of ${s.tot} decisions done</span>
         </div>
-        <div class="prog-track"><div class="prog-fill" style="width:${s.rate}%"></div></div>
+        <div class="prog-track"><div class="prog-fill" style="width:${s.rate}%;background:linear-gradient(90deg,${progColor},${progColor})"></div></div>
       </div>
       <div class="dec-stats">
         <div class="dec-cell"><div class="dec-n" style="color:#065F46">${s.impl}</div><div class="dec-l" style="color:#065F46">Implemented</div></div>
@@ -391,8 +789,9 @@ function render(){
       </div>
       <div class="dir-card-foot">
         <div class="card-info">
-          ${d.implementationEndDate?`<span>📅 Deadline: ${fmtDate(d.implementationEndDate)}</span>`:'<span style="color:var(--ink4)">No deadline set</span>'}
-          <span>📎 ${s.tot} decision${s.tot!==1?'s':''}</span>
+          ${d.implementationEndDate ? `<span>📅 Deadline: ${fmtDate(d.implementationEndDate)}</span>` : '<span style="color:var(--ink4)">No deadline set</span>'}
+          <span>🗓 ${fmtDate(d.meetingDate)}</span>
+          <span>📎 ${s.tot} decision${s.tot !== 1 ? 's' : ''}</span>
         </div>
         <button class="btn-update" onclick="openModal('${d._id}')">
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -403,37 +802,83 @@ function render(){
   }).join('');
 }
 
-// Modal
-function openModal(id){
-  currentDir=allDirs.find(d=>d._id===id);
-  if(!currentDir)return;
-  selFiles=[];
-  document.getElementById('file-list').innerHTML='';
-  document.getElementById('m-ref').textContent=`Meeting Ref: ${currentDir.ref||'N/A'}`;
-  document.getElementById('m-subject').textContent=currentDir.subject||'';
-  document.getElementById('m-particulars').textContent=(currentDir.particulars||'').substring(0,200)+((currentDir.particulars||'').length>200?'…':'');
-  document.getElementById('m-comments').value='';
-  if(currentDir.implementationStartDate)document.getElementById('m-start').value=new Date(currentDir.implementationStartDate).toISOString().split('T')[0];
-  else document.getElementById('m-start').value='';
-  if(currentDir.implementationEndDate)document.getElementById('m-end').value=new Date(currentDir.implementationEndDate).toISOString().split('T')[0];
-  else document.getElementById('m-end').value='';
+/* ── ACTIVITY PANE ──────────────────────────────────────────── */
+function renderActivity() {
+  const list = document.getElementById('activity-list');
+  if (!submissionHistory.length) return;
+  const typeIcon = { 'reminder-link': '📧', 'admin': '🔧', 'direct': '💬' };
+  list.innerHTML = submissionHistory.map(item => {
+    const icon = typeIcon[item.source] || '📝';
+    const ago = timeAgo(item.timestamp);
+    return `<div class="act-item">
+      <div class="act-dot" style="background:var(--g600)"></div>
+      <div class="act-content">
+        <div class="act-title">${icon} Update submitted — ${item.decisionChanges || 0} decision${(item.decisionChanges || 0) !== 1 ? 's' : ''} updated</div>
+        <div class="act-ref">${item.ref || 'N/A'}</div>
+        <div class="act-meta">${esc((item.subject || '').substring(0, 55))}${(item.subject || '').length > 55 ? '…' : ''} · ${ago}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── CHANGE PASSWORD ────────────────────────────────────────── */
+async function changePassword() {
+  const cur = document.getElementById('pw-current').value;
+  const nw  = document.getElementById('pw-new').value;
+  const cfm = document.getElementById('pw-confirm').value;
+  if (!cur || !nw) { toast('Please fill in all fields', 'err'); return; }
+  if (nw.length < 8) { toast('New password must be at least 8 characters', 'err'); return; }
+  if (nw !== cfm)   { toast('Passwords do not match', 'err'); return; }
+  try {
+    const r = await fetch(`${API}/process-owners/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: uEmail, currentPassword: cur, newPassword: nw })
+    });
+    const j = await r.json();
+    if (j.success) {
+      toast('Password updated successfully', 'ok');
+      document.getElementById('pw-current').value = '';
+      document.getElementById('pw-new').value = '';
+      document.getElementById('pw-confirm').value = '';
+    } else {
+      toast(j.error || 'Failed to update password', 'err');
+    }
+  } catch (e) {
+    toast('Connection error. Please try again.', 'err');
+  }
+}
+
+/* ── MODAL ──────────────────────────────────────────────────── */
+function openModal(id) {
+  currentDir = allDirs.find(d => d._id === id);
+  if (!currentDir) return;
+  selFiles = [];
+  document.getElementById('file-list').innerHTML = '';
+  document.getElementById('m-ref').textContent       = 'Meeting Ref: ' + (currentDir.ref || 'N/A') + '  ·  ' + currentDir.owner;
+  document.getElementById('m-subject').textContent   = currentDir.subject || '';
+  document.getElementById('m-particulars').textContent = (currentDir.particulars || '').substring(0, 200) + ((currentDir.particulars || '').length > 200 ? '…' : '');
+  document.getElementById('m-comments').value = '';
+  document.getElementById('m-start').value = currentDir.implementationStartDate ? new Date(currentDir.implementationStartDate).toISOString().split('T')[0] : '';
+  document.getElementById('m-end').value   = currentDir.implementationEndDate   ? new Date(currentDir.implementationEndDate).toISOString().split('T')[0]   : '';
   renderDecSelect();
   document.getElementById('update-modal').classList.add('open');
 }
 
-function closeModal(){
+function closeModal() {
   document.getElementById('update-modal').classList.remove('open');
-  currentDir=null;selFiles=[];
+  currentDir = null; selFiles = [];
 }
 
-function renderDecSelect(){
-  const ocs=currentDir.outcomes||[];
-  document.getElementById('dec-select').innerHTML=ocs.map((o,i)=>{
-    const bc={[DS.IMPL]:'b-impl',[DS.BEING]:'b-being',[DS.NOT]:'b-not',[DS.RESP]:'b-resp','Completed':'b-impl','Not Started':'b-not','Delayed':'b-resp','Being Implemented':'b-being'}[o.status]||'b-not';
-    return `<label class="dec-card" id="dc-${i}" style="cursor:pointer">
+function renderDecSelect() {
+  const ocs = currentDir.outcomes || [];
+  const statusClass = { [DS.IMPL]:'b-impl', [DS.BEING]:'b-being', [DS.NOT]:'b-not', [DS.RESP]:'b-resp', 'Completed':'b-impl', 'Not Started':'b-not', 'Delayed':'b-resp', 'Being Implemented':'b-being' };
+  document.getElementById('dec-select').innerHTML = ocs.map((o, i) => {
+    const bc = statusClass[o.status] || 'b-not';
+    return `<label class="dec-card" id="dc-${i}" style="cursor:pointer;display:block">
       <div class="dec-card-head">
         <input type="checkbox" value="${i}" class="dec-cb" style="margin-top:3px;width:15px;height:15px;accent-color:var(--g700)" checked onchange="onDecChange()">
-        <div class="dec-num">${i+1}</div>
+        <div class="dec-num">${i + 1}</div>
         <div class="dec-text">${esc(o.text)}</div>
         <span class="badge ${bc}" style="flex-shrink:0">${o.status}</span>
       </div>
@@ -442,37 +887,38 @@ function renderDecSelect(){
   onDecChange();
 }
 
-function onDecChange(){
-  const cbs=document.querySelectorAll('.dec-cb');
-  const sel=Array.from(cbs).filter(c=>c.checked);
-  document.getElementById('sel-count').textContent=`${sel.length} of ${cbs.length} selected`;
-  document.querySelectorAll('.dec-card').forEach((card,i)=>{
-    card.classList.toggle('selected',cbs[i]?.checked);
-  });
-  const indices=sel.map(c=>parseInt(c.value));
-  if(indices.length){
+function onDecChange() {
+  const cbs  = document.querySelectorAll('.dec-cb');
+  const sel  = Array.from(cbs).filter(c => c.checked);
+  document.getElementById('sel-count').textContent = `${sel.length} of ${cbs.length} selected`;
+  document.querySelectorAll('.dec-card').forEach((card, i) => card.classList.toggle('selected', !!cbs[i]?.checked));
+  const indices = sel.map(c => parseInt(c.value));
+  if (indices.length) {
     document.getElementById('dec-updates').classList.remove('hidden');
     renderDecForms(indices);
-  }else{
+  } else {
     document.getElementById('dec-updates').classList.add('hidden');
   }
 }
 
-function toggleAll(){
-  const cbs=document.querySelectorAll('.dec-cb');
-  const allC=Array.from(cbs).every(c=>c.checked);
-  cbs.forEach(c=>c.checked=!allC);
+function toggleAll() {
+  const cbs = document.querySelectorAll('.dec-cb');
+  const allC = Array.from(cbs).every(c => c.checked);
+  cbs.forEach(c => c.checked = !allC);
   onDecChange();
 }
 
-function renderDecForms(indices){
-  const ocs=currentDir.outcomes||[];
-  document.getElementById('dec-forms').innerHTML=indices.map(i=>{
-    const o=ocs[i];
-    const opts=[DS.NOT,DS.BEING,DS.IMPL,DS.RESP].map(s=>`<option value="${s}" ${(o.status===s||(s===DS.IMPL&&o.status==='Completed')||(s===DS.NOT&&o.status==='Not Started')||(s===DS.RESP&&o.status==='Delayed'))?'selected':''}>${s}</option>`).join('');
+function renderDecForms(indices) {
+  const ocs = currentDir.outcomes || [];
+  document.getElementById('dec-forms').innerHTML = indices.map(i => {
+    const o = ocs[i];
+    const opts = [DS.NOT, DS.BEING, DS.IMPL, DS.RESP].map(s =>
+      `<option value="${s}" ${o.status === s ? 'selected' : ''}>${s}</option>`
+    ).join('');
     return `<div style="border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;background:var(--white)">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--g700);margin-bottom:8px">Decision ${i+1}</div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--g700);margin-bottom:8px">Decision ${i + 1}</div>
       <div style="font-size:13px;color:var(--ink2);line-height:1.5;margin-bottom:12px">${esc(o.text)}</div>
+      ${o.amount ? `<div style="font-size:12px;color:var(--ink3);margin-bottom:10px">💰 Assigned amount: <strong>${esc(o.amount)}</strong></div>` : ''}
       <div class="frow">
         <div class="fgroup">
           <label class="flabel">New Status</label>
@@ -480,62 +926,79 @@ function renderDecForms(indices){
         </div>
         <div class="fgroup">
           <label class="flabel">Challenges / Notes</label>
-          <textarea name="c-${i}" class="ftextarea" rows="2" placeholder="Any challenges or progress notes…">${esc(o.challenges||'')}</textarea>
+          <textarea name="c-${i}" class="ftextarea" rows="2" placeholder="Progress notes, obstacles…">${esc(o.challenges || '')}</textarea>
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
-function handleFiles(e){
-  selFiles=[...selFiles,...Array.from(e.target.files)];
-  document.getElementById('file-list').innerHTML=selFiles.map((f,i)=>`
+function handleFiles(e) {
+  selFiles = [...selFiles, ...Array.from(e.target.files)].slice(0, 5);
+  document.getElementById('file-list').innerHTML = selFiles.map((f, i) => `
     <div class="file-item">
-      <span>${esc(f.name)} <span style="color:var(--ink4)">(${fmtSize(f.size)})</span></span>
-      <button style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px" onclick="removeFile(${i})">×</button>
+      <span>📄 ${esc(f.name)} <span style="color:var(--ink4)">(${fmtSize(f.size)})</span></span>
+      <button style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1" onclick="removeFile(${i})">×</button>
     </div>`).join('');
 }
-function removeFile(i){selFiles.splice(i,1);handleFiles({target:{files:[]}});}
-function fmtSize(b){return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
+function removeFile(i) { selFiles.splice(i, 1); document.getElementById('file-list').innerHTML = selFiles.map((f, j) => `<div class="file-item"><span>📄 ${esc(f.name)} <span style="color:var(--ink4)">(${fmtSize(f.size)})</span></span><button style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px" onclick="removeFile(${j})">×</button></div>`).join(''); }
+function fmtSize(b) { return b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(1) + ' MB'; }
 
-async function submitUpdate(){
-  const selIdx=Array.from(document.querySelectorAll('.dec-cb:checked')).map(c=>parseInt(c.value));
-  if(!selIdx.length){alert('Please select at least one decision to update.');return;}
-  const ocs=(currentDir.outcomes||[]).map((o,i)=>{
-    if(selIdx.includes(i)){
-      const sEl=document.querySelector(`[name="s-${i}"]`);
-      const cEl=document.querySelector(`[name="c-${i}"]`);
-      return{text:o.text,status:sEl?sEl.value:o.status,challenges:cEl?cEl.value:o.challenges||''};
+async function submitUpdate() {
+  const selIdx = Array.from(document.querySelectorAll('.dec-cb:checked')).map(c => parseInt(c.value));
+  if (!selIdx.length) { toast('Please select at least one decision to update.', 'err'); return; }
+
+  const ocs = (currentDir.outcomes || []).map((o, i) => {
+    if (selIdx.includes(i)) {
+      const sEl = document.querySelector(`[name="s-${i}"]`);
+      const cEl = document.querySelector(`[name="c-${i}"]`);
+      return { text: o.text, status: sEl ? sEl.value : o.status, challenges: cEl ? cEl.value : (o.challenges || ''), amount: o.amount || '' };
     }
     return o;
   });
-  try{
+
+  try {
     let resp;
-    if(selFiles.length){
-      const fd=new FormData();
-      fd.append('outcomes',JSON.stringify(ocs));
-      fd.append('implementationStartDate',document.getElementById('m-start').value||'');
-      fd.append('implementationEndDate',document.getElementById('m-end').value||'');
-      fd.append('completionNote',document.getElementById('m-comments').value);
-      selFiles.forEach(f=>fd.append('files',f));
-      resp=await fetch(`${API}/submit-update/${currentDir._id}`,{method:'POST',body:fd});
-    }else{
-      resp=await fetch(`${API}/directives/${currentDir._id}`,{
-        method:'PUT',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({outcomes:ocs,implementationStartDate:document.getElementById('m-start').value||null,implementationEndDate:document.getElementById('m-end').value||null,additionalComments:document.getElementById('m-comments').value})
+    if (selFiles.length) {
+      const fd = new FormData();
+      fd.append('outcomes', JSON.stringify(ocs));
+      fd.append('implementationStartDate', document.getElementById('m-start').value || '');
+      fd.append('implementationEndDate',   document.getElementById('m-end').value   || '');
+      fd.append('completionNote', document.getElementById('m-comments').value);
+      selFiles.forEach(f => fd.append('files', f));
+      resp = await fetch(`${API}/submit-update/${currentDir._id}`, { method: 'POST', body: fd });
+    } else {
+      resp = await fetch(`${API}/directives/${currentDir._id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcomes: ocs, implementationStartDate: document.getElementById('m-start').value || null, implementationEndDate: document.getElementById('m-end').value || null, additionalComments: document.getElementById('m-comments').value })
       });
     }
-    const j=await resp.json();
-    if(j.success){
-      alert('✅ Update submitted successfully. The Corporate Secretariat has been notified.');
-      closeModal();load();
-    }else throw new Error(j.error||'Submission failed');
-  }catch(e){alert('❌ Error: '+e.message);}
+    const j = await resp.json();
+    if (j.success) {
+      toast('Update submitted — the Secretariat has been notified.', 'ok');
+      closeModal();
+      load();
+    } else throw new Error(j.error || 'Submission failed');
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
 }
 
-function logout(){sessionStorage.clear();window.location.href='/login.html';}
-function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
-function fmtDate(d){return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}
+/* ── UTILS ──────────────────────────────────────────────────── */
+function logout() { sessionStorage.clear(); window.location.href = '/login.html'; }
+function esc(s)   { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; }
+function timeAgo(ts) {
+  const sec = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (sec < 60) return 'just now';
+  if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+  return Math.floor(sec / 86400) + 'd ago';
+}
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'show ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 3500);
+}
 
 load();
 </script>
