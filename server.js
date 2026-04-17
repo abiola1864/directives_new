@@ -320,6 +320,30 @@ const ReminderSettings = mongoose.model('ReminderSettings', new mongoose.Schema(
   updatedAt: { type: Date, default: Date.now }
 }));
 
+// ─── Notification ────────────────────────────────────────────
+const NotificationSchema = new mongoose.Schema({
+  type:             { type: String, default: 'update' }, // update | archive | unarchive
+  directiveId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Directive' },
+  directiveRef:     { type: String, default: '' },
+  directiveSubject: { type: String, default: '' },
+  businessUnit:     { type: String, default: '' },
+  message:          { type: String, default: '' },
+  decisionChanges:  { type: Number, default: 0 },
+  submittedBy:      { type: String, default: '' },
+  createdAt:        { type: Date, default: Date.now },
+  readBy:           [{ adminId: String, readAt: { type: Date, default: Date.now } }]
+});
+const Notification = mongoose.model('Notification', NotificationSchema);
+
+// Helper: create a notification for all admins
+async function createNotification(data) {
+  try {
+    await new Notification(data).save();
+  } catch (e) {
+    console.error('Notification create error:', e.message);
+  }
+}
+
 // ─── Process Owner ────────────────────────────────────────────
 const ProcessOwnerSchema = new mongoose.Schema({
   name:       { type: String, required: true, trim: true },
@@ -1685,6 +1709,11 @@ app.post('/api/directives/:id/archive', async (req, res) => {
     d.archivedAt   = new Date();
     d.archivedNote = req.body.note || '';
     await d.save();
+    await createNotification({
+      type: 'archive', directiveId: d._id, directiveRef: d.ref || '',
+      directiveSubject: d.subject || '', businessUnit: d.owner || '',
+      message: 'Directive archived' + (req.body.note ? ': ' + req.body.note : '')
+    });
     res.json({ success: true, message: 'Directive archived', data: d });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
@@ -1697,6 +1726,11 @@ app.post('/api/directives/:id/unarchive', async (req, res) => {
     d.archivedAt   = undefined;
     d.archivedNote = '';
     await d.save();
+    await createNotification({
+      type: 'unarchive', directiveId: d._id, directiveRef: d.ref || '',
+      directiveSubject: d.subject || '', businessUnit: d.owner || '',
+      message: 'Directive restored from archive'
+    });
     res.json({ success: true, message: 'Directive restored', data: d });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
@@ -1714,6 +1748,52 @@ app.get('/api/admin/clear-directives', async (req, res) => {
   try {
     const r = await Directive.deleteMany({});
     res.json({ success: true, message: `Deleted ${r.deletedCount} directives` });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── Notifications ───────────────────────────────────────────
+
+// GET all notifications, with unread count for a specific admin
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const adminId = req.headers['x-admin-id'] || req.query.adminId || 'unknown';
+    const limit   = parseInt(req.query.limit) || 50;
+    const notifs  = await Notification.find()
+      .sort({ createdAt: -1 })
+      .limit(limit);
+    const data = notifs.map(n => ({
+      _id:              n._id,
+      type:             n.type,
+      directiveId:      n.directiveId,
+      directiveRef:     n.directiveRef,
+      directiveSubject: n.directiveSubject,
+      businessUnit:     n.businessUnit,
+      message:          n.message,
+      decisionChanges:  n.decisionChanges,
+      createdAt:        n.createdAt,
+      isRead:           n.readBy.some(r => r.adminId === adminId)
+    }));
+    const unreadCount = data.filter(n => !n.isRead).length;
+    res.json({ success: true, data, unreadCount });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Mark all notifications as read for this admin
+app.post('/api/notifications/mark-read', async (req, res) => {
+  try {
+    const adminId = req.headers['x-admin-id'] || req.body.adminId || 'unknown';
+    const ids     = req.body.ids; // optional — if omitted, mark all
+    const query   = ids && ids.length ? { _id: { $in: ids } } : {};
+    const notifs  = await Notification.find({ ...query, 'readBy.adminId': { $ne: adminId } });
+    await Promise.all(notifs.map(n => {
+      n.readBy.push({ adminId, readAt: new Date() });
+      return n.save();
+    }));
+    res.json({ success: true, marked: notifs.length });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }

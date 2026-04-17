@@ -653,7 +653,7 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
 
 <script>
 const API = window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api';
-const CC_MAX = 4;
+const CC_MAX = 9;
 
 let allBU      = [];
 let allUsers   = [];
@@ -1215,7 +1215,7 @@ function deleteUser(id, name) {
   );
 }
 
-/* ─── TAG INPUT LOGIC (max CC_MAX = 4) ──────────────────────────────────── */
+/* TAG INPUT LOGIC (max CC_MAX = 9) */
 function ensureTags(name) { if (!tags[name]) tags[name] = new Set(); }
 
 function addTag(name, email, save = false) {

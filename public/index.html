@@ -1280,11 +1280,16 @@ function toggleArchivedView(){
   loadDirectives();
 }
 
-/* ACTIVITY FEED */
+/* ACTIVITY FEED - DB backed per admin */
 let activityData=[];
 let unreadCount=0;
 let activityOpen=false;
-const SEEN_KEY='cbn_activity_seen';
+
+function getAdminId(){
+  return sessionStorage.getItem('adminId') ||
+         sessionStorage.getItem('adminEmail') ||
+         'admin';
+}
 
 function toggleActivity(){
   activityOpen=!activityOpen;
@@ -1294,71 +1299,67 @@ function toggleActivity(){
 
 async function loadActivity(){
   try{
-    const r=await fetch(API+'/directives?source='+currentSource);
+    const adminId=getAdminId();
+    const r=await fetch(API+'/notifications?limit=50',{
+      headers:{'x-admin-id':adminId,'x-admin-token':sessionStorage.getItem('adminToken')||''}
+    });
     const j=await r.json();
     if(!j.success)return;
-    const seen=JSON.parse(localStorage.getItem(SEEN_KEY)||'[]');
-    const items=[];
-    j.data.forEach(d=>{
-      if(!d.updateHistory||!d.updateHistory.length)return;
-      d.updateHistory.forEach(u=>{
-        items.push({
-          id:d._id+'_'+new Date(u.timestamp).getTime(),
-          ref:d.ref||'N/A',
-          subject:d.subject,
-          owner:d.owner,
-          timestamp:u.timestamp,
-          changes:u.decisionChanges||0,
-          source:u.source
-        });
-      });
-    });
-    items.sort(function(a,b){return new Date(b.timestamp)-new Date(a.timestamp);});
-    activityData=items.slice(0,30);
-    const seenSet=new Set(seen);
-    unreadCount=activityData.filter(function(x){return !seenSet.has(x.id);}).length;
+    activityData=j.data||[];
+    unreadCount=j.unreadCount||0;
     const badge=document.getElementById('notif-badge');
     if(badge){
-      badge.textContent=unreadCount>9?'9+':unreadCount;
+      badge.textContent=unreadCount>9?'9+':String(unreadCount);
       badge.classList.toggle('hidden',unreadCount===0);
     }
-    renderActivity(seen);
+    renderActivity();
   }catch(e){console.error('Activity error',e);}
 }
 
-function renderActivity(seen){
+function renderActivity(){
   const list=document.getElementById('activity-list');
   if(!list)return;
   if(!activityData.length){
-    list.innerHTML='<div class="ad-empty">No updates yet. Updates appear here when business units submit via email link.</div>';
+    list.innerHTML='<div class="ad-empty">No updates yet. Updates appear here when business units submit responses.</div>';
     return;
   }
-  const seenSet=new Set(seen||[]);
+  const icons={'update':'📝','archive':'📦','unarchive':'🔄'};
   list.innerHTML=activityData.map(function(item){
-    const isNew=!seenSet.has(item.id);
-    const ago=timeAgo(item.timestamp);
-    const srcLabel=item.source==='reminder-link'?'via email link':item.source==='admin'?'Admin':item.source||'Direct';
-    return '<div class="ad-item '+(isNew?'unread':'')+'">'
-      +'<div class="ad-ref">'+item.ref+'</div>'
-      +'<div class="ad-msg">'+esc2html(item.owner)+' updated '+item.changes+' decision'+(item.changes!==1?'s':'')+'</div>'
-      +'<div class="ad-meta">'+tr(item.subject||'',40)+' · '+srcLabel+' · '+ago+'</div>'
+    const icon=icons[item.type]||'📝';
+    const ago=timeAgo(item.createdAt);
+    const decText=item.decisionChanges>0?' ('+item.decisionChanges+' decision'+(item.decisionChanges!==1?'s':'')+')':'';
+    return '<div class="ad-item '+(item.isRead?'':'unread')+'">'
+      +'<div class="ad-ref">'+icon+' '+(item.directiveRef||'N/A')+'</div>'
+      +'<div class="ad-msg">'+(item.message||'Update received')+decText+'</div>'
+      +'<div class="ad-meta">'+(item.businessUnit||'')
+      +(item.directiveSubject?' · '+tr(item.directiveSubject,35):'')
+      +' · '+ago+'</div>'
       +'</div>';
   }).join('');
 }
 
-function markAllRead(){
-  const ids=activityData.map(function(x){return x.id;});
-  localStorage.setItem(SEEN_KEY,JSON.stringify(ids));
-  unreadCount=0;
-  const badge=document.getElementById('notif-badge');
-  if(badge)badge.classList.add('hidden');
-  renderActivity(ids);
+async function markAllRead(){
+  try{
+    const adminId=getAdminId();
+    const r=await fetch(API+'/notifications/mark-read',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-admin-id':adminId,'x-admin-token':sessionStorage.getItem('adminToken')||''},
+      body:JSON.stringify({})
+    });
+    const j=await r.json();
+    if(j.success){
+      activityData=activityData.map(function(x){return Object.assign({},x,{isRead:true});});
+      unreadCount=0;
+      const badge=document.getElementById('notif-badge');
+      if(badge)badge.classList.add('hidden');
+      renderActivity();
+    }
+  }catch(e){console.error('Mark read error',e);}
 }
 
 function loadActivityFull(){
   activityOpen=false;
   document.getElementById('activity-drop').classList.remove('open');
-  toast('Open Reports page for full activity log','warn');
 }
 
 function esc2html(s){
@@ -1382,8 +1383,8 @@ document.addEventListener('click',function(e){
   }
 });
 
-/* Poll every 90s */
-setInterval(function(){if(!activityOpen)loadActivity();},90000);
+/* Poll every 60s */
+setInterval(function(){if(!activityOpen)loadActivity();},60000);
 
 
 /* ── UTILS ── */
