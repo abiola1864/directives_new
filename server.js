@@ -102,6 +102,7 @@ const decisionSchema = new mongoose.Schema({
   completionDetails:  String,
   delayReason:        String,
   challenges:         String,
+  amount:             { type: String, default: '' },
   impliedDeadline:    String,
   impliedAmount:      String,
   impliedResponsible: String
@@ -1534,6 +1535,7 @@ app.get('/api/directives', departmentFilter, async (req, res) => {
   try {
     const { source, owner, status, sheetName, department, businessUnit } = req.query;
     const query = {};
+    if (req.query.includeArchived !== 'true') query.isArchived = { $ne: true };
     if (source       && source       !== 'All') query.source           = source;
     if (sheetName    && sheetName    !== 'All') query.sheetName        = sheetName;
     if (status       && status       !== 'All') query.monitoringStatus = status;
@@ -1613,7 +1615,7 @@ app.put('/api/directives/:id', async (req, res) => {
       (inCopy         !== undefined)
     );
 
-    if (outcomes)                directive.outcomes                = outcomes;
+    if (outcomes)                directive.outcomes = outcomes.map(o => ({ ...o, amount: o.amount || '' }));
     if (implementationStatus)    directive.implementationStatus    = implementationStatus;
     if (completionNote)          directive.completionNote          = completionNote;
     if (implementationStartDate) directive.implementationStartDate = new Date(implementationStartDate);
@@ -1673,6 +1675,39 @@ app.delete('/api/directives/:id', async (req, res) => {
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
+});
+
+app.post('/api/directives/:id/archive', async (req, res) => {
+  try {
+    const d = await Directive.findById(req.params.id);
+    if (!d) return res.status(404).json({ success: false, error: 'Not found' });
+    d.isArchived   = true;
+    d.archivedAt   = new Date();
+    d.archivedNote = req.body.note || '';
+    await d.save();
+    res.json({ success: true, message: 'Directive archived', data: d });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/directives/:id/unarchive', async (req, res) => {
+  try {
+    const d = await Directive.findById(req.params.id);
+    if (!d) return res.status(404).json({ success: false, error: 'Not found' });
+    d.isArchived   = false;
+    d.archivedAt   = undefined;
+    d.archivedNote = '';
+    await d.save();
+    res.json({ success: true, message: 'Directive restored', data: d });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.get('/api/directives/archived', async (req, res) => {
+  try {
+    const q = { isArchived: true };
+    if (req.query.source && req.query.source !== 'All') q.source = req.query.source;
+    const data = await Directive.find(q).sort({ archivedAt: -1 });
+    res.json({ success: true, data, total: data.length });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
 app.get('/api/admin/clear-directives', async (req, res) => {
@@ -2387,10 +2422,10 @@ app.post('/api/process-owners/create', async (req, res) => {
 
     if (department) {
       const usersInBU = await ProcessOwner.countDocuments({ department, isActive: true });
-      if (usersInBU >= 3) {
+      if (usersInBU >= 9) {
         return res.status(400).json({
           success: false,
-          error: `Maximum of 3 login users allowed per business unit. "${department}" already has ${usersInBU} active user(s). Deactivate one before adding a new user.`,
+          error: `Maximum of 9 login users allowed per business unit. "${department}" already has ${usersInBU} active user(s). Deactivate one before adding a new user.`,
           limitReached: true
         });
       }
