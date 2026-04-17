@@ -95,19 +95,9 @@ nav.sb-nav{padding:8px}
 .sc.noresp .sc-val{color:var(--R9)} .sc.noresp .sc-accent{background:var(--R5)}
 .sc.noresp .sc-pct{color:var(--R9)}
 
-/* Expand toggle on Implemented card */
-.sc-expand-btn{margin-top:10px;padding:0;background:none;border:none;cursor:pointer;font-size:11px;font-weight:700;color:var(--G7);display:flex;align-items:center;gap:4px;font-family:'Source Sans 3',sans-serif;transition:.12s}
-.sc-expand-btn:hover{color:var(--G9)}
-.sc-expand-btn svg{transition:.2s}
-.sc-expand-btn.open svg{transform:rotate(180deg)}
 
-/* Sub-breakdown (hidden by default) */
-.sc-breakdown{display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:6px}
-.sc-breakdown.visible{display:flex}
-.sc-brow{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:7px;background:var(--G0)}
-.sc-brow-label{font-size:11px;font-weight:600;color:var(--ink-2)}
-.sc-brow-val{font-size:13px;font-weight:700;color:var(--G7);font-family:'Libre Baskerville',serif}
-.sc-brow-pct{font-size:10px;font-weight:600;color:var(--ink-4);margin-left:4px}
+
+
 
 /* SUMMARY BANNER */
 .summary-banner{background:linear-gradient(135deg,var(--G1),var(--G0));border:1px solid var(--G3);border-radius:var(--r-lg);padding:14px 18px;margin-bottom:16px;font-size:13px;color:var(--ink-2);line-height:1.7}
@@ -267,23 +257,7 @@ nav.sb-nav{padding:8px}
           <div class="sc-val" id="sc-impl">0</div>
           <div class="sc-pct" id="sc-impl-pct">0% of all decisions</div>
           <div class="sc-sub">decisions complete</div>
-          <!-- Expand toggle -->
-          <button class="sc-expand-btn" id="impl-expand-btn" onclick="toggleImplBreakdown()">
-            <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
-            Show directive breakdown
-          </button>
-          <!-- Sub-breakdown (hidden by default) -->
-          <div class="sc-breakdown" id="impl-breakdown">
-            <div class="sc-brow">
-              <span class="sc-brow-label">✅ Fully Implemented</span>
-              <span><span class="sc-brow-val" id="sc-full">0</span><span class="sc-brow-pct" id="sc-full-pct"></span></span>
-            </div>
-            <div class="sc-brow" style="background:var(--B1)">
-              <span class="sc-brow-label" style="color:var(--ink-2)">⚙ Partially Implemented</span>
-              <span><span class="sc-brow-val" id="sc-partial" style="color:var(--B9)">0</span><span class="sc-brow-pct" id="sc-partial-pct"></span></span>
-            </div>
-            <div style="font-size:10px;color:var(--ink-4);margin-top:2px;font-style:italic">Counts are directives, not decisions</div>
-          </div>
+
         </div>
 
         <!-- BEING IMPLEMENTED -->
@@ -535,49 +509,25 @@ function bdg(s){return `<span class="badge ${bclass(s)}">${s}</span>`;}
 function dc(key){if(charts[key]){charts[key].destroy();delete charts[key];}}
 function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 
-/* ── IMPL BREAKDOWN TOGGLE ── */
-let implOpen=false;
-function toggleImplBreakdown(){
-  implOpen=!implOpen;
-  const bd=document.getElementById('impl-breakdown');
-  const btn=document.getElementById('impl-expand-btn');
-  bd.classList.toggle('visible',implOpen);
-  btn.classList.toggle('open',implOpen);
-  btn.innerHTML=`<svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>${implOpen?'Hide breakdown':'Show directive breakdown'}`;
-}
-
 /* ── OVERVIEW ─────── */
 function renderOverview(){
   const tot=totDec(all);
   const impl=cntS(all,S.I), being=cntS(all,S.B), notI=cntS(all,S.N), noresp=cntS(all,S.R);
 
-  // Directive-level full/partial
-  let full=0,partial=0;
-  all.forEach(d=>{
-    const ocs=d.outcomes||[];
-    if(!ocs.length)return;
-    const done=ocs.filter(o=>o.status===S.I).length;
-    if(done===ocs.length)full++;
-    else if(done>0)partial++;
-  });
-
   set('sc-impl', impl);    set('sc-impl-pct', fp(impl,tot)+' of all decisions');
   set('sc-being',being);   set('sc-being-pct',fp(being,tot)+' of all decisions');
   set('sc-not',  notI);    set('sc-not-pct',  fp(notI,tot)+' of all decisions');
   set('sc-noresp',noresp); set('sc-noresp-pct',fp(noresp,tot)+' of all decisions');
-  set('sc-full',  full);   document.getElementById('sc-full-pct').textContent=' directives';
-  set('sc-partial',partial);document.getElementById('sc-partial-pct').textContent=' directives';
   set('ch-total-dec',tot); set('ch-total-dir',all.length);
 
   const rate=pct(impl,tot);
   const grade=rate>=80?'Excellent ✅':rate>=70?'Good 👍':rate>=60?'Satisfactory':'Needs Improvement ⚠';
   const nonr=all.filter(d=>d.isResponsive===false).length;
   document.getElementById('ov-summary').innerHTML=
-    `<strong>Overall: ${grade}.</strong> `+
-    `${impl} of ${tot} decisions are Implemented (${rate}%). `+
-    `${full} directives are <em>fully</em> implemented, ${partial} are <em>partially</em> implemented. `+
-    (nonr>0?`<span class="warn">⚠ ${nonr} directive(s) marked non-responsive — immediate follow-up needed.</span>`:
-    `All directives have received at least some response.`);
+    '<strong>Overall: '+grade+'.</strong> '+
+    impl+' of '+tot+' decisions are Implemented ('+rate+'%). '+
+    (nonr>0?'<span class="warn">&#9888; '+nonr+' directive(s) marked non-responsive — immediate follow-up needed.</span>':
+    'All directives have received at least some response.');
 
   // Donut
   dc('donut');

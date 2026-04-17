@@ -278,6 +278,50 @@ textarea.fi{resize:vertical;min-height:78px;line-height:1.5}
 .stagger>*:nth-child(4){animation-delay:.12s}
 .stagger>*:nth-child(5){animation-delay:.15s}
 .ep-frame{border:1px solid var(--border);border-radius:9px;overflow:hidden}
+
+/* ── ARCHIVE BUTTON ── */
+.ra-btn.ra-archive{color:var(--ink-4)}
+.ra-btn.ra-archive:hover{background:var(--amber-lt,#FEF3C7);border-color:#FCD34D;color:var(--amber,#B45309)}
+.ra-btn.ra-restore{color:var(--G7)}
+.ra-btn.ra-restore:hover{background:var(--G1);border-color:var(--G3);color:var(--G9)}
+
+/* ── ARCHIVED ROW ── */
+.dir-row.archived-row{opacity:.45;background:repeating-linear-gradient(135deg,transparent,transparent 6px,rgba(0,0,0,.02) 6px,rgba(0,0,0,.02) 12px)}
+.dir-row.archived-row:hover{opacity:.7;background:var(--amber-lt,#FEF3C7)}
+
+/* ── NOTIFICATION BELL ── */
+.notif-wrap{position:relative}
+.notif-bell{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(255,255,255,.15);background:none;cursor:pointer;color:rgba(255,255,255,.6);transition:.14s;flex-shrink:0}
+.notif-bell:hover{background:rgba(255,255,255,.1);color:#fff}
+.notif-badge{position:absolute;top:-4px;right:-4px;background:#EF5350;color:#fff;font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;pointer-events:none;border:2px solid var(--G9)}
+.notif-badge.hidden{display:none}
+
+/* ── ACTIVITY DROPDOWN ── */
+.activity-drop{position:absolute;right:0;top:calc(100% + 10px);width:360px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh-lg);z-index:400;overflow:hidden;display:none;animation:dropIn .15s ease}
+.activity-drop.open{display:block}
+.ad-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.ad-head h3{font-family:'Libre Baskerville',serif;font-size:14px;color:var(--ink)}
+.ad-mark{font-size:11px;font-weight:700;color:var(--G7);background:none;border:none;cursor:pointer;font-family:'Source Sans 3',sans-serif}
+.ad-mark:hover{text-decoration:underline}
+.ad-list{max-height:320px;overflow-y:auto}
+.ad-item{padding:11px 16px;border-bottom:1px solid var(--border);transition:.1s;cursor:default}
+.ad-item:last-child{border-bottom:none}
+.ad-item:hover{background:var(--G0)}
+.ad-item.unread{background:#FFFBEB;border-left:3px solid var(--G5)}
+.ad-item.unread:hover{background:#FFF3E0}
+.ad-ref{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-3);margin-bottom:2px}
+.ad-msg{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:2px;line-height:1.4}
+.ad-meta{font-size:11px;color:var(--ink-4)}
+.ad-empty{padding:32px 16px;text-align:center;font-size:13px;color:var(--ink-4);font-style:italic}
+.ad-foot{padding:10px 16px;border-top:1px solid var(--border);text-align:center}
+.ad-foot a{font-size:12px;font-weight:700;color:var(--G7);text-decoration:none}
+.ad-foot a:hover{text-decoration:underline}
+
+/* ── ARCHIVE TOGGLE PILL ── */
+.archive-toggle{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface);font-size:11px;font-weight:700;color:var(--ink-4);cursor:pointer;transition:.12s;font-family:'Source Sans 3',sans-serif}
+.archive-toggle:hover{border-color:var(--amber,#B45309);color:var(--amber,#B45309);background:var(--amber-lt,#FEF3C7)}
+.archive-toggle.active-arch{background:var(--amber,#B45309);color:#fff;border-color:var(--amber,#B45309)}
+
 </style>
 </head>
 <body>
@@ -340,6 +384,22 @@ textarea.fi{resize:vertical;min-height:78px;line-height:1.5}
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
           Admin Management
         </a>
+      </div>
+    </div>
+    <div class="nsep"></div>
+    <!-- Notification bell -->
+    <div class="notif-wrap" id="notif-wrap">
+      <button class="notif-bell" onclick="toggleActivity()" title="Recent Updates">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        <span class="notif-badge hidden" id="notif-badge">0</span>
+      </button>
+      <div class="activity-drop" id="activity-drop">
+        <div class="ad-head">
+          <h3>Recent Updates</h3>
+          <button class="ad-mark" onclick="markAllRead()">Mark all read</button>
+        </div>
+        <div class="ad-list" id="activity-list"><div class="ad-empty">No updates yet</div></div>
+        <div class="ad-foot"><a href="#" onclick="loadActivityFull()">View all activity →</a></div>
       </div>
     </div>
     <div class="nsep"></div>
@@ -433,6 +493,10 @@ textarea.fi{resize:vertical;min-height:78px;line-height:1.5}
           <button class="tb-btn" onclick="exportToExcel()">
             <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             Export
+          </button>
+          <button class="archive-toggle" id="archive-toggle-btn" onclick="toggleArchivedView()" title="Show/hide archived directives">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+            Archived
           </button>
         </div>
       </div>
@@ -643,6 +707,30 @@ textarea.fi{resize:vertical;min-height:78px;line-height:1.5}
   </div>
 </div>
 
+
+<!-- ARCHIVE MODAL -->
+<div id="archive-modal" class="modal-overlay">
+  <div class="modal-box sm">
+    <div class="modal-head">
+      <h2 id="archive-modal-title">Archive Directive</h2>
+      <button class="modal-close" onclick="closeModal('archive-modal')"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="warn-banner" style="margin-bottom:16px">
+        <strong>Archive</strong> hides this directive from the dashboard and reports without deleting it. It can be restored at any time.
+      </div>
+      <div class="fg">
+        <label>Reason for archiving (optional)</label>
+        <input type="text" id="archive-note" class="fi" placeholder="e.g. Under review, pending re-issue…">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="mbtn mbtn-ghost" onclick="closeModal('archive-modal')">Cancel</button>
+      <button class="mbtn" style="background:var(--amber,#B45309);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Source Sans 3',sans-serif" onclick="confirmArchive()">Archive Directive</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -689,6 +777,7 @@ function logout(){sessionStorage.clear();window.location.href='/login.html';}
 document.addEventListener('DOMContentLoaded',()=>{
   if(!checkAuth())return;
   loadDirectives();loadProcessOwners();loadDepartments();loadReminderSettings();
+  setTimeout(loadActivity,2000);
 });
 document.addEventListener('click',e=>{
   const dd=document.getElementById('nav-dd');
@@ -711,7 +800,8 @@ async function syncData(){
 async function loadDirectives(){
   showLoading();
   try{
-    const r=await fetch(`${API}/directives?source=${currentSource}`);
+    const archParam=showArchivedView?'&includeArchived=true':'';
+    const r=await fetch(`${API}/directives?source=${currentSource}${archParam}`);
     const j=await r.json();
     if(!j.success)throw new Error(j.error);
     allData=j.data;
@@ -881,6 +971,10 @@ function renderRows(){
           <button class="ra-btn" onclick="openEditModal('${d._id}')" title="Edit">
             <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
           </button>
+          ${d.isArchived
+            ? `<button class="ra-btn ra-restore" onclick="restoreDirective('${d._id}')" title="Restore from archive"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>`
+            : `<button class="ra-btn ra-archive" onclick="openArchiveModal('${d._id}')" title="Archive directive"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button>`
+          }
         </div>
       </div>
     </div>`;
@@ -941,7 +1035,10 @@ function outcomeFieldHTML(num,idx){
       <textarea class="fi outcome-text" rows="2" placeholder="Describe this decision…" required style="flex:1"></textarea>
       ${num>1?`<button type="button" onclick="removeOutcome(${idx})" style="background:none;border:none;cursor:pointer;color:var(--R9);font-size:18px;line-height:1;padding:2px">×</button>`:''}
     </div>
-    <select class="fi outcome-status"><option>Not Implemented</option><option>Being Implemented</option><option>Implemented</option><option>No Response</option></select>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+      <select class="fi outcome-status" style="flex:1"><option>Not Implemented</option><option>Being Implemented</option><option>Implemented</option><option>No Response</option></select>
+      <input type="text" class="fi outcome-amount" placeholder="Amount (optional)" style="flex:1;font-size:12px" title="Optional amount for this decision e.g. N500,000">
+    </div>
   </div>`;
 }
 function addOutcomeField(){outcomeCounter++;document.getElementById('add-outcomes-container').insertAdjacentHTML('beforeend',outcomeFieldHTML(outcomeCounter,outcomeCounter-1));}
@@ -1064,7 +1161,6 @@ function showEmailPreview(){
   if(!sel.length){toast('Select at least one decision to preview','err');return;}
   const d=currentRU,today=new Date();
   const ds=`${today.getDate()}${ord(today.getDate())} ${today.toLocaleString('default',{month:'long'})} ${today.getFullYear()}`;
-  const src=d.source==='CG'?'COMMITTEE OF GOVERNORS':'BOARD OF DIRECTORS';
   const outHtml=sel.map(i=>{const o=d.outcomes[i];const col={[DS.I]:'#2E7D32',[DS.B]:'#1565C0',[DS.N]:'#E65100',[DS.R]:'#B71C1C'}[o.status]||'#666';
     return `<div style="margin-bottom:14px;padding:13px;border-radius:8px;background:white;border:1px solid #e5e7eb;border-left:4px solid ${col}">
       <div style="font-weight:700;color:#1B5E20;font-size:12px;margin-bottom:5px">Decision ${i+1}</div>
@@ -1074,7 +1170,7 @@ function showEmailPreview(){
   }).join('');
   document.getElementById('ep-content').innerHTML=`<div style="padding:20px;font-family:Arial,sans-serif;max-width:660px;margin:0 auto">
     <div style="padding:18px 20px;background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-bottom:3px solid #1B5E20;border-radius:8px 8px 0 0">
-      <h2 style="color:#1B5E20;font-size:15px;font-weight:700;margin:0 0 3px">REQUEST FOR STATUS COMPLIANCE — ${src}</h2>
+      <h2 style="color:#1B5E20;font-size:15px;font-weight:700;margin:0 0 3px">REQUEST FOR STATUS COMPLIANCE</h2>
       <p style="color:#2E7D32;font-size:11px;margin:0">Central Bank of Nigeria – Corporate Secretariat</p>
     </div>
     <div style="padding:14px 18px;background:#f9fafb;border:1px solid #e5e7eb;border-top:none">
@@ -1091,8 +1187,6 @@ function showEmailPreview(){
   </div>`;
   openModal('ep-modal');
 }
-
-
 
 /* ── REMINDER SETTINGS ── */
 async function openReminderSettings(){await loadReminderSettings();document.getElementById('auto-rem-enabled').checked=reminderSettings.enabled!==false;openModal('rem-modal');}
@@ -1133,6 +1227,164 @@ function exportToExcel(){
     toast(`✅ Exported ${rows.length} directives`,'ok');
   }catch(e){toast('Export failed','err');}
 }
+
+
+/* ARCHIVE */
+let pendingArchiveId=null;
+let showArchivedView=false;
+
+function openArchiveModal(id){
+  pendingArchiveId=id;
+  document.getElementById('archive-note').value='';
+  openModal('archive-modal');
+}
+
+async function confirmArchive(){
+  if(!pendingArchiveId)return;
+  const note=document.getElementById('archive-note').value.trim();
+  showLoading();
+  try{
+    const r=await fetch(API+'/directives/'+pendingArchiveId+'/archive',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({note})
+    });
+    const j=await r.json();
+    if(j.success){
+      toast('Directive archived','warn');
+      closeModal('archive-modal');
+      loadDirectives();
+    }else toast(j.error||'Failed','err');
+  }catch(e){toast('Error: '+e.message,'err');}
+  finally{showLoading(false);pendingArchiveId=null;}
+}
+
+async function restoreDirective(id){
+  if(!confirm('Restore this directive? It will reappear in the dashboard.'))return;
+  showLoading();
+  try{
+    const r=await fetch(API+'/directives/'+id+'/unarchive',{method:'POST'});
+    const j=await r.json();
+    if(j.success){toast('Directive restored','ok');loadDirectives();}
+    else toast(j.error||'Failed','err');
+  }catch(e){toast('Error','err');}
+  finally{showLoading(false);}
+}
+
+function toggleArchivedView(){
+  showArchivedView=!showArchivedView;
+  const btn=document.getElementById('archive-toggle-btn');
+  if(btn){
+    btn.classList.toggle('active-arch',showArchivedView);
+    btn.title=showArchivedView?'Hide archived':'Show archived';
+  }
+  loadDirectives();
+}
+
+/* ACTIVITY FEED */
+let activityData=[];
+let unreadCount=0;
+let activityOpen=false;
+const SEEN_KEY='cbn_activity_seen';
+
+function toggleActivity(){
+  activityOpen=!activityOpen;
+  document.getElementById('activity-drop').classList.toggle('open',activityOpen);
+  if(activityOpen)loadActivity();
+}
+
+async function loadActivity(){
+  try{
+    const r=await fetch(API+'/directives?source='+currentSource);
+    const j=await r.json();
+    if(!j.success)return;
+    const seen=JSON.parse(localStorage.getItem(SEEN_KEY)||'[]');
+    const items=[];
+    j.data.forEach(d=>{
+      if(!d.updateHistory||!d.updateHistory.length)return;
+      d.updateHistory.forEach(u=>{
+        items.push({
+          id:d._id+'_'+new Date(u.timestamp).getTime(),
+          ref:d.ref||'N/A',
+          subject:d.subject,
+          owner:d.owner,
+          timestamp:u.timestamp,
+          changes:u.decisionChanges||0,
+          source:u.source
+        });
+      });
+    });
+    items.sort(function(a,b){return new Date(b.timestamp)-new Date(a.timestamp);});
+    activityData=items.slice(0,30);
+    const seenSet=new Set(seen);
+    unreadCount=activityData.filter(function(x){return !seenSet.has(x.id);}).length;
+    const badge=document.getElementById('notif-badge');
+    if(badge){
+      badge.textContent=unreadCount>9?'9+':unreadCount;
+      badge.classList.toggle('hidden',unreadCount===0);
+    }
+    renderActivity(seen);
+  }catch(e){console.error('Activity error',e);}
+}
+
+function renderActivity(seen){
+  const list=document.getElementById('activity-list');
+  if(!list)return;
+  if(!activityData.length){
+    list.innerHTML='<div class="ad-empty">No updates yet. Updates appear here when business units submit via email link.</div>';
+    return;
+  }
+  const seenSet=new Set(seen||[]);
+  list.innerHTML=activityData.map(function(item){
+    const isNew=!seenSet.has(item.id);
+    const ago=timeAgo(item.timestamp);
+    const srcLabel=item.source==='reminder-link'?'via email link':item.source==='admin'?'Admin':item.source||'Direct';
+    return '<div class="ad-item '+(isNew?'unread':'')+'">'
+      +'<div class="ad-ref">'+item.ref+'</div>'
+      +'<div class="ad-msg">'+esc2html(item.owner)+' updated '+item.changes+' decision'+(item.changes!==1?'s':'')+'</div>'
+      +'<div class="ad-meta">'+tr(item.subject||'',40)+' · '+srcLabel+' · '+ago+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function markAllRead(){
+  const ids=activityData.map(function(x){return x.id;});
+  localStorage.setItem(SEEN_KEY,JSON.stringify(ids));
+  unreadCount=0;
+  const badge=document.getElementById('notif-badge');
+  if(badge)badge.classList.add('hidden');
+  renderActivity(ids);
+}
+
+function loadActivityFull(){
+  activityOpen=false;
+  document.getElementById('activity-drop').classList.remove('open');
+  toast('Open Reports page for full activity log','warn');
+}
+
+function esc2html(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function timeAgo(ts){
+  const sec=Math.floor((Date.now()-new Date(ts))/1000);
+  if(sec<60)return 'just now';
+  if(sec<3600)return Math.floor(sec/60)+'m ago';
+  if(sec<86400)return Math.floor(sec/3600)+'h ago';
+  return Math.floor(sec/86400)+'d ago';
+}
+
+/* Close activity when clicking outside */
+document.addEventListener('click',function(e){
+  const nw=document.getElementById('notif-wrap');
+  if(activityOpen&&nw&&!nw.contains(e.target)){
+    activityOpen=false;
+    document.getElementById('activity-drop').classList.remove('open');
+  }
+});
+
+/* Poll every 90s */
+setInterval(function(){if(!activityOpen)loadActivity();},90000);
+
 
 /* ── UTILS ── */
 function toast(msg,type='ok'){const el=document.getElementById('toast');el.textContent=msg;el.className=`vis ${type}`;clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('vis'),3500);}

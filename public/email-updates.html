@@ -407,28 +407,24 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
     </p>
   </div>
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('bu', this)">
-      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-      </svg>
-      Business Units
-      <span class="tab-badge" id="tc-bu">—</span>
-    </button>
-    <button class="tab-btn" onclick="switchTab('users', this)">
-      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-      </svg>
-      Business Unit Users
-      <span class="tab-badge" id="tc-users">—</span>
-    </button>
+  <!-- Stats row -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px">
+    <div style="background:var(--white);border:1px solid var(--line);border-radius:10px;padding:14px 18px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-4);margin-bottom:6px">Business Units</div>
+      <div style="font-family:'Sora',sans-serif;font-size:28px;font-weight:800;color:var(--ink)" id="tc-bu">—</div>
+    </div>
+    <div style="background:var(--white);border:1px solid var(--line);border-radius:10px;padding:14px 18px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-4);margin-bottom:6px">Login Users</div>
+      <div style="font-family:'Sora',sans-serif;font-size:28px;font-weight:800;color:var(--ink)" id="tc-users">—</div>
+    </div>
+    <div style="background:var(--white);border:1px solid var(--line);border-radius:10px;padding:14px 18px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-4);margin-bottom:6px">Units Missing Email</div>
+      <div style="font-family:'Sora',sans-serif;font-size:28px;font-weight:800;color:var(--amber)" id="tc-missing">—</div>
+    </div>
   </div>
 
-  <!-- ═══ TAB: BUSINESS UNITS ══════════════════════════════════ -->
-  <div id="pane-bu" class="tab-pane active">
+  <!-- ═══ SECTION: BUSINESS UNITS ══════════════════════════════ -->
+  <div id="pane-bu">
     <div class="card">
       <div class="card-header">
         <div class="card-header-left">
@@ -445,6 +441,10 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
             </svg>
             <input type="text" id="bu-search" placeholder="Search business units…" oninput="filterBU(this.value)">
           </div>
+          <button class="btn btn-primary btn-sm" onclick="openAddUser()">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Add User
+          </button>
           <button class="btn btn-ghost btn-sm" onclick="loadAll()">↻ Refresh</button>
         </div>
       </div>
@@ -481,8 +481,8 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
     </div>
   </div>
 
-  <!-- ═══ TAB: BUSINESS UNIT USERS ═══════════════════════════════════════════ -->
-  <div id="pane-users" class="tab-pane">
+  <!-- ═══ SECTION: BUSINESS UNIT USERS ══════════════════════════════════════ -->
+  <div id="pane-users" style="margin-top:24px;">
     <div class="card">
       <div class="card-header">
         <div class="card-header-left">
@@ -557,7 +557,7 @@ td { padding: 14px 16px; font-size: 13px; color: var(--ink); vertical-align: mid
         <select id="nu-bu">
           <option value="">— Select business unit —</option>
         </select>
-        <div class="mhint">The business unit this user belongs to and can submit updates for. Max 3 users per unit.</div>
+        <div class="mhint">The business unit this user belongs to and can submit updates for. Max 9 users per unit.</div>
       </div>
       <div class="mfield">
         <label>Position / Title</label>
@@ -746,6 +746,8 @@ function updateFilterCounts() {
   document.getElementById('fc-noemail').textContent  = enriched.filter(b => !b.primaryEmail?.trim() && !(b.users?.length)).length;
   document.getElementById('fc-noname').textContent   = enriched.filter(b => !b.personName?.trim()).length;
   document.getElementById('fc-empty').textContent    = enriched.filter(b => completeness(b) === 0).length;
+  const missingEl = document.getElementById('tc-missing');
+  if (missingEl) missingEl.textContent = enriched.filter(b => !b.primaryEmail?.trim() && !(b.users?.length)).length;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -856,7 +858,7 @@ function renderBU(data) {
         <div class="exp-inner">
           <div class="exp-grid">
             <div>
-              <span class="field-label">Responsible Person's Name</span>
+              <span class="field-label">Name of Responsible Person</span>
               <input type="text" class="field-input" id="pn_${expId}"
                 value="${esc2(bu.personName)}"
                 placeholder="e.g. Dr. Amaka Osei">
@@ -898,7 +900,13 @@ function renderBU(data) {
           </div>
 
           <div class="linked-section">
-            <div class="linked-title">Business Unit Users (${userCount} / 3 max)</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div class="linked-title" style="margin-bottom:0">Business Unit Users (${userCount} / 9 max)</div>
+              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openAddUserForUnit('${safeN}')">
+                <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add User
+              </button>
+            </div>
             <div id="lu_${expId}">${usersChips}</div>
           </div>
 
@@ -1085,6 +1093,14 @@ function openAddUser() {
   ['nu-name', 'nu-email', 'nu-pos', 'nu-phone'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('nu-bu').value = '';
   populateBUDropdowns();
+  openModal('m-add-user');
+  setTimeout(() => document.getElementById('nu-name').focus(), 120);
+}
+
+function openAddUserForUnit(unitName) {
+  ['nu-name', 'nu-email', 'nu-pos', 'nu-phone'].forEach(id => document.getElementById(id).value = '');
+  populateBUDropdowns();
+  document.getElementById('nu-bu').value = unitName;
   openModal('m-add-user');
   setTimeout(() => document.getElementById('nu-name').focus(), 120);
 }
