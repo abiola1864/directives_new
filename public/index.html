@@ -90,7 +90,7 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--bg);color:var(--ink
 
 /* MAIN */
 .main{padding:14px 18px 0;display:flex;flex-direction:column;gap:12px;overflow:hidden;height:100%}
-.main-scroll{flex:1;overflow-y:auto;overflow-x:auto;padding-bottom:18px;padding-right:2px}
+.main-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:18px;padding-right:2px}
 
 /* STAT CARDS */
 .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
@@ -128,7 +128,7 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--bg);color:var(--ink
 .fpill.fp-noresp.active{background:var(--R9);border-color:var(--R9)}
 
 /* DIRECTIVES TABLE */
-.dir-grid{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.dir-grid{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;overflow-x:auto;min-width:0}
 .dir-header{display:grid;grid-template-columns:115px 72px 320px 220px 175px 108px;background:var(--G9);position:sticky;top:0;z-index:5}
 .dir-header.show-more{grid-template-columns:115px 72px 320px 220px 175px 108px 94px 106px}
 .dh-cell{padding:10px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.55)}
@@ -497,9 +497,9 @@ textarea.fi{resize:vertical;min-height:78px;line-height:1.5}
             <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             Export
           </button>
-          <button class="archive-toggle" id="archive-toggle-btn" onclick="toggleArchivedView()" title="Show/hide archived directives">
+          <button class="archive-toggle" id="archive-toggle-btn" onclick="toggleArchivedView()" title="View all archived directives — they are stored here and can be restored at any time">
             <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-            Archived
+            Archived Directives
           </button>
         </div>
       </div>
@@ -1280,7 +1280,26 @@ function toggleArchivedView(){
   const btn=document.getElementById('archive-toggle-btn');
   if(btn){
     btn.classList.toggle('active-arch',showArchivedView);
-    btn.title=showArchivedView?'Hide archived':'Show archived';
+    const archSvg='<svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>';
+    const closeSvg='<svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+    btn.innerHTML=showArchivedView ? closeSvg+' Close Archive' : archSvg+' Archived Directives';
+  }
+  // Show/hide archived banner
+  let banner=document.getElementById('archived-banner');
+  if(showArchivedView){
+    if(!banner){
+      banner=document.createElement('div');
+      banner.id='archived-banner';
+      banner.className='warn-banner';
+      banner.style.cssText='margin-bottom:8px;display:flex;align-items:center;gap:8px;justify-content:space-between;';
+      banner.innerHTML='<span>📦 <strong>Archived Directives</strong> — Stored here and can be restored at any time. Click the Restore button on any row to bring it back.</span>'
+        +'<button onclick="toggleArchivedView()" style="background:none;border:none;cursor:pointer;font-weight:700;color:var(--A9);font-family:Source Sans 3,sans-serif;font-size:12px;white-space:nowrap;">✕ Close</button>';
+      const tb=document.querySelector('.main');
+      const scroll=tb.querySelector('.main-scroll');
+      tb.insertBefore(banner,scroll);
+    }
+  } else {
+    if(banner) banner.remove();
   }
   loadDirectives();
 }
