@@ -129,11 +129,11 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--bg);color:var(--ink
 
 /* DIRECTIVES TABLE */
 .dir-grid{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
-.dir-header{display:grid;grid-template-columns:108px 68px 1fr 152px 134px 88px;background:var(--G9);position:sticky;top:0;z-index:5}
-.dir-header.show-more{grid-template-columns:108px 68px 1fr 152px 134px 96px 108px 88px}
+.dir-header{display:grid;grid-template-columns:110px 70px 2fr 1fr 150px 82px;background:var(--G9);position:sticky;top:0;z-index:5}
+.dir-header.show-more{grid-template-columns:110px 70px 2fr 1fr 150px 94px 106px 82px}
 .dh-cell{padding:10px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.55)}
-.dir-row{display:grid;grid-template-columns:108px 68px 1fr 152px 134px 88px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
-.dir-row.show-more{grid-template-columns:108px 68px 1fr 152px 134px 96px 108px 88px}
+.dir-row{display:grid;grid-template-columns:110px 70px 2fr 1fr 150px 82px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.dir-row.show-more{grid-template-columns:110px 70px 2fr 1fr 150px 94px 106px 82px}
 .dir-row:last-child{border-bottom:none}
 .dir-row:hover{background:var(--G0)}
 .dir-cell{padding:11px 10px;font-size:13px;color:var(--ink);display:flex;flex-direction:column;justify-content:center;min-height:56px}
@@ -158,8 +158,8 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--bg);color:var(--ink
 .dec-total{font-size:10px;color:var(--ink-4);margin-top:3px}
 
 /* ROW ACTIONS */
-.row-actions{display:flex;gap:4px;align-items:center}
-.ra-btn{width:27px;height:27px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.12s;border:1.5px solid var(--border);background:var(--surface);color:var(--ink-3);flex-shrink:0;position:relative}
+.row-actions{display:flex;gap:3px;align-items:center;position:relative;padding-right:28px;}
+.ra-btn{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.12s;border:1.5px solid var(--border);background:var(--surface);color:var(--ink-3);flex-shrink:0;position:relative}
 .ra-btn:hover{background:var(--G1);border-color:var(--G3);color:var(--G9)}
 .ra-btn.ra-p{background:var(--G7);color:#fff;border-color:var(--G7)}
 .ra-btn.ra-p:hover{background:var(--G9)}
@@ -279,11 +279,37 @@ textarea.fi{resize:vertical;min-height:78px;line-height:1.5}
 .stagger>*:nth-child(5){animation-delay:.15s}
 .ep-frame{border:1px solid var(--border);border-radius:9px;overflow:hidden}
 
+
+
 /* ── ARCHIVE BUTTON ── */
-.ra-btn.ra-archive{color:var(--ink-4)}
-.ra-btn.ra-archive:hover{background:var(--amber-lt,#FEF3C7);border-color:#FCD34D;color:var(--amber,#B45309)}
-.ra-btn.ra-restore{color:var(--G7)}
-.ra-btn.ra-restore:hover{background:var(--G1);border-color:var(--G3);color:var(--G9)}
+.ra-btn.ra-archive{
+  color:var(--ink-4);
+  opacity:0;
+  transition:.15s;
+  position:absolute;
+  right:-28px;
+  border-color:transparent;
+  background:var(--surface);
+}
+.dir-row:hover .ra-btn.ra-archive{
+  opacity:1;
+  right:0px;
+  border-color:#FCD34D;
+  color:#B45309;
+  background:#FEF3C7;
+}
+.ra-btn.ra-restore{
+  color:var(--G7);
+  position:absolute;
+  right:-28px;
+  opacity:0;
+  transition:.15s;
+  border-color:transparent;
+}
+.dir-row:hover .ra-btn.ra-restore{
+  opacity:1;right:0;border-color:var(--G3);
+}
+.ra-btn.ra-restore:hover{background:var(--G1);color:var(--G9);}
 
 /* ── ARCHIVED ROW ── */
 .dir-row.archived-row{opacity:.45;background:repeating-linear-gradient(135deg,transparent,transparent 6px,rgba(0,0,0,.02) 6px,rgba(0,0,0,.02) 12px)}
@@ -748,7 +774,7 @@ function toggleExtraCols(){
   const b=document.getElementById('show-more-btn');
   w.classList.toggle('show-extra',showExtra);
   h.classList.toggle('show-more',showExtra);
-  const c=showExtra?'108px 68px 1fr 152px 134px 96px 108px 88px':'108px 68px 1fr 152px 134px 88px';
+  const c=showExtra?'110px 70px 2fr 1fr 150px 94px 106px 82px':'110px 70px 2fr 1fr 150px 82px';
   h.style.gridTemplateColumns=c;
   b.innerHTML=showExtra
     ?`<svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg> Show Less`
@@ -972,9 +998,11 @@ function renderRows(){
             <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
           </button>
           ${d.isArchived
-            ? `<button class="ra-btn ra-restore" onclick="restoreDirective('${d._id}')" title="Restore from archive"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>`
-            : `<button class="ra-btn ra-archive" onclick="openArchiveModal('${d._id}')" title="Archive directive"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button>`
+            ? `<button class="ra-btn ra-restore" onclick="restoreDirective('\${d._id}')" title="Restore from archive"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>`
+            : `<button class="ra-btn ra-archive" onclick="openArchiveModal('\${d._id}')" title="Archive directive"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></button>`
           }
+        </div>
+      </div>
         </div>
       </div>
     </div>`;
@@ -1386,6 +1414,30 @@ document.addEventListener('click',function(e){
 /* Poll every 60s */
 setInterval(function(){if(!activityOpen)loadActivity();},60000);
 
+
+
+/* ── ROW DROPDOWN ── */
+let openRowDDId=null;
+function toggleRowDD(id,e){
+  e.stopPropagation();
+  const menu=document.getElementById('rddm-'+id);
+  if(!menu)return;
+  const wasOpen=menu.classList.contains('open');
+  closeAllRowDDs();
+  if(!wasOpen){menu.classList.add('open');openRowDDId=id;}
+}
+function closeRowDD(id){
+  const menu=document.getElementById('rddm-'+id);
+  if(menu)menu.classList.remove('open');
+  if(openRowDDId===id)openRowDDId=null;
+}
+function closeAllRowDDs(){
+  document.querySelectorAll('.row-dd-menu.open').forEach(m=>m.classList.remove('open'));
+  openRowDDId=null;
+}
+document.addEventListener('click',function(e){
+  if(openRowDDId&&!e.target.closest('.row-dd'))closeAllRowDDs();
+});
 
 /* ── UTILS ── */
 function toast(msg,type='ok'){const el=document.getElementById('toast');el.textContent=msg;el.className=`vis ${type}`;clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('vis'),3500);}
