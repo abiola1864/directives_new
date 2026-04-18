@@ -129,11 +129,11 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--bg);color:var(--ink
 
 /* DIRECTIVES TABLE */
 .dir-grid{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
-.dir-header{display:grid;grid-template-columns:120px 74px 340px 1fr 210px;background:var(--G9);position:sticky;top:0;z-index:5}
-.dir-header.show-more{grid-template-columns:120px 74px 340px 1fr 210px 94px 106px}
+.dir-header{display:grid;grid-template-columns:115px 72px 320px 220px 175px 108px;background:var(--G9);position:sticky;top:0;z-index:5}
+.dir-header.show-more{grid-template-columns:115px 72px 320px 220px 175px 108px 94px 106px}
 .dh-cell{padding:10px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.55)}
-.dir-row{display:grid;grid-template-columns:120px 74px 340px 1fr 210px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
-.dir-row.show-more{grid-template-columns:120px 74px 340px 1fr 210px 94px 106px}
+.dir-row{display:grid;grid-template-columns:115px 72px 320px 220px 175px 108px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.dir-row.show-more{grid-template-columns:115px 72px 320px 220px 175px 108px 94px 106px}
 .dir-row:last-child{border-bottom:none}
 .dir-row:hover{background:var(--G0)}
 .dir-cell{padding:11px 10px;font-size:13px;color:var(--ink);display:flex;flex-direction:column;justify-content:center;min-height:56px}
@@ -158,7 +158,7 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--bg);color:var(--ink
 .dec-total{font-size:10px;color:var(--ink-4);margin-top:3px}
 
 /* ROW ACTIONS */
-.row-actions{display:flex;gap:4px;align-items:center;}
+.row-actions{display:flex;gap:3px;align-items:center;flex-wrap:nowrap;}
 .ra-btn{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.12s;border:1.5px solid var(--border);background:var(--surface);color:var(--ink-3);flex-shrink:0;position:relative}
 .ra-btn:hover{background:var(--G1);border-color:var(--G3);color:var(--G9)}
 .ra-btn.ra-p{background:var(--G7);color:#fff;border-color:var(--G7)}
@@ -282,65 +282,11 @@ textarea.fi{resize:vertical;min-height:78px;line-height:1.5}
 
 
 
-/* ══ SWIPE ROW SYSTEM ══════════════════════════════════════════════ */
-.dir-row-wrap{position:relative;overflow:hidden;}
-.dir-row-inner{
-  display:contents; /* keeps grid layout intact */
-  transition:transform .22s cubic-bezier(.4,0,.2,1);
-}
-.swipe-reveal{
-  position:absolute;right:0;top:0;bottom:0;
-  display:flex;align-items:stretch;
-  transform:translateX(100%);
-  transition:transform .22s cubic-bezier(.4,0,.2,1);
-  z-index:10;
-}
-.dir-row-wrap.swiped .swipe-reveal{transform:translateX(0);}
-.sw-btn{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:4px;padding:0 18px;cursor:pointer;border:none;font-size:10px;font-weight:700;
-  font-family:'Source Sans 3',sans-serif;letter-spacing:.3px;min-width:72px;
-  transition:filter .14s;
-}
-.sw-btn:hover{filter:brightness(.88);}
-.sw-btn svg{width:16px;height:16px;}
-.sw-view  {background:#1B5E20;color:#fff;}
-.sw-send  {background:#1565C0;color:#fff;}
-.sw-edit  {background:#455A64;color:#fff;}
-.sw-archive{background:#B45309;color:#fff;}
-.sw-restore{background:#2E7D32;color:#fff;}
-
-/* swipe grip indicator on row right edge */
-.swipe-grip{
-  position:absolute;right:0;top:50%;transform:translateY(-50%);
-  width:3px;height:28px;border-radius:2px;
-  background:linear-gradient(180deg,var(--G3),var(--G5));
-  opacity:0;transition:opacity .2s;pointer-events:none;
-}
-.dir-row-wrap:hover .swipe-grip{opacity:.7;}
-.dir-row-wrap.swiped .swipe-grip{opacity:0;}
-
-/* swipe slide — actual row cells shift left */
-.dir-row-wrap.swiped > .dir-row{transform:translateX(-288px);}
-.dir-row{transition:transform .22s cubic-bezier(.4,0,.2,1);}
-
-/* ── SWIPE HINT BADGE ── */
-.swipe-hint-badge{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);
-  background:var(--surface);font-size:11px;font-weight:600;color:var(--ink-3);
-  cursor:pointer;transition:.14s;
-}
-.swipe-hint-badge:hover{border-color:var(--G5);color:var(--G9);background:var(--G0);}
-
-/* ── SWIPE INSTRUCTION MODAL ── */
-.sw-instr-step{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;}
-.sw-instr-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;
-  justify-content:center;flex-shrink:0;font-size:16px;}
-
-/* close swiped row when clicking elsewhere */
 /* ── ARCHIVE BUTTON ── */
-/* archive/restore handled by swipe system */
+.ra-btn.ra-archive{color:var(--ink-4);border-style:dashed;}
+.ra-btn.ra-archive:hover{background:#FEF3C7;border-color:#F59E0B;color:#B45309;border-style:solid;}
+.ra-btn.ra-restore{color:var(--G7);border-style:dashed;}
+.ra-btn.ra-restore:hover{background:var(--G1);border-color:var(--G3);color:var(--G9);border-style:solid;}
 
 /* ── ARCHIVED ROW ── */
 .dir-row.archived-row{opacity:.45;background:repeating-linear-gradient(135deg,transparent,transparent 6px,rgba(0,0,0,.02) 6px,rgba(0,0,0,.02) 12px)}
@@ -577,7 +523,7 @@ textarea.fi{resize:vertical;min-height:78px;line-height:1.5}
           <div class="dh-cell">Decisions</div>
           <div class="dh-cell col-extra">Monitoring</div>
           <div class="dh-cell col-extra">Comments</div>
-          <div class="dh-cell" style="display:flex;align-items:center;gap:6px;cursor:default"><span>Actions</span><button class="swipe-hint-badge" onclick="openSwipeInstructions()" title="How to use"><svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>How to use</button></div>
+          <div class="dh-cell">Actions</div>
         </div>
         <div id="dir-rows-wrap">
           <div id="dir-rows">
@@ -805,7 +751,7 @@ function toggleExtraCols(){
   const b=document.getElementById('show-more-btn');
   w.classList.toggle('show-extra',showExtra);
   h.classList.toggle('show-more',showExtra);
-  const c=showExtra?'120px 74px 340px 1fr 210px 94px 106px':'120px 74px 340px 1fr 210px';
+  const c=showExtra?'120px 74px 340px 1fr 210px 94px 106px':'115px 72px 320px 220px 175px 108px';
   h.style.gridTemplateColumns=c;
   b.innerHTML=showExtra
     ?`<svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg> Show Less`
@@ -1006,21 +952,7 @@ function renderRows(){
     const dt=d.meetingDate?new Date(d.meetingDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
     const extra=isExtra?`<div class="dir-cell col-extra" style="font-size:11px">${monBadge(d.monitoringStatus)}</div>
       <div class="dir-cell col-extra" style="font-size:11px;color:var(--ink-3);line-height:1.5">${d.additionalComments?tr(d.additionalComments.replace(/\n/g,' '),80):'<span style="font-style:italic;color:var(--ink-4)">None</span>'}</div>`:'';
-    return `<div class="dir-row-wrap" id="wrap-${d._id}">
-    <div class="swipe-reveal" onclick="event.stopPropagation()">
-      <button class="sw-btn sw-view"   onclick="openDetail('${d._id}');closeSwipe('${d._id}')">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>View
-      </button>
-      <button class="sw-btn sw-send"    onclick="openRU('${d._id}');closeSwipe('${d._id}')">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>Send
-      </button>
-      <button class="sw-btn sw-edit"    onclick="openEditModal('${d._id}');closeSwipe('${d._id}')">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Edit
-      </button>
-      ${buildSwipeReveal(d._id, d.isArchived)}
-    </div>
-    <div class="swipe-grip"></div>
-    <div class="dir-row ${isExtra?'show-more':''}" onclick="openDetail('${d._id}')">
+    return `<div class="dir-row ${isExtra?'show-more':''}" onclick="openDetail('${d._id}')">
       <div class="dir-cell c-ref">${d.ref||'N/A'}</div>
       <div class="dir-cell c-date">${dt}</div>
       <div class="dir-cell c-subject"><div class="s-main">${tr(d.subject,55)}</div><div class="s-sub">${tr(d.particulars,65)}</div></div>
@@ -1486,157 +1418,46 @@ document.addEventListener('click',function(e){
 
 
 
-function buildSwipeReveal(id, isArchived) {
-  const archBtn = isArchived
-    ? '<button class="sw-btn sw-restore" onclick="restoreDirective(\'' + id + '\');closeSwipe(\'' + id + '\')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Restore</button>'
-    : '<button class="sw-btn sw-archive" onclick="openArchiveModal(\'' + id + '\');closeSwipe(\'' + id + '\')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>Archive</button>';
-  return '<div class="swipe-reveal" onclick="event.stopPropagation()">'
-    + '<button class="sw-btn sw-view" onclick="openDetail(\'' + id + '\');closeSwipe(\'' + id + '\')">'
-    + '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>View</button>'
-    + '<button class="sw-btn sw-send" onclick="openRU(\'' + id + '\');closeSwipe(\'' + id + '\')">'
-    + '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>Send</button>'
-    + '<button class="sw-btn sw-edit" onclick="openEditModal(\'' + id + '\');closeSwipe(\'' + id + '\')">'
-    + '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Edit</button>'
-    + archBtn
-    + '</div>';
-}
 
-/* ══ SWIPE SYSTEM ═══════════════════════════════════════════════════ */
-let openSwipeId = null;
-
-function closeSwipe(id) {
-  const w = document.getElementById('wrap-' + id);
-  if (w) w.classList.remove('swiped');
-  if (openSwipeId === id) openSwipeId = null;
-}
-
-function closeAllSwipes() {
-  document.querySelectorAll('.dir-row-wrap.swiped').forEach(w => w.classList.remove('swiped'));
-  openSwipeId = null;
-}
-
-function attachSwipeHandlers() {
-  document.querySelectorAll('.dir-row-wrap').forEach(wrap => {
-    const id = wrap.id.replace('wrap-', '');
-    let startX = 0, startY = 0, dragging = false, moved = false;
-
-    // Mouse
-    wrap.addEventListener('mousedown', e => {
-      if (e.target.closest('.swipe-reveal')) return;
-      startX = e.clientX; startY = e.clientY;
-      dragging = true; moved = false;
-    });
-    wrap.addEventListener('mousemove', e => {
-      if (!dragging) return;
-      const dx = e.clientX - startX;
-      const dy = Math.abs(e.clientY - startY);
-      if (Math.abs(dx) > 8 && dy < 30) { moved = true; }
-    });
-    wrap.addEventListener('mouseup', e => {
-      if (!dragging) return;
-      dragging = false;
-      const dx = e.clientX - startX;
-      if (moved) {
-        if (dx < -40) {
-          closeAllSwipes();
-          wrap.classList.add('swiped');
-          openSwipeId = id;
-        } else if (dx > 20) {
-          closeSwipe(id);
-        }
-        e.stopPropagation();
-        e.preventDefault();
-      }
-    });
-
-    // Touch
-    wrap.addEventListener('touchstart', e => {
-      if (e.target.closest('.swipe-reveal')) return;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      moved = false;
-    }, { passive: true });
-    wrap.addEventListener('touchmove', e => {
-      const dx = e.touches[0].clientX - startX;
-      const dy = Math.abs(e.touches[0].clientY - startY);
-      if (Math.abs(dx) > 8 && dy < 30) moved = true;
-    }, { passive: true });
-    wrap.addEventListener('touchend', e => {
-      const dx = e.changedTouches[0].clientX - startX;
-      if (moved) {
-        if (dx < -40) {
-          closeAllSwipes();
-          wrap.classList.add('swiped');
-          openSwipeId = id;
-        } else if (dx > 20) {
-          closeSwipe(id);
-        }
-      }
-    });
-  });
-}
-
-// Close swipe when clicking elsewhere
-document.addEventListener('mousedown', e => {
-  if (openSwipeId && !e.target.closest('.dir-row-wrap')) closeAllSwipes();
-});
-
-/* ── SWIPE INSTRUCTIONS MODAL ── */
-function openSwipeInstructions() {
-  const existing = document.getElementById('sw-instr-modal');
-  if (existing) { existing.classList.add('active'); return; }
-  const modal = document.createElement('div');
-  modal.id = 'sw-instr-modal';
-  modal.className = 'modal-overlay active';
-  modal.innerHTML = `
-    <div class="modal-box sm">
-      <div class="modal-head">
-        <h2>How to Use Directive Actions</h2>
-        <button class="modal-close" onclick="document.getElementById('sw-instr-modal').classList.remove('active')">
-          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="sw-instr-step">
-          <div class="sw-instr-icon" style="background:#E8F5E9">👆</div>
-          <div>
-            <div style="font-weight:700;font-size:14px;margin-bottom:3px">Click a row to view details</div>
-            <div style="font-size:13px;color:var(--ink-3)">Clicking anywhere on a directive row opens the full details panel showing all decisions, status, and contacts.</div>
+function openHowToUse(){
+  const existing=document.getElementById('howto-modal');
+  if(existing){existing.classList.add('active');return;}
+  const m=document.createElement('div');
+  m.id='howto-modal';m.className='modal-overlay active';
+  m.innerHTML=`<div class="modal-box sm">
+    <div class="modal-head"><h2>How to Use the Directives Table</h2>
+      <button class="modal-close" onclick="document.getElementById('howto-modal').classList.remove('active')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="width:36px;height:36px;border-radius:9px;background:var(--G1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">👆</div>
+          <div><div style="font-weight:700;font-size:14px;margin-bottom:3px">Click any row to view full details</div>
+          <div style="font-size:13px;color:var(--ink-3)">Opens the details panel showing all decisions, statuses, contacts, and uploaded documents.</div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="width:36px;height:36px;border-radius:9px;background:var(--G1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">🔘</div>
+          <div><div style="font-weight:700;font-size:14px;margin-bottom:6px">Action buttons (right of each row)</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+            <span style="background:var(--surface);border:1.5px solid var(--border);padding:4px 9px;border-radius:6px;font-size:11px;font-weight:700;color:var(--ink-3)">👁 View</span>
+            <span style="background:var(--G7);color:#fff;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:700">✉ Send Reminder</span>
+            <span style="background:var(--surface);border:1.5px solid var(--border);padding:4px 9px;border-radius:6px;font-size:11px;font-weight:700;color:var(--ink-3)">✏ Edit</span>
+            <span style="background:var(--surface);border:1.5px dashed #F59E0B;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:700;color:#B45309">📦 Archive</span>
+          </div>
+          <div style="font-size:12px;color:var(--ink-4)">Archive hides the directive without deleting it. Restore via the Archived toggle in the toolbar.</div>
           </div>
         </div>
-        <div class="sw-instr-step">
-          <div class="sw-instr-icon" style="background:#E3F2FD">👈</div>
-          <div>
-            <div style="font-weight:700;font-size:14px;margin-bottom:3px">Swipe or drag left to reveal actions</div>
-            <div style="font-size:13px;color:var(--ink-3)">Drag any row to the left to reveal four action buttons. On a touchscreen, swipe left with your finger.</div>
-          </div>
-        </div>
-        <div style="background:var(--bg);border-radius:10px;padding:12px;margin:10px 0 16px;display:flex;gap:6px;align-items:center">
-          <div style="background:#1B5E20;color:#fff;padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700">View</div>
-          <div style="background:#1565C0;color:#fff;padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700">Send</div>
-          <div style="background:#455A64;color:#fff;padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700">Edit</div>
-          <div style="background:#B45309;color:#fff;padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700">Archive</div>
-        </div>
-        <div class="sw-instr-step">
-          <div class="sw-instr-icon" style="background:#FFF3E0">👉</div>
-          <div>
-            <div style="font-weight:700;font-size:14px;margin-bottom:3px">Swipe or drag right to close</div>
-            <div style="font-size:13px;color:var(--ink-3)">Drag right or click anywhere outside the action panel to close it.</div>
-          </div>
-        </div>
-        <div class="sw-instr-step" style="margin-bottom:0">
-          <div class="sw-instr-icon" style="background:#FFEBEE">📦</div>
-          <div>
-            <div style="font-weight:700;font-size:14px;margin-bottom:3px">Archive hides, it does not delete</div>
-            <div style="font-size:13px;color:var(--ink-3)">Archived directives are hidden from the dashboard but can be restored at any time via the Archived toggle in the toolbar.</div>
-          </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="width:36px;height:36px;border-radius:9px;background:var(--B1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">🔍</div>
+          <div><div style="font-weight:700;font-size:14px;margin-bottom:3px">Search and filter</div>
+          <div style="font-size:13px;color:var(--ink-3)">Use the search box to find directives by subject, reference, or business unit. Use the status pills or Filter button to narrow results. Export downloads the current view as Excel.</div></div>
         </div>
       </div>
-      <div class="modal-foot">
-        <button class="mbtn mbtn-p" onclick="document.getElementById('sw-instr-modal').classList.remove('active')">Got it</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
+    </div>
+    <div class="modal-foot"><button class="mbtn mbtn-p" onclick="document.getElementById('howto-modal').classList.remove('active')">Got it</button></div>
+  </div>`;
+  document.body.appendChild(m);
 }
 
 /* ── UTILS ── */
